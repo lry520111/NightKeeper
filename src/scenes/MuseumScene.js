@@ -135,6 +135,10 @@ export default class MuseumScene extends Phaser.Scene {
     this._playerWalkAccum = 0;
 
     this.physics.add.collider(this.player, this.walls);
+    // 容器与玩家碰撞（容器在玩家之前生成，统一在此挂载）
+    if (this.containerGroup) {
+      this.physics.add.collider(this.player, this.containerGroup);
+    }
 
     // —— 玩家战斗 / 状态属性 ——
     this.playerState = {
@@ -1190,11 +1194,10 @@ export default class MuseumScene extends Phaser.Scene {
     const box = this.add.rectangle(cx, cy, 24, 22, col.fill, 1).setDepth(2);
     box.setStrokeStyle(2, col.edge, 0.9);
     const glyph = this.add.text(cx, cy - 1, col.glyph, { fontSize: '16px' }).setOrigin(0.5).setDepth(3);
-    // 物理碰撞
+    // 物理碰撞（与玩家的碰撞统一在玩家创建后挂到 containerGroup）
     const phys = this.physics.add.staticImage(cx, cy, 'tex_case').setDepth(2).setVisible(false);
     phys.body.setSize(20, 20);
     this.containerGroup.add(phys);
-    this.physics.add.collider(this.player, phys);
 
     const obj = {
       data: cd,
