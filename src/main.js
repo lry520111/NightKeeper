@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import BootScene from './scenes/BootScene.js';
 import TitleScene from './scenes/TitleScene.js';
 import MuseumScene from './scenes/MuseumScene.js';
+import CodexScene from './scenes/CodexScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -25,7 +26,7 @@ const config = {
       debug: false
     }
   },
-  scene: [BootScene, TitleScene, MuseumScene]
+  scene: [BootScene, TitleScene, MuseumScene, CodexScene]
 };
 
 // eslint-disable-next-line no-new

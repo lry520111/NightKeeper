@@ -1,5 +1,5 @@
 // BootScene - 资源加载与全局配色
-// Day1 阶段先用 Phaser 内置 Graphics 生成占位贴图，避免依赖外部素材
+// 阶段一：所有贴图均通过 canvas 程序化生成，提升像素辨识度，并生成光照系统所需的光晕/光锥贴图
 import Phaser from 'phaser';
 
 export default class BootScene extends Phaser.Scene {
@@ -8,29 +8,84 @@ export default class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Day1: 暂无外部素材，用代码生成占位 textures
-    // 后续 Day2+ 将在此处加载真实像素素材
+    // 暂无外部素材
   }
 
   create() {
-    // 生成占位贴图：玩家（深色守夜人）
-    this.makeRectTexture('tex_player', 16, 24, 0x2b2b3a, 0xd4af37);
-    // 守卫（红色巡逻）
-    this.makeRectTexture('tex_guard', 16, 24, 0x6b1f1f, 0xe8c87a);
-    // 文物（金色方块占位）
+    // —— 角色 / 物件贴图 ——
+    this.makePlayerTexture();
+    this.makePlayerWalkTexture();    // 玩家行走第二帧（双腿换位）
+    this.makeGuardTexture();
+    this.makeGuardWalkTexture();     // 守卫行走第二帧
+    this.makeExitTexture();
+    this.makeWallTexture();
+    this.makeWallTopTexture();   // 墙顶（带瓦片纹理）
+    this.makeFloorTexture();
+    this.makeFloorVarA();        // 地板变体A（带龟裂）
+    this.makeFloorVarB();        // 地板变体B（带回纹砖）
+    this.makeCarpetTexture();    // 红地毯（撤离前导引）
+    this.makeDisplayCaseTexture();
+
+    // —— 装饰物贴图 ——
+    this.makeLanternTexture();   // 红灯笼
+    this.makePlaqueTexture();    // 牌匾
+    this.makeScreenTexture();    // 屏风
+    this.makeIncenseTexture();   // 香炉
+    this.makeClueTexture();      // 剧情碎片（信纸残页）
+
+    // 文物按类型差异化绘制
+    this.makeRelicVase();      // 瓶罐类（碗、唐三彩）
+    this.makeRelicScroll();    // 卷轴类（写经、清明上河图）
+    this.makeRelicHead();      // 兽首
+    this.makeRelicDing();      // 鼎
+    this.makeRelicJade();      // 玉琮
+    this.makeRelicSeal();      // 印玺
+    // 兜底通用文物贴图
     this.makeRectTexture('tex_relic', 12, 12, 0xd4af37, 0xfff3b8);
-    // 撤离点（青色）
-    this.makeRectTexture('tex_exit', 32, 32, 0x1f6b6b, 0x7ae8e8);
-    // 墙体（深灰）
-    this.makeRectTexture('tex_wall', 32, 32, 0x1a1a22, 0x2b2b3a);
-    // 地板（深棕，木地板感）
-    this.makeRectTexture('tex_floor', 32, 32, 0x2a2018, 0x3a2e22);
+
+    // —— 光照系统贴图 ——
+    this.makeLightTexture('tex_light_lg', 220);  // 玩家手电筒大光圈
+    this.makeLightTexture('tex_light_sm', 110);  // 玩家潜行小光圈
+    this.makeLightTexture('tex_light_xs', 60);   // 文物/小物件微光
+    this.makeLightTexture('tex_light_guard', 90); // 守卫提灯光晕
+    this.makeLightTexture('tex_light_lantern', 70); // 灯笼光晕
+    this.makeLightWarmTexture('tex_light_warm', 80); // 暖红色光晕（灯笼用）
+
+    // —— 战斗 / HUD 贴图 ——
+    this.makeBladeSlashTexture();   // 玩家挥刀刀光（扇形白光）
+    this.makeBlockShieldTexture();  // 格挡光晕（蓝色弧线）
+    this.makeHeartTexture();        // 红心（HP 单位）
+    this.makeStaminaPipTexture();   // 体力珠（绿）
+    this.makeAlertMarkTexture();    // 守卫头顶"！"
+    this.makeSneakIconTexture();    // 潜行图标
+    this.makeSprintIconTexture();   // 疾跑图标
+
+    // —— 粒子 / 特效贴图 ——
+    this.makeDustParticle();        // 拾取金粉
+    this.makeSparkParticle();       // 攻击溅火星
+    this.makeBloodParticle();       // 受击红粒
+    this.makeGlowRingTexture();     // 撤离门光环
+    this.makeFootstepTexture();     // 脚印拖痕
+    this.makeVignetteTexture();     // 屏幕暗角（周边压暗）
 
     this.scene.start('TitleScene');
   }
 
+  // ——————————— 通用工具 ———————————
+
   /**
-   * 生成一个带边框的纯色矩形贴图
+   * 用 canvas 创建并注册一张贴图
+   */
+  makeCanvasTexture(key, w, h, draw) {
+    const tex = this.textures.createCanvas(key, w, h);
+    const ctx = tex.getContext();
+    ctx.imageSmoothingEnabled = false;
+    draw(ctx, w, h);
+    tex.refresh();
+  }
+
+  /**
+   * 旧版：纯色 + 描边矩形（兼容保留）
    */
   makeRectTexture(key, w, h, fill, border) {
     const g = this.add.graphics();
@@ -40,5 +95,978 @@ export default class BootScene extends Phaser.Scene {
     g.strokeRect(0, 0, w, h);
     g.generateTexture(key, w, h);
     g.destroy();
+  }
+
+  // ——————————— 光晕（径向渐变） ———————————
+
+  makeLightTexture(key, size) {
+    this.makeCanvasTexture(key, size, size, (ctx, w, h) => {
+      const cx = w / 2;
+      const cy = h / 2;
+      const r = w / 2;
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      grad.addColorStop(0.0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.45, 'rgba(255,255,255,0.55)');
+      grad.addColorStop(0.85, 'rgba(255,255,255,0.08)');
+      grad.addColorStop(1.0, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+    });
+  }
+
+  // 暖色光晕（灯笼专用，纯白蒙版下用 tint 上色不够，这里直接画暖白）
+  makeLightWarmTexture(key, size) {
+    this.makeCanvasTexture(key, size, size, (ctx, w, h) => {
+      const cx = w / 2;
+      const cy = h / 2;
+      const r = w / 2;
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      grad.addColorStop(0.0, 'rgba(255,230,180,1)');
+      grad.addColorStop(0.4, 'rgba(255,180,120,0.5)');
+      grad.addColorStop(0.85, 'rgba(255,140,80,0.08)');
+      grad.addColorStop(1.0, 'rgba(255,140,80,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+    });
+  }
+
+  // ——————————— 角色贴图 ———————————
+
+  // 玩家：守夜人，黑衣 + 金色腰带 + 黑头巾
+  makePlayerTexture() {
+    this.makeCanvasTexture('tex_player', 16, 24, (ctx) => {
+      // 头巾
+      ctx.fillStyle = '#1a1a22';
+      ctx.fillRect(4, 2, 8, 6);
+      // 脸（少量）
+      ctx.fillStyle = '#c9a878';
+      ctx.fillRect(5, 6, 6, 3);
+      // 眼睛
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(6, 7, 1, 1);
+      ctx.fillRect(9, 7, 1, 1);
+      // 身体（黑衣）
+      ctx.fillStyle = '#2b2b3a';
+      ctx.fillRect(3, 9, 10, 9);
+      // 腰带（金）
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(3, 14, 10, 1);
+      // 腿
+      ctx.fillStyle = '#1a1a22';
+      ctx.fillRect(4, 18, 3, 5);
+      ctx.fillRect(9, 18, 3, 5);
+      // 高光勾边
+      ctx.fillStyle = '#3a3a4a';
+      ctx.fillRect(3, 9, 1, 5);
+      ctx.fillRect(12, 9, 1, 5);
+    });
+  }
+
+  // 玩家：行走第二帧（双腿换位 + 头部上下 1px）
+  makePlayerWalkTexture() {
+    this.makeCanvasTexture('tex_player_walk', 16, 24, (ctx) => {
+      // 头巾（上移 1px）
+      ctx.fillStyle = '#1a1a22';
+      ctx.fillRect(4, 1, 8, 6);
+      // 脸
+      ctx.fillStyle = '#c9a878';
+      ctx.fillRect(5, 5, 6, 3);
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(6, 6, 1, 1);
+      ctx.fillRect(9, 6, 1, 1);
+      // 身体
+      ctx.fillStyle = '#2b2b3a';
+      ctx.fillRect(3, 8, 10, 9);
+      // 腰带
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(3, 13, 10, 1);
+      // 腿（左短右长，营造踏步差）
+      ctx.fillStyle = '#1a1a22';
+      ctx.fillRect(4, 17, 3, 4);  // 左腿抬起
+      ctx.fillRect(9, 17, 3, 6);  // 右腿落地
+      // 高光
+      ctx.fillStyle = '#3a3a4a';
+      ctx.fillRect(3, 8, 1, 5);
+      ctx.fillRect(12, 8, 1, 5);
+    });
+  }
+
+  // 守卫：红衣 + 红巾 + 持灯
+  makeGuardTexture() {
+    this.makeCanvasTexture('tex_guard', 16, 24, (ctx) => {
+      // 红头巾
+      ctx.fillStyle = '#7a1f1f';
+      ctx.fillRect(4, 2, 8, 5);
+      ctx.fillStyle = '#a82e2e';
+      ctx.fillRect(4, 2, 8, 1);
+      // 脸
+      ctx.fillStyle = '#d8b890';
+      ctx.fillRect(5, 5, 6, 3);
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(6, 6, 1, 1);
+      ctx.fillRect(9, 6, 1, 1);
+      // 红衣
+      ctx.fillStyle = '#8a2828';
+      ctx.fillRect(3, 8, 10, 10);
+      // 衣领
+      ctx.fillStyle = '#e8c87a';
+      ctx.fillRect(7, 8, 2, 2);
+      // 腰带
+      ctx.fillStyle = '#3a2418';
+      ctx.fillRect(3, 14, 10, 1);
+      // 腿
+      ctx.fillStyle = '#3a2418';
+      ctx.fillRect(4, 18, 3, 5);
+      ctx.fillRect(9, 18, 3, 5);
+      // 高光
+      ctx.fillStyle = '#a83838';
+      ctx.fillRect(3, 8, 1, 6);
+    });
+  }
+
+  // 守卫：行走第二帧
+  makeGuardWalkTexture() {
+    this.makeCanvasTexture('tex_guard_walk', 16, 24, (ctx) => {
+      // 红头巾（上移 1px）
+      ctx.fillStyle = '#7a1f1f';
+      ctx.fillRect(4, 1, 8, 5);
+      ctx.fillStyle = '#a82e2e';
+      ctx.fillRect(4, 1, 8, 1);
+      // 脸
+      ctx.fillStyle = '#d8b890';
+      ctx.fillRect(5, 4, 6, 3);
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(6, 5, 1, 1);
+      ctx.fillRect(9, 5, 1, 1);
+      // 红衣
+      ctx.fillStyle = '#8a2828';
+      ctx.fillRect(3, 7, 10, 10);
+      ctx.fillStyle = '#e8c87a';
+      ctx.fillRect(7, 7, 2, 2);
+      ctx.fillStyle = '#3a2418';
+      ctx.fillRect(3, 13, 10, 1);
+      // 腿（与原帧反向）
+      ctx.fillStyle = '#3a2418';
+      ctx.fillRect(4, 17, 3, 6);
+      ctx.fillRect(9, 17, 3, 4);
+      // 高光
+      ctx.fillStyle = '#a83838';
+      ctx.fillRect(3, 7, 1, 6);
+    });
+  }
+
+  // ——————————— 场景贴图 ———————————
+
+  // 撤离点：朱红色双扇门，带金钉
+  makeExitTexture() {
+    this.makeCanvasTexture('tex_exit', 32, 32, (ctx) => {
+      // 门外阴影
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, 32, 32);
+      // 门框（深棕）
+      ctx.fillStyle = '#3a1f10';
+      ctx.fillRect(2, 1, 28, 30);
+      // 朱红门扇
+      ctx.fillStyle = '#a02828';
+      ctx.fillRect(4, 3, 24, 27);
+      // 中缝
+      ctx.fillStyle = '#3a1010';
+      ctx.fillRect(15, 3, 2, 27);
+      // 门扇高光（左右各一条）
+      ctx.fillStyle = '#c83838';
+      ctx.fillRect(4, 3, 1, 27);
+      ctx.fillRect(27, 3, 1, 27);
+      // 上沿明亮
+      ctx.fillStyle = '#d04848';
+      ctx.fillRect(4, 3, 24, 1);
+      // 金色门钉（两扇各 6 颗）
+      ctx.fillStyle = '#f0d060';
+      const studs = [
+        [8, 8], [11, 8], [8, 14], [11, 14], [8, 20], [11, 20],
+        [20, 8], [23, 8], [20, 14], [23, 14], [20, 20], [23, 20]
+      ];
+      for (const [sx, sy] of studs) {
+        ctx.fillRect(sx, sy, 2, 2);
+      }
+      // 门钉高光
+      ctx.fillStyle = '#fff3b8';
+      for (const [sx, sy] of studs) {
+        ctx.fillRect(sx, sy, 1, 1);
+      }
+      // 门环（金色圆环简化为方块）
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(12, 16, 2, 3);
+      ctx.fillRect(18, 16, 2, 3);
+    });
+  }
+
+  // 墙体：深色砖纹
+  makeWallTexture() {
+    this.makeCanvasTexture('tex_wall', 32, 32, (ctx) => {
+      // 底色
+      ctx.fillStyle = '#1a1a22';
+      ctx.fillRect(0, 0, 32, 32);
+      // 砖缝
+      ctx.fillStyle = '#0e0e16';
+      // 上排砖
+      ctx.fillRect(0, 10, 32, 1);
+      ctx.fillRect(10, 0, 1, 11);
+      // 下排砖（错缝）
+      ctx.fillRect(0, 21, 32, 1);
+      ctx.fillRect(20, 11, 1, 10);
+      ctx.fillRect(0, 21, 1, 11);
+      ctx.fillRect(16, 21, 1, 11);
+      // 砖块高光
+      ctx.fillStyle = '#2a2a36';
+      ctx.fillRect(1, 1, 8, 1);
+      ctx.fillRect(11, 1, 20, 1);
+      ctx.fillRect(1, 12, 18, 1);
+      ctx.fillRect(21, 12, 10, 1);
+      ctx.fillRect(1, 22, 14, 1);
+      ctx.fillRect(17, 22, 14, 1);
+    });
+  }
+
+  // 墙顶（屋檐瓦）
+  makeWallTopTexture() {
+    this.makeCanvasTexture('tex_wall_top', 32, 32, (ctx) => {
+      // 屋檐板
+      ctx.fillStyle = '#1a1a22';
+      ctx.fillRect(0, 4, 32, 28);
+      // 顶部瓦片底色
+      ctx.fillStyle = '#0a0a10';
+      ctx.fillRect(0, 0, 32, 5);
+      // 瓦片高光
+      ctx.fillStyle = '#2a2a36';
+      for (let i = 0; i < 4; i++) {
+        ctx.fillRect(i * 8 + 1, 0, 6, 1);
+        ctx.fillRect(i * 8 + 1, 4, 6, 1);
+      }
+      // 瓦片分隔
+      ctx.fillStyle = '#0a0a10';
+      for (let i = 1; i < 4; i++) {
+        ctx.fillRect(i * 8 - 1, 0, 1, 5);
+      }
+      // 下方砖纹
+      ctx.fillStyle = '#0e0e16';
+      ctx.fillRect(0, 16, 32, 1);
+      ctx.fillRect(16, 5, 1, 12);
+      ctx.fillRect(0, 27, 32, 1);
+      ctx.fillStyle = '#2a2a36';
+      ctx.fillRect(1, 6, 14, 1);
+      ctx.fillRect(17, 6, 14, 1);
+      ctx.fillRect(1, 18, 30, 1);
+    });
+  }
+
+  // ——————————— 装饰物贴图 ———————————
+
+  // 红灯笼（顶部带细绳从屋檐垂下）
+  makeLanternTexture() {
+    this.makeCanvasTexture('tex_lantern', 16, 24, (ctx) => {
+      // 悬挂绳
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(7, 0, 2, 4);
+      // 顶盖
+      ctx.fillStyle = '#2a1810';
+      ctx.fillRect(4, 4, 8, 2);
+      // 灯笼主体
+      ctx.fillStyle = '#c82828';
+      ctx.fillRect(3, 6, 10, 12);
+      // 高光
+      ctx.fillStyle = '#e84848';
+      ctx.fillRect(3, 6, 1, 10);
+      ctx.fillRect(4, 6, 8, 1);
+      // 暗面
+      ctx.fillStyle = '#8a1818';
+      ctx.fillRect(12, 7, 1, 10);
+      // 中心金条
+      ctx.fillStyle = '#f0d060';
+      ctx.fillRect(7, 7, 2, 10);
+      // 底盖 + 流苏
+      ctx.fillStyle = '#2a1810';
+      ctx.fillRect(4, 18, 8, 2);
+      ctx.fillStyle = '#f0d060';
+      ctx.fillRect(7, 20, 2, 4);
+    });
+  }
+
+  // 牌匾（横置黑底金字）
+  makePlaqueTexture() {
+    this.makeCanvasTexture('tex_plaque', 64, 20, (ctx) => {
+      // 木框
+      ctx.fillStyle = '#3a1f10';
+      ctx.fillRect(0, 0, 64, 20);
+      // 内框
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(2, 2, 60, 16);
+      // 边线高光
+      ctx.fillStyle = '#7a4a28';
+      ctx.fillRect(0, 0, 64, 1);
+      ctx.fillRect(0, 0, 1, 20);
+      // 金字（用方块象形几个汉字）
+      ctx.fillStyle = '#d4af37';
+      // "博"
+      ctx.fillRect(8, 6, 6, 1);
+      ctx.fillRect(10, 5, 2, 9);
+      ctx.fillRect(8, 9, 6, 1);
+      ctx.fillRect(8, 13, 6, 1);
+      // "古"
+      ctx.fillRect(20, 5, 6, 1);
+      ctx.fillRect(22, 5, 2, 9);
+      ctx.fillRect(20, 9, 6, 1);
+      ctx.fillRect(20, 13, 6, 1);
+      // "通"
+      ctx.fillRect(32, 5, 6, 1);
+      ctx.fillRect(34, 5, 2, 9);
+      ctx.fillRect(32, 9, 6, 1);
+      ctx.fillRect(32, 13, 6, 1);
+      // "今"
+      ctx.fillRect(44, 5, 6, 1);
+      ctx.fillRect(46, 5, 2, 9);
+      ctx.fillRect(44, 9, 6, 1);
+      ctx.fillRect(44, 13, 6, 1);
+      // 金钉装饰
+      ctx.fillStyle = '#f0d060';
+      ctx.fillRect(56, 4, 2, 2);
+      ctx.fillRect(56, 14, 2, 2);
+    });
+  }
+
+  // 屏风（三折）
+  makeScreenTexture() {
+    this.makeCanvasTexture('tex_screen', 48, 28, (ctx) => {
+      // 三扇底色
+      const colors = ['#3a2818', '#4a3220', '#3a2818'];
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = colors[i];
+        ctx.fillRect(i * 16, 0, 16, 26);
+        // 边框
+        ctx.fillStyle = '#1a0e08';
+        ctx.fillRect(i * 16, 0, 16, 1);
+        ctx.fillRect(i * 16, 25, 16, 1);
+        ctx.fillRect(i * 16, 0, 1, 26);
+        ctx.fillRect(i * 16 + 15, 0, 1, 26);
+        // 内画（金色山纹）
+        ctx.fillStyle = '#a8843a';
+        ctx.fillRect(i * 16 + 4, 14, 2, 1);
+        ctx.fillRect(i * 16 + 5, 13, 2, 1);
+        ctx.fillRect(i * 16 + 7, 11, 2, 1);
+        ctx.fillRect(i * 16 + 9, 13, 2, 1);
+        ctx.fillRect(i * 16 + 10, 14, 2, 1);
+        // 落款（朱红方块）
+        ctx.fillStyle = '#a82e2e';
+        ctx.fillRect(i * 16 + 11, 18, 2, 2);
+      }
+      // 底座
+      ctx.fillStyle = '#1a0e08';
+      ctx.fillRect(0, 26, 48, 2);
+    });
+  }
+
+  // 香炉（小型，带袅袅烟）
+  makeIncenseTexture() {
+    this.makeCanvasTexture('tex_incense', 16, 18, (ctx) => {
+      // 烟（淡灰）
+      ctx.fillStyle = 'rgba(180,180,180,0.4)';
+      ctx.fillRect(7, 0, 1, 4);
+      ctx.fillRect(8, 1, 1, 3);
+      // 炉口
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(3, 6, 10, 2);
+      // 炉身
+      ctx.fillStyle = '#5a4028';
+      ctx.fillRect(2, 8, 12, 6);
+      ctx.fillStyle = '#8a6438';
+      ctx.fillRect(2, 8, 12, 1);
+      ctx.fillRect(2, 8, 1, 6);
+      // 三足
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(3, 14, 2, 3);
+      ctx.fillRect(7, 14, 2, 3);
+      ctx.fillRect(11, 14, 2, 3);
+      // 纹饰
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(7, 11, 2, 1);
+    });
+  }
+
+  // 剧情碎片：泛黄信纸残页
+  makeClueTexture() {
+    this.makeCanvasTexture('tex_clue', 16, 16, (ctx) => {
+      // 阴影
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(2, 13, 13, 2);
+      // 纸张主体（米黄）
+      ctx.fillStyle = '#e8d8a8';
+      ctx.fillRect(2, 2, 12, 12);
+      // 高光（左上角）
+      ctx.fillStyle = '#f8ecc4';
+      ctx.fillRect(2, 2, 12, 1);
+      ctx.fillRect(2, 2, 1, 12);
+      // 暗边（右下）
+      ctx.fillStyle = '#a89060';
+      ctx.fillRect(2, 13, 12, 1);
+      ctx.fillRect(13, 2, 1, 12);
+      // 撕角（右下）
+      ctx.fillStyle = 'rgba(0,0,0,0)';
+      ctx.clearRect(12, 12, 2, 2);
+      ctx.clearRect(13, 11, 1, 1);
+      // 字迹（墨黑短线）
+      ctx.fillStyle = '#2a1810';
+      ctx.fillRect(4, 5, 7, 1);
+      ctx.fillRect(4, 7, 5, 1);
+      ctx.fillRect(4, 9, 8, 1);
+      ctx.fillRect(4, 11, 4, 1);
+      // 朱砂印
+      ctx.fillStyle = '#a82828';
+      ctx.fillRect(10, 11, 2, 2);
+    });
+  }
+
+  // 地板：木纹（主）
+  makeFloorTexture() {
+    this.makeCanvasTexture('tex_floor', 32, 32, (ctx) => {
+      ctx.fillStyle = '#2a2018';
+      ctx.fillRect(0, 0, 32, 32);
+      // 木板分隔
+      ctx.fillStyle = '#1a1410';
+      ctx.fillRect(0, 10, 32, 1);
+      ctx.fillRect(0, 21, 32, 1);
+      // 木纹
+      ctx.fillStyle = '#3a2e22';
+      ctx.fillRect(3, 3, 14, 1);
+      ctx.fillRect(20, 5, 8, 1);
+      ctx.fillRect(5, 14, 18, 1);
+      ctx.fillRect(2, 17, 10, 1);
+      ctx.fillRect(8, 24, 16, 1);
+      ctx.fillRect(20, 27, 8, 1);
+      // 暗斑
+      ctx.fillStyle = '#1e1610';
+      ctx.fillRect(12, 7, 2, 1);
+      ctx.fillRect(25, 18, 2, 1);
+      ctx.fillRect(6, 26, 2, 1);
+    });
+  }
+
+  // 地板变体A：带龟裂、几处磨损
+  makeFloorVarA() {
+    this.makeCanvasTexture('tex_floor_a', 32, 32, (ctx) => {
+      ctx.fillStyle = '#2a2018';
+      ctx.fillRect(0, 0, 32, 32);
+      // 木板分隔
+      ctx.fillStyle = '#1a1410';
+      ctx.fillRect(0, 14, 32, 1);
+      // 木纹
+      ctx.fillStyle = '#3a2e22';
+      ctx.fillRect(2, 4, 18, 1);
+      ctx.fillRect(6, 8, 10, 1);
+      ctx.fillRect(12, 18, 18, 1);
+      ctx.fillRect(4, 22, 14, 1);
+      ctx.fillRect(8, 28, 18, 1);
+      // 龟裂
+      ctx.fillStyle = '#0e0a06';
+      ctx.fillRect(15, 5, 1, 7);
+      ctx.fillRect(15, 12, 4, 1);
+      ctx.fillRect(19, 12, 1, 5);
+      // 磨损亮斑
+      ctx.fillStyle = '#3e3022';
+      ctx.fillRect(22, 24, 4, 2);
+      ctx.fillRect(4, 16, 3, 1);
+    });
+  }
+
+  // 地板变体B：嵌入回纹砖（中央方形纹饰）
+  makeFloorVarB() {
+    this.makeCanvasTexture('tex_floor_b', 32, 32, (ctx) => {
+      ctx.fillStyle = '#2a2018';
+      ctx.fillRect(0, 0, 32, 32);
+      // 木板分隔
+      ctx.fillStyle = '#1a1410';
+      ctx.fillRect(0, 6, 32, 1);
+      ctx.fillRect(0, 26, 32, 1);
+      // 中心嵌砖底色
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(6, 8, 20, 18);
+      // 回纹外框
+      ctx.fillStyle = '#5a4028';
+      ctx.fillRect(6, 8, 20, 1);
+      ctx.fillRect(6, 25, 20, 1);
+      ctx.fillRect(6, 8, 1, 18);
+      ctx.fillRect(25, 8, 1, 18);
+      // 内层金线（暗金）
+      ctx.fillStyle = '#7a5a28';
+      ctx.fillRect(9, 11, 14, 1);
+      ctx.fillRect(9, 22, 14, 1);
+      ctx.fillRect(9, 11, 1, 12);
+      ctx.fillRect(22, 11, 1, 12);
+      // 中心方点
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(15, 16, 2, 2);
+    });
+  }
+
+  // 红地毯（铺在撤离门前）
+  makeCarpetTexture() {
+    this.makeCanvasTexture('tex_carpet', 32, 32, (ctx) => {
+      ctx.fillStyle = '#6a1818';
+      ctx.fillRect(0, 0, 32, 32);
+      // 边缘金线
+      ctx.fillStyle = '#a8843a';
+      ctx.fillRect(0, 0, 32, 1);
+      ctx.fillRect(0, 31, 32, 1);
+      ctx.fillRect(0, 0, 1, 32);
+      ctx.fillRect(31, 0, 1, 32);
+      // 内框
+      ctx.fillStyle = '#7a2828';
+      ctx.fillRect(2, 2, 28, 28);
+      // 暗金回纹简化
+      ctx.fillStyle = '#a8843a';
+      ctx.fillRect(4, 4, 6, 1);
+      ctx.fillRect(22, 4, 6, 1);
+      ctx.fillRect(4, 27, 6, 1);
+      ctx.fillRect(22, 27, 6, 1);
+      ctx.fillRect(4, 4, 1, 4);
+      ctx.fillRect(27, 4, 1, 4);
+      ctx.fillRect(4, 24, 1, 4);
+      ctx.fillRect(27, 24, 1, 4);
+      // 中央纹章（简化龙鳞菱形）
+      ctx.fillStyle = '#c89848';
+      ctx.fillRect(15, 13, 2, 6);
+      ctx.fillRect(13, 15, 6, 2);
+      ctx.fillStyle = '#e8b858';
+      ctx.fillRect(15, 15, 2, 2);
+    });
+  }
+
+  // 展柜（玻璃柜）：放在文物下面作为底座
+  makeDisplayCaseTexture() {
+    this.makeCanvasTexture('tex_case', 28, 28, (ctx) => {
+      // 玻璃半透
+      ctx.fillStyle = 'rgba(120, 180, 200, 0.18)';
+      ctx.fillRect(2, 2, 24, 24);
+      // 木质底座
+      ctx.fillStyle = '#3a2418';
+      ctx.fillRect(0, 22, 28, 6);
+      ctx.fillStyle = '#5a3828';
+      ctx.fillRect(0, 22, 28, 1);
+      // 玻璃边框
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(2, 2, 24, 1);
+      ctx.fillRect(2, 2, 1, 22);
+      ctx.fillRect(25, 2, 1, 22);
+      // 玻璃高光
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.fillRect(5, 5, 1, 14);
+      ctx.fillRect(7, 5, 1, 8);
+    });
+  }
+
+  // ——————————— 文物贴图（按类型差异化） ———————————
+
+  // 兽首（兔首）：金色立体头型
+  makeRelicHead() {
+    this.makeCanvasTexture('tex_relic_head', 16, 16, (ctx) => {
+      // 耳朵
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(4, 1, 2, 5);
+      ctx.fillRect(10, 1, 2, 5);
+      // 头
+      ctx.fillRect(3, 5, 10, 8);
+      // 高光
+      ctx.fillStyle = '#fff3b8';
+      ctx.fillRect(3, 5, 1, 5);
+      ctx.fillRect(4, 1, 1, 4);
+      ctx.fillRect(10, 1, 1, 4);
+      // 眼睛（红宝石）
+      ctx.fillStyle = '#a82e2e';
+      ctx.fillRect(5, 8, 2, 2);
+      ctx.fillRect(9, 8, 2, 2);
+      // 底座
+      ctx.fillStyle = '#8a6420';
+      ctx.fillRect(2, 13, 12, 2);
+    });
+  }
+
+  // 鼎：三足两耳
+  makeRelicDing() {
+    this.makeCanvasTexture('tex_relic_ding', 16, 16, (ctx) => {
+      // 双耳
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(2, 3, 2, 4);
+      ctx.fillRect(12, 3, 2, 4);
+      // 鼎身
+      ctx.fillStyle = '#5a4028';
+      ctx.fillRect(3, 5, 10, 7);
+      // 高光
+      ctx.fillStyle = '#8a6438';
+      ctx.fillRect(3, 5, 10, 1);
+      ctx.fillRect(3, 5, 1, 6);
+      // 纹饰（饕餮）
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(6, 8, 1, 1);
+      ctx.fillRect(9, 8, 1, 1);
+      ctx.fillRect(7, 10, 2, 1);
+      // 三足
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(3, 12, 2, 3);
+      ctx.fillRect(7, 12, 2, 3);
+      ctx.fillRect(11, 12, 2, 3);
+    });
+  }
+
+  // 卷轴
+  makeRelicScroll() {
+    this.makeCanvasTexture('tex_relic_scroll', 16, 16, (ctx) => {
+      // 轴芯（深棕）
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(2, 4, 12, 8);
+      // 纸面（米黄）
+      ctx.fillStyle = '#e8d8a8';
+      ctx.fillRect(2, 6, 12, 4);
+      // 文字痕迹
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(4, 7, 1, 1);
+      ctx.fillRect(6, 7, 1, 1);
+      ctx.fillRect(8, 7, 1, 1);
+      ctx.fillRect(10, 7, 1, 1);
+      ctx.fillRect(5, 8, 1, 1);
+      ctx.fillRect(7, 8, 1, 1);
+      ctx.fillRect(9, 8, 1, 1);
+      ctx.fillRect(11, 8, 1, 1);
+      // 轴端（金）
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(1, 4, 2, 8);
+      ctx.fillRect(13, 4, 2, 8);
+      // 高光
+      ctx.fillStyle = '#fff3b8';
+      ctx.fillRect(1, 4, 1, 1);
+      ctx.fillRect(13, 4, 1, 1);
+    });
+  }
+
+  // 瓷器/瓶罐
+  makeRelicVase() {
+    this.makeCanvasTexture('tex_relic_vase', 16, 16, (ctx) => {
+      // 瓶口
+      ctx.fillStyle = '#5a8a8a';
+      ctx.fillRect(6, 1, 4, 2);
+      // 瓶颈
+      ctx.fillStyle = '#7aa8a8';
+      ctx.fillRect(7, 3, 2, 2);
+      // 瓶身
+      ctx.fillStyle = '#7aa8a8';
+      ctx.fillRect(4, 5, 8, 9);
+      // 高光（汝窑天青）
+      ctx.fillStyle = '#aed8d8';
+      ctx.fillRect(4, 5, 1, 7);
+      ctx.fillRect(5, 5, 1, 1);
+      // 暗面
+      ctx.fillStyle = '#3a5a5a';
+      ctx.fillRect(11, 6, 1, 8);
+      // 底座
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(5, 14, 6, 1);
+    });
+  }
+
+  // 玉琮：内圆外方
+  makeRelicJade() {
+    this.makeCanvasTexture('tex_relic_jade', 16, 16, (ctx) => {
+      // 外方
+      ctx.fillStyle = '#5a8a5a';
+      ctx.fillRect(2, 3, 12, 10);
+      // 高光
+      ctx.fillStyle = '#8ac88a';
+      ctx.fillRect(2, 3, 12, 1);
+      ctx.fillRect(2, 3, 1, 10);
+      // 暗面
+      ctx.fillStyle = '#3a5a3a';
+      ctx.fillRect(13, 4, 1, 9);
+      ctx.fillRect(3, 12, 11, 1);
+      // 内圆（黑）
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(6, 6, 4, 4);
+      // 纹饰
+      ctx.fillStyle = '#2a4a2a';
+      ctx.fillRect(4, 5, 1, 1);
+      ctx.fillRect(11, 5, 1, 1);
+      ctx.fillRect(4, 11, 1, 1);
+      ctx.fillRect(11, 11, 1, 1);
+    });
+  }
+
+  // 印玺
+  makeRelicSeal() {
+    this.makeCanvasTexture('tex_relic_seal', 16, 16, (ctx) => {
+      // 印钮
+      ctx.fillStyle = '#9a9a9a';
+      ctx.fillRect(6, 2, 4, 4);
+      ctx.fillStyle = '#cacaca';
+      ctx.fillRect(6, 2, 1, 3);
+      // 印身
+      ctx.fillStyle = '#7a7a7a';
+      ctx.fillRect(3, 6, 10, 7);
+      // 高光
+      ctx.fillStyle = '#aaaaaa';
+      ctx.fillRect(3, 6, 10, 1);
+      ctx.fillRect(3, 6, 1, 6);
+      // 印面（朱砂）
+      ctx.fillStyle = '#a82e2e';
+      ctx.fillRect(4, 12, 8, 2);
+    });
+  }
+
+  // ——————————— 战斗 / HUD 贴图 ———————————
+
+  // 玩家挥刀的扇形刀光（白光弧 + 末端淡出）
+  makeBladeSlashTexture() {
+    this.makeCanvasTexture('tex_blade_slash', 56, 56, (ctx, w, h) => {
+      const cx = w / 2;
+      const cy = h / 2;
+      // 整体扇形（朝右，半角约 30°，半径 26）
+      const r = 26;
+      const a0 = -Math.PI / 5;
+      const a1 = Math.PI / 5;
+      // 渐变填充：刀身近白、远端淡蓝
+      const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, r);
+      grad.addColorStop(0.0, 'rgba(255,255,255,0.85)');
+      grad.addColorStop(0.6, 'rgba(220,235,255,0.55)');
+      grad.addColorStop(1.0, 'rgba(180,200,255,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      const steps = 18;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const a = a0 + (a1 - a0) * t;
+        ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+      // 锐利刃线
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const midA = (a0 + a1) / 2;
+      ctx.moveTo(cx + Math.cos(midA) * 4, cy + Math.sin(midA) * 4);
+      ctx.lineTo(cx + Math.cos(midA) * (r - 2), cy + Math.sin(midA) * (r - 2));
+      ctx.stroke();
+    });
+  }
+
+  // 格挡光晕：青蓝色环带
+  makeBlockShieldTexture() {
+    this.makeCanvasTexture('tex_block_shield', 40, 40, (ctx, w, h) => {
+      const cx = w / 2;
+      const cy = h / 2;
+      // 朝右的扇形护盾（半角 45°）
+      const r = 18;
+      const a0 = -Math.PI / 4;
+      const a1 = Math.PI / 4;
+      // 外圈青色
+      ctx.strokeStyle = 'rgba(120,200,255,0.85)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, a0, a1);
+      ctx.stroke();
+      // 内圈白色
+      ctx.strokeStyle = 'rgba(220,240,255,0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - 3, a0, a1);
+      ctx.stroke();
+      // 内填淡光
+      const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, r);
+      grad.addColorStop(0, 'rgba(120,200,255,0.0)');
+      grad.addColorStop(0.7, 'rgba(120,200,255,0.18)');
+      grad.addColorStop(1, 'rgba(120,200,255,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      const steps = 16;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const a = a0 + (a1 - a0) * t;
+        ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+    });
+  }
+
+  // 红心（HUD 血量单位）
+  makeHeartTexture() {
+    this.makeCanvasTexture('tex_heart', 14, 12, (ctx) => {
+      // 心形像素拼
+      ctx.fillStyle = '#c81e2a';
+      ctx.fillRect(2, 2, 4, 2);
+      ctx.fillRect(8, 2, 4, 2);
+      ctx.fillRect(1, 4, 12, 3);
+      ctx.fillRect(2, 7, 10, 1);
+      ctx.fillRect(3, 8, 8, 1);
+      ctx.fillRect(4, 9, 6, 1);
+      ctx.fillRect(5, 10, 4, 1);
+      ctx.fillRect(6, 11, 2, 1);
+      // 高光
+      ctx.fillStyle = '#ff6878';
+      ctx.fillRect(3, 3, 1, 1);
+      ctx.fillRect(2, 4, 2, 1);
+      // 暗边
+      ctx.fillStyle = '#7a0e16';
+      ctx.fillRect(11, 5, 1, 2);
+      ctx.fillRect(10, 7, 1, 1);
+    });
+  }
+
+  // 体力珠（小绿珠）
+  makeStaminaPipTexture() {
+    this.makeCanvasTexture('tex_stamina', 8, 8, (ctx) => {
+      // 圆点
+      ctx.fillStyle = '#3a8a3a';
+      ctx.fillRect(2, 1, 4, 6);
+      ctx.fillRect(1, 2, 6, 4);
+      // 高光
+      ctx.fillStyle = '#a8e8a8';
+      ctx.fillRect(2, 2, 1, 1);
+      ctx.fillRect(3, 1, 1, 1);
+      // 暗
+      ctx.fillStyle = '#1a4a1a';
+      ctx.fillRect(5, 5, 1, 1);
+      ctx.fillRect(4, 6, 2, 1);
+    });
+  }
+
+  // 守卫被发现/警觉时头顶的"！"（红底白字）
+  makeAlertMarkTexture() {
+    this.makeCanvasTexture('tex_alert_mark', 10, 14, (ctx) => {
+      // 黑描边
+      ctx.fillStyle = '#000';
+      ctx.fillRect(3, 0, 4, 14);
+      ctx.fillRect(2, 1, 6, 12);
+      // 红底
+      ctx.fillStyle = '#e54b4b';
+      ctx.fillRect(3, 1, 4, 12);
+      // 白色"！"主干
+      ctx.fillStyle = '#fffbe6';
+      ctx.fillRect(4, 2, 2, 7);
+      // 白点
+      ctx.fillRect(4, 10, 2, 2);
+    });
+  }
+
+  // 潜行图标（脚印）
+  makeSneakIconTexture() {
+    this.makeCanvasTexture('tex_icon_sneak', 14, 14, (ctx) => {
+      ctx.fillStyle = '#7ae8e8';
+      // 脚掌
+      ctx.fillRect(4, 5, 6, 5);
+      // 脚趾
+      ctx.fillRect(3, 3, 2, 2);
+      ctx.fillRect(6, 2, 2, 2);
+      ctx.fillRect(9, 3, 2, 2);
+      // 后跟描边
+      ctx.fillStyle = '#3a8a8a';
+      ctx.fillRect(4, 9, 6, 1);
+    });
+  }
+
+  // ——————————— 粒子 / 特效贴图 ———————————
+
+  // 金粉粒子（拾取时四散）
+  makeDustParticle() {
+    this.makeCanvasTexture('tex_dust', 6, 6, (ctx) => {
+      const grad = ctx.createRadialGradient(3, 3, 0, 3, 3, 3);
+      grad.addColorStop(0, 'rgba(255,243,184,1)');
+      grad.addColorStop(0.5, 'rgba(212,175,55,0.85)');
+      grad.addColorStop(1, 'rgba(212,175,55,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 6, 6);
+    });
+  }
+
+  // 攻击溅火星（白蓝色）
+  makeSparkParticle() {
+    this.makeCanvasTexture('tex_spark', 5, 5, (ctx) => {
+      const grad = ctx.createRadialGradient(2.5, 2.5, 0, 2.5, 2.5, 2.5);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.6, 'rgba(180,220,255,0.7)');
+      grad.addColorStop(1, 'rgba(120,180,255,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 5, 5);
+    });
+  }
+
+  // 受击红粒
+  makeBloodParticle() {
+    this.makeCanvasTexture('tex_blood', 5, 5, (ctx) => {
+      const grad = ctx.createRadialGradient(2.5, 2.5, 0, 2.5, 2.5, 2.5);
+      grad.addColorStop(0, 'rgba(255,80,80,1)');
+      grad.addColorStop(0.6, 'rgba(180,30,30,0.85)');
+      grad.addColorStop(1, 'rgba(120,10,10,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 5, 5);
+    });
+  }
+
+  // 撤离门光环（青蓝色环）
+  makeGlowRingTexture() {
+    this.makeCanvasTexture('tex_glow_ring', 64, 64, (ctx, w, h) => {
+      const cx = w / 2;
+      const cy = h / 2;
+      const grad = ctx.createRadialGradient(cx, cy, 18, cx, cy, 30);
+      grad.addColorStop(0, 'rgba(122,232,232,0)');
+      grad.addColorStop(0.5, 'rgba(122,232,232,0.55)');
+      grad.addColorStop(0.9, 'rgba(60,160,180,0.18)');
+      grad.addColorStop(1, 'rgba(60,160,180,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+    });
+  }
+
+  // 脚印拖痕（半透明小点）
+  makeFootstepTexture() {
+    this.makeCanvasTexture('tex_footstep', 4, 4, (ctx) => {
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.fillRect(1, 0, 2, 4);
+      ctx.fillRect(0, 1, 4, 2);
+    });
+  }
+
+  // 屏幕暗角：四角向内的渐变蒙版（用于受击 / 心跳时叠加）
+  makeVignetteTexture() {
+    this.makeCanvasTexture('tex_vignette', 256, 256, (ctx, w, h) => {
+      const cx = w / 2;
+      const cy = h / 2;
+      const grad = ctx.createRadialGradient(cx, cy, w * 0.3, cx, cy, w * 0.62);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.7, 'rgba(80,0,0,0.35)');
+      grad.addColorStop(1, 'rgba(80,0,0,0.85)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+    });
+  }
+
+  // 疾跑图标（>>）
+  makeSprintIconTexture() {
+    this.makeCanvasTexture('tex_icon_sprint', 14, 14, (ctx) => {
+      ctx.fillStyle = '#f2c14e';
+      // 第一个箭头
+      ctx.fillRect(2, 4, 1, 1);
+      ctx.fillRect(3, 5, 1, 1);
+      ctx.fillRect(4, 6, 1, 1);
+      ctx.fillRect(5, 7, 1, 1);
+      ctx.fillRect(4, 8, 1, 1);
+      ctx.fillRect(3, 9, 1, 1);
+      ctx.fillRect(2, 10, 1, 1);
+      // 第二个箭头
+      ctx.fillRect(7, 4, 1, 1);
+      ctx.fillRect(8, 5, 1, 1);
+      ctx.fillRect(9, 6, 1, 1);
+      ctx.fillRect(10, 7, 1, 1);
+      ctx.fillRect(9, 8, 1, 1);
+      ctx.fillRect(8, 9, 1, 1);
+      ctx.fillRect(7, 10, 1, 1);
+    });
   }
 }
