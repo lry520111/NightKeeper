@@ -11,15 +11,20 @@ import MuseumScene from './scenes/MuseumScene.js';
 import ResultScene from './scenes/ResultScene.js';
 import CodexScene from './scenes/CodexScene.js';
 import DialogScene from './scenes/DialogScene.js';
+import EndingScene from './scenes/EndingScene.js';
+import SaveSlotsScene from './scenes/SaveSlotsScene.js';
 
 const config = {
   type: Phaser.AUTO,
   parent: 'game-root',
   backgroundColor: '#0a0a0a',
-  // 像素游戏关键设置
-  pixelArt: true,
-  antialias: false,
+  // 渲染分辨率：默认 1，高 DPI 屏幕（Retina/4K）按设备像素比提升 → 文字与 UI 清晰
+  // 像素美术（角色/瓦片）通过单独 setScale + texture filter 控制，不依赖全局 pixelArt
+  pixelArt: false,
+  antialias: true,
+  antialiasGL: true,
   roundPixels: true,
+  resolution: (typeof window !== 'undefined' && window.devicePixelRatio) ? Math.min(window.devicePixelRatio, 2) : 1,
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -44,7 +49,9 @@ const config = {
     MuseumScene,
     ResultScene,
     CodexScene,
-    DialogScene
+    DialogScene,
+    EndingScene,
+    SaveSlotsScene
   ]
 };
 

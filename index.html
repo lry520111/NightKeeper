@@ -23,8 +23,9 @@
         justify-content: center;
       }
       canvas {
-        image-rendering: pixelated;
-        image-rendering: crisp-edges;
+        /* 取消 pixelated：让浏览器对放大后的 canvas 使用高清平滑插值，
+           像素美术由 Phaser 的 NEAREST filter 在 BootScene 中单独保护 */
+        image-rendering: auto;
         box-shadow: 0 0 40px rgba(212, 175, 55, 0.15);
       }
     </style>

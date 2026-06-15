@@ -12,7 +12,10 @@
 //    totalValue: number
 //  }
 
-const STORAGE_KEY = 'nightkeeper:codex';
+import SaveSlots from './SaveSlots.js';
+
+const BASE_KEY = 'nightkeeper:codex';
+function storageKey() { return SaveSlots.slotKey(BASE_KEY); }
 
 function emptyState() {
   return {
@@ -41,13 +44,13 @@ function safeParse(raw) {
 
 function load() {
   if (typeof localStorage === 'undefined') return emptyState();
-  return safeParse(localStorage.getItem(STORAGE_KEY));
+  return safeParse(localStorage.getItem(storageKey()));
 }
 
 function save(state) {
   if (typeof localStorage === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(storageKey(), JSON.stringify(state));
   } catch {
     // 忽略持久化失败（隐私模式 / 配额满）
   }
@@ -109,11 +112,11 @@ export const Codex = {
     return s;
   },
 
-  /** 仅供调试 / 重置按钮 */
+  /** 仅供调试 / 重置按钮（清当前槽位） */
   reset() {
     if (typeof localStorage !== 'undefined') {
       try {
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(storageKey());
       } catch {
         // ignore
       }

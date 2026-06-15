@@ -8,6 +8,7 @@
 
 import Phaser from 'phaser';
 import Audio from '../systems/AudioFx.js';
+import SaveSlots from '../systems/SaveSlots.js';
 
 const W = 960;
 const H = 540;
@@ -357,7 +358,7 @@ export default class IntroScene extends Phaser.Scene {
   }
 
   finish() {
-    try { localStorage.setItem('nightkeeper:seenIntro', '1'); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(SaveSlots.slotKey('nightkeeper:seenIntro'), '1'); } catch (e) { /* ignore */ }
     // 卷轴合上 → 黑屏 → 进 Hub
     this.tweens.add({
       targets: [this.scrollTop, this.scrollBot],

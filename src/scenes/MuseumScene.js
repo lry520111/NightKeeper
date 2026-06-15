@@ -37,6 +37,8 @@ export default class MuseumScene extends Phaser.Scene {
   create() {    this.cameras.main.fadeIn(500, 0, 0, 0);
     this.inventory = new Inventory();
     this._ended = false;
+    // 局内统计（上送给 ResultScene 计入 SaveData.stats，用于多结局判定）
+    this._runStats = { kills: 0, alerts: 0 };
 
     // —— 0. 程序化生成关卡布局（每局不同） ——
     const level = generateLevel({
@@ -1235,17 +1237,18 @@ export default class MuseumScene extends Phaser.Scene {
 
     this.physics.pause();
 
-    // —— 交给 ResultScene 统一结算（金币 / 仓库 / 委托 / 图鉴） ——
+    // —— 交给 ResultScene 统一结算（金币 / 仓库 / 委托 / 图鉴）——
     const items = this.inventory.list();
     const value = this.inventory.totalValue();
     // 把局内额外奖励（金币 / 声望）一起带过去
     const bonusGold = this._bonusGold || 0;
     const bonusRep = this._bonusRep || 0;
+    // 局内统计，用于多结局判定
+    const runStats = this._runStats || { kills: 0, alerts: 0 };
     this.cameras.main.fadeOut(450, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('ResultScene', { success, items, value, reason, bonusGold, bonusRep });
-    });
-  }
+      this.scene.start('ResultScene', { success, items, value, reason, bonusGold, bonusRep, runStats });
+    });  }
 
   // ============================================================
   //  容器系统
@@ -1680,6 +1683,8 @@ export default class MuseumScene extends Phaser.Scene {
       line = Phaser.Math.RND.pick(opts);
       color = '#ff6b6b';
       Audio.sfx.alert();
+      // 每当一名守卫进入追击状态，计为一次「被发现」
+      if (this._runStats) this._runStats.alerts += 1;
     } else if ((oldState === 'chase' || oldState === 'suspicious') && newState === 'patrol') {
       const opts = ['……是错觉吗？', '老眼昏花。', '什么都没有。', '风声而已。'];
       line = Phaser.Math.RND.pick(opts);
@@ -1925,6 +1930,7 @@ export default class MuseumScene extends Phaser.Scene {
       const isBackstab = g.isPlayerBehind(this.player);
       const dmg = isBackstab ? 99 : 1;
       const dead = g.takeDamage(dmg, dx / Math.max(1, dist), dy / Math.max(1, dist));
+      if (dead) this._runStats.kills += 1;
 
       // 反馈
       this.cameras.main.shake(80, 0.003);

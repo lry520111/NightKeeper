@@ -12,8 +12,10 @@
 // SaveData 负责"流程经济 + 配装 + 委托"。两者并存。
 
 import { TOOLS, getToolById, CONSUMABLES, getConsumableById } from '../data/tools.js';
+import SaveSlots from './SaveSlots.js';
 
-const STORAGE_KEY = 'nightkeeper:save';
+const BASE_KEY = 'nightkeeper:save';
+function storageKey() { return SaveSlots.slotKey(BASE_KEY); }
 
 const STARTER_GOLD = 200;
 const STARTER_TOOLS = ['silent_shoes']; // 起手送一双消音鞋
@@ -43,7 +45,13 @@ function emptyState() {
     // 消耗品库存（可重复购买、关卡内使用）
     consumables: { medkit: 0 },
     // 通用 flag 池（馆长是否见过、上次行动结果等剧情/UI 状态）
-    flags: {}
+    flags: {},
+    // 结局判定与馆长复盘所需的累计统计
+    //   totalKills      · 累计击杀守卫数
+    //   totalAlerts     · 累计被发现次数（alert 警报触发计数）
+    //   totalGhostRuns  · 累计「未被发现且未击杀」的成功撤离次数
+    //   totalSpent      · 商店 / 刷新 / 制作 累计花费金额
+    stats: { totalKills: 0, totalAlerts: 0, totalGhostRuns: 0, totalSpent: 0 }
   };
 }
 
@@ -67,7 +75,11 @@ function safeParse(raw) {
       gameDay: typeof obj.gameDay === 'number' && obj.gameDay > 0 ? obj.gameDay : 1,
       consumables: obj.consumables && typeof obj.consumables === 'object'
         ? Object.assign({ medkit: 0 }, obj.consumables) : { medkit: 0 },
-      flags: obj.flags && typeof obj.flags === 'object' ? obj.flags : {}
+      flags: obj.flags && typeof obj.flags === 'object' ? obj.flags : {},
+      stats: Object.assign(
+        { totalKills: 0, totalAlerts: 0, totalGhostRuns: 0, totalSpent: 0 },
+        (obj.stats && typeof obj.stats === 'object') ? obj.stats : {}
+      )
     };
   } catch {
     return emptyState();
@@ -76,13 +88,13 @@ function safeParse(raw) {
 
 function load() {
   if (typeof localStorage === 'undefined') return emptyState();
-  return safeParse(localStorage.getItem(STORAGE_KEY));
+  return safeParse(localStorage.getItem(storageKey()));
 }
 
 function save(state) {
   if (typeof localStorage === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(storageKey(), JSON.stringify(state));
   } catch {
     /* 忽略持久化失败 */
   }
@@ -183,6 +195,8 @@ export const SaveData = {
     if (s.gold < tool.price) return false;
     s.gold -= tool.price;
     s.ownedTools.push(toolId);
+    s.stats = s.stats || { totalKills: 0, totalAlerts: 0, totalGhostRuns: 0, totalSpent: 0 };
+    s.stats.totalSpent = (s.stats.totalSpent || 0) + tool.price;
     save(s);
     return true;
   },
@@ -293,6 +307,8 @@ export const SaveData = {
     const s = load();
     if (s.gold < cost) return false;
     s.gold -= cost;
+    s.stats = s.stats || { totalKills: 0, totalAlerts: 0, totalGhostRuns: 0, totalSpent: 0 };
+    s.stats.totalSpent = (s.stats.totalSpent || 0) + cost;
     s.contractPool = null;
     s.contractPoolDay = -1;
     save(s);
@@ -334,6 +350,8 @@ export const SaveData = {
     s.gold -= c.price;
     s.consumables = s.consumables || { medkit: 0 };
     s.consumables[id] = (s.consumables[id] || 0) + 1;
+    s.stats = s.stats || { totalKills: 0, totalAlerts: 0, totalGhostRuns: 0, totalSpent: 0 };
+    s.stats.totalSpent = (s.stats.totalSpent || 0) + c.price;
     save(s);
     return true;
   },
@@ -357,12 +375,34 @@ export const SaveData = {
     return s;
   },
 
-  /** 调试：清空全部存档（不影响 Codex） */
+  /** 调试：清空当前槽位的存档（不影响 Codex） */
   reset() {
     if (typeof localStorage !== 'undefined') {
-      try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+      try { localStorage.removeItem(storageKey()); } catch { /* ignore */ }
     }
   },
+
+  // —— 统计（结局判定与馆长复盘）——
+  /** 获取一份统计副本 */
+  getStats() {
+    const s = load();
+    return Object.assign({ totalKills: 0, totalAlerts: 0, totalGhostRuns: 0, totalSpent: 0 }, s.stats || {});
+  },
+
+  /** 给某个统计计数加上 delta（可为负）。返回新值。 */
+  bumpStat(key, delta = 1) {
+    const s = load();
+    s.stats = Object.assign({ totalKills: 0, totalAlerts: 0, totalGhostRuns: 0, totalSpent: 0 }, s.stats || {});
+    s.stats[key] = Math.max(0, (s.stats[key] || 0) + delta);
+    save(s);
+    return s.stats[key];
+  },
+
+  /** 快捷访问几个 runs 字段。 */
+  getRunsTotal()   { return (load().runs && load().runs.total)   || 0; },
+  getRunsSuccess() { return (load().runs && load().runs.success) || 0; },
+  getRunsFail()    { return (load().runs && load().runs.fail)    || 0; },
+
 
   // —— flag：通用标记位（剧情/UI 状态） ——
   getFlag(key, fallback = null) {

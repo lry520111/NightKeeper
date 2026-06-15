@@ -108,6 +108,17 @@ export default class BootScene extends Phaser.Scene {
     // —— 注册 LimeZu 角色动画（供 HubScene/对话使用）——
     this.registerLZAnims();
 
+    // —— 像素美术保护：所有像素纹理（tex_* / lz_*）强制 NEAREST 过滤 ——
+    // 全局 pixelArt 已关（让 UI 文字高清），像素纹理需要在此单独设置，否则会被 LINEAR 模糊
+    const Filter = Phaser.Textures.FilterMode || { NEAREST: 0 };
+    const NEAREST = (Filter.NEAREST !== undefined) ? Filter.NEAREST : 0;
+    Object.keys(this.textures.list).forEach((key) => {
+      if (key.startsWith('tex_') || key.startsWith('lz_')) {
+        const t = this.textures.get(key);
+        if (t && typeof t.setFilter === 'function') t.setFilter(NEAREST);
+      }
+    });
+
     this.scene.start('TitleScene');
   }
 

@@ -21,7 +21,7 @@ export default class ResultScene extends Phaser.Scene {
 
   init(data) {
     this.payload = Object.assign(
-      { success: false, items: [], value: 0, reason: '', bonusGold: 0, bonusRep: 0 },
+      { success: false, items: [], value: 0, reason: '', bonusGold: 0, bonusRep: 0, runStats: { kills: 0, alerts: 0 } },
       data || {}
     );
   }
@@ -30,7 +30,16 @@ export default class ResultScene extends Phaser.Scene {
     Audio.init();
     this.add.rectangle(0, 0, W, H, 0x0a0a0a).setOrigin(0, 0);
 
-    const { success, items, value, reason, bonusGold, bonusRep } = this.payload;
+    const { success, items, value, reason, bonusGold, bonusRep, runStats } = this.payload;
+
+    // —— 0. 把局内统计写入 SaveData.stats（多结局判定所需）——
+    const kills  = (runStats && runStats.kills)  || 0;
+    const alerts = (runStats && runStats.alerts) || 0;
+    if (kills)  SaveData.bumpStat && SaveData.bumpStat('totalKills',  kills);
+    if (alerts) SaveData.bumpStat && SaveData.bumpStat('totalAlerts', alerts);
+    // 「未被发现 + 未击杀 + 成功撤离」计为一次鬼魅走位
+    const isGhostRun = !!success && kills === 0 && alerts === 0;
+    if (isGhostRun) SaveData.bumpStat && SaveData.bumpStat('totalGhostRuns', 1);
 
     // —— 1. 写入 Codex（图鉴）——
     let newDiscoveries = [];
@@ -128,6 +137,17 @@ export default class ResultScene extends Phaser.Scene {
           fontFamily: '"PingFang SC", serif',
           fontSize: '13px',
           color: '#7ae8e8'
+        })
+        .setOrigin(0.5);
+    }
+
+    if (isGhostRun) {
+      this.add
+        .text(W / 2, 232, '· 未被发现 · 一鬼魅位 ·', {
+          fontFamily: '"PingFang SC", serif',
+          fontSize: '12px',
+          color: '#7ae8e8',
+          fontStyle: 'italic'
         })
         .setOrigin(0.5);
     }

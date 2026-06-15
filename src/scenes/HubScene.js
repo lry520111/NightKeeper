@@ -16,6 +16,7 @@ import Audio from '../systems/AudioFx.js';
 import { RELICS } from '../data/relics.js';
 import { describeRequirement } from '../data/contracts.js';
 import { buildCuratorDialog } from '../data/curatorLines.js';
+import { evaluateEnding, hasEndingBeenSeen } from '../systems/Endings.js';
 
 const ROOM_W = 960;
 const ROOM_H = 540;
@@ -155,6 +156,19 @@ export default class HubScene extends Phaser.Scene {
 
     // 进入动画
     this.cameras.main.fadeIn(450, 0, 0, 0);
+
+    // —— 结局判定：若达成且未看过，馆长接裷后自动进入结局 ——
+    const endingId = evaluateEnding();
+    if (endingId && !hasEndingBeenSeen(endingId)) {
+      this.time.delayedCall(900, () => {
+        if (this._dialogOpen) return;
+        this.cameras.main.fadeOut(700, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.scene.start('EndingScene', { endingId });
+        });
+      });
+      return;
+    }
 
     // —— 首次进入自动触发馆长对话 ——
     if (!SaveData.getFlag('metCurator', false)) {
