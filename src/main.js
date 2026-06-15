@@ -29,8 +29,8 @@ const config = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 960,
-    height: 540
+    width: 1280,
+    height: 720
   },
   physics: {
     default: 'arcade',

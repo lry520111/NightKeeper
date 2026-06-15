@@ -29,7 +29,7 @@ const COLS = 2;
 const GAP_X = 18;
 const GAP_Y = 14;
 const VIEW_TOP = 110;            // 卡片可视区起始 Y
-const VIEW_BOTTOM = 510;         // 可视区底部 Y
+const VIEW_BOTTOM = 680;         // 可视区底部 Y
 
 export default class CodexScene extends Phaser.Scene {
   constructor() {

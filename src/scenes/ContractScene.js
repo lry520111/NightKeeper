@@ -11,8 +11,8 @@ import {
 } from '../data/contracts.js';
 import { getBiome } from '../data/biomes.js';
 
-const W = 960;
-const H = 540;
+const W = 1280;
+const H = 720;
 
 export default class ContractScene extends Phaser.Scene {
   constructor() { super('ContractScene'); }

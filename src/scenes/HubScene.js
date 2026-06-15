@@ -18,8 +18,8 @@ import { describeRequirement } from '../data/contracts.js';
 import { buildCuratorDialog } from '../data/curatorLines.js';
 import { evaluateEnding, hasEndingBeenSeen } from '../systems/Endings.js';
 
-const ROOM_W = 960;
-const ROOM_H = 540;
+const ROOM_W = 1280;
+const ROOM_H = 720;
 
 // 4 个交互台位置
 const STATIONS = [
@@ -31,6 +31,43 @@ const STATIONS = [
 
 // 馆长 NPC 位置（中央办公桌后）
 const CURATOR = { x: ROOM_W / 2, y: 320, name: '林默 · 馆长', portraitKey: 'lz_amelia_idle' };
+
+const REFINED_STATIONS = [
+  { id: 'contract', name: '委托榜', x: 245, y: 250, interactX: 245, interactY: 350, color: 0xd4af37, glyph: '卷', target: 'ContractScene' },
+  { id: 'loadout', name: '配装台', x: 995, y: 250, interactX: 995, interactY: 350, color: 0x7ae8e8, glyph: '盾', target: 'LoadoutScene' },
+  { id: 'vault', name: '保险柜', x: 245, y: 505, interactX: 245, interactY: 600, color: 0xc084fc, glyph: '匣', target: 'VaultScene' },
+  { id: 'depart', name: '任务门', x: 995, y: 505, interactX: 995, interactY: 640, color: 0xff8c42, glyph: '门', target: 'MuseumScene' }
+];
+
+const REFINED_CURATOR = { x: ROOM_W / 2, y: 338, name: '林默 · 馆长', portraitKey: 'lz_amelia_idle' };
+
+const HUB_OBSTACLES = [
+  { x: 276, y: 255, w: 330, h: 128 },
+  { x: 1018, y: 256, w: 328, h: 132 },
+  { x: 640, y: 278, w: 348, h: 88 },
+  { x: 174, y: 522, w: 88, h: 120 },
+  { x: 300, y: 520, w: 142, h: 126 },
+  { x: 408, y: 522, w: 70, h: 118 },
+  { x: 902, y: 548, w: 64, h: 146 },
+  { x: 1038, y: 590, w: 174, h: 86 },
+  { x: 1160, y: 548, w: 64, h: 146 },
+  { x: 104, y: 312, w: 50, h: 94 },
+  { x: 1168, y: 314, w: 54, h: 96 }
+];
+
+const HUB_OCCLUDERS = [
+  { x: 98, y: 82, w: 360, h: 250, depthY: 335 },
+  { x: 842, y: 80, w: 366, h: 262, depthY: 346 },
+  { x: 456, y: 172, w: 382, h: 158, depthY: 332 },
+  { x: 118, y: 412, w: 120, h: 162, depthY: 590 },
+  { x: 214, y: 416, w: 166, h: 174, depthY: 596 },
+  { x: 360, y: 418, w: 86, h: 160, depthY: 592 },
+  { x: 872, y: 400, w: 80, h: 238, depthY: 640 },
+  { x: 948, y: 452, w: 184, h: 196, depthY: 654 },
+  { x: 1116, y: 400, w: 84, h: 238, depthY: 640 },
+  { x: 72, y: 240, w: 86, h: 174, depthY: 414 },
+  { x: 1116, y: 240, w: 92, h: 178, depthY: 418 }
+];
 
 export default class HubScene extends Phaser.Scene {
   constructor() {
@@ -55,14 +92,16 @@ export default class HubScene extends Phaser.Scene {
         color: '#d4af37',
         fontStyle: 'bold'
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(1600);
     this.add
       .text(ROOM_W / 2, 50, '— 长夜归藏，照见来时 —', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '11px',
         color: '#8c6b1f'
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(1600);
 
     // —— 顶部资源栏 ——
     this.statBar = this.add
@@ -72,26 +111,29 @@ export default class HubScene extends Phaser.Scene {
         color: '#e8d27a',
         align: 'center'
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(1600);
     this.refreshStatBar();
 
     // —— 4 个交互台 ——
     this.stationObjs = [];
-    for (const st of STATIONS) {
+    for (const st of REFINED_STATIONS) {
       this.stationObjs.push(this.createStation(st));
     }
 
     // —— 馆长 NPC ——
-    this.curator = this.createCurator(CURATOR);
+    this.curator = this.createCurator(REFINED_CURATOR);
 
     // —— 玩家（用 LimeZu Adam，16x32）——
-    this.player = this.physics.add.sprite(ROOM_W / 2, ROOM_H / 2 + 80, 'lz_adam_idle', 0);
+    this.player = this.physics.add.sprite(ROOM_W / 2, ROOM_H / 2 + 145, 'lz_adam_idle', 0);
     this.player.setScale(2.4);          // 16x32 → 约 38x76 像素，舒适
     this.player.setSize(12, 16);        // 物理盒只取脚部
     this.player.setOffset(2, 16);
     this.player.setCollideWorldBounds(true);
-    this.player.setDepth(10);
+    this.player.setDepth(this.player.y);
     this.physics.world.setBounds(60, 110, ROOM_W - 120, ROOM_H - 170);
+    this.createObstacleLayer();
+    this.physics.add.collider(this.player, this.hubObstacles);
     this._playerDir = 'down';
     if (this.anims.exists('adam_idle_down')) this.player.play('adam_idle_down');
 
@@ -103,6 +145,8 @@ export default class HubScene extends Phaser.Scene {
       .setScale(0.85)
       .setDepth(this.player.depth - 1);
 
+    this.createOcclusionLayer();
+
     // —— 当前委托提示 ——
     this.contractTip = this.add
       .text(20, ROOM_H - 50, '', {
@@ -112,7 +156,7 @@ export default class HubScene extends Phaser.Scene {
         wordWrap: { width: 360 }
       })
       .setOrigin(0, 0)
-      .setDepth(50);
+      .setDepth(1600);
     this.refreshContractTip();
 
     // —— 操作提示 ——
@@ -123,7 +167,7 @@ export default class HubScene extends Phaser.Scene {
         color: '#6b5824'
       })
       .setOrigin(1, 0)
-      .setDepth(50);
+      .setDepth(1600);
 
     // —— 输入 ——
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -151,7 +195,7 @@ export default class HubScene extends Phaser.Scene {
         padding: { x: 6, y: 3 }
       })
       .setOrigin(0.5, 1)
-      .setDepth(100)
+      .setDepth(1700)
       .setVisible(false);
 
     // 进入动画
@@ -435,6 +479,491 @@ export default class HubScene extends Phaser.Scene {
     return { ...cur, sprite, halo, isCurator: true };
   }
 
+  drawFloor() {
+    this.add.rectangle(0, 0, ROOM_W, ROOM_H, 0x080706).setOrigin(0, 0).setDepth(-2);
+
+    const floorTop = 176;
+    const floorBottom = ROOM_H - 92;
+    const tile = 32;
+    for (let y = floorTop; y < floorBottom; y += tile) {
+      for (let x = 52; x < ROOM_W - 52; x += tile) {
+        const n = ((x * 17 + y * 31) & 3);
+        const base = [0x21170f, 0x261a10, 0x1d1510, 0x2a1d12][n];
+        this.add.rectangle(x, y, tile, tile, base, 1)
+          .setOrigin(0, 0)
+          .setDepth(0)
+          .setStrokeStyle(1, 0x0d0b0a, 0.75);
+
+        if (((x / tile + y / tile) % 3) === 0) {
+          this.add.rectangle(x + 10, y + 10, 12, 12, 0x4a3316, 0.72)
+            .setOrigin(0, 0).setDepth(0.03)
+            .setStrokeStyle(1, 0x8a6428, 0.55);
+          this.add.rectangle(x + 15, y + 15, 2, 2, 0xd4af37, 0.45)
+            .setOrigin(0, 0).setDepth(0.04);
+        }
+        if (((x * 13 + y * 7) % 11) === 0) {
+          this.add.rectangle(x + 4, y + 24, 16, 2, 0x0e0c0b, 0.45)
+            .setOrigin(0, 0).setDepth(0.04);
+        }
+      }
+    }
+
+    this.add.rectangle(52, floorTop - 8, ROOM_W - 104, 8, 0x111722, 1)
+      .setOrigin(0, 0).setDepth(0.15)
+      .setStrokeStyle(1, 0x30384a, 0.7);
+    this.add.rectangle(52, floorBottom, ROOM_W - 104, 12, 0x111722, 1)
+      .setOrigin(0, 0).setDepth(0.15)
+      .setStrokeStyle(1, 0x30384a, 0.7);
+
+    this.drawCarpet(ROOM_W / 2, 445, 430, 270);
+  }
+
+  drawWalls() {
+    this.add.rectangle(0, 0, ROOM_W, 78, 0x080706, 1).setOrigin(0, 0).setDepth(0.2);
+    this.add.rectangle(52, 78, ROOM_W - 104, 98, 0x25180f, 1)
+      .setOrigin(0, 0).setDepth(0.25)
+      .setStrokeStyle(2, 0x0f0d0c, 1);
+
+    for (let y = 84; y < 172; y += 16) {
+      for (let x = 64; x < ROOM_W - 64; x += 48) {
+        const offset = ((y / 16) % 2) * 24;
+        this.add.rectangle(x + offset, y, 36, 12, 0x2f2115, 0.88)
+          .setOrigin(0, 0).setDepth(0.27)
+          .setStrokeStyle(1, 0x130e0a, 0.8);
+      }
+    }
+
+    for (let x = 64; x < ROOM_W - 64; x += 72) {
+      this.add.rectangle(x, 92, 20, 20, 0x1a1208, 1)
+        .setOrigin(0.5).setDepth(0.35)
+        .setStrokeStyle(2, 0x7a5520, 0.8);
+      this.add.rectangle(x, 92, 6, 6, 0xd4af37, 0.55).setOrigin(0.5).setDepth(0.36);
+    }
+
+    for (const x of [36, ROOM_W - 36]) {
+      this.add.rectangle(x, 70, 32, ROOM_H - 128, 0x151927, 1)
+        .setDepth(0.6)
+        .setStrokeStyle(1, 0x30384a, 0.75);
+      for (let y = 90; y < ROOM_H - 80; y += 32) {
+        this.add.rectangle(x, y, 26, 14, 0x222838, 1)
+          .setDepth(0.62)
+          .setStrokeStyle(1, 0x090b12, 0.9);
+      }
+    }
+
+    this.addPixelLamp(92, 150, 1.15, 3);
+    this.addPixelLamp(ROOM_W - 92, 150, 1.15, 3);
+    this.addPixelLamp(92, ROOM_H - 115, 1.05, 3);
+    this.addPixelLamp(ROOM_W - 92, ROOM_H - 115, 1.05, 3);
+  }
+
+  drawDecor() {
+    this.addPixelPanel(ROOM_W / 2 - 185, 108, 370, 48, 0x160f08, 0xa77a2a, 2.4);
+    this.add.text(ROOM_W / 2, 124, '夜 行 司 · 追 回 总 部', {
+      fontFamily: '"PingFang SC", "Microsoft YaHei", serif',
+      fontSize: '22px',
+      color: '#d4af37',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(3);
+    this.add.text(ROOM_W / 2, 148, '遗夜归藏    慎明来时', {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '11px',
+      color: '#8c6b1f'
+    }).setOrigin(0.5).setDepth(3);
+
+    this.addBanner(250, 125, '委\n托');
+    this.addBanner(1030, 125, '配\n装');
+    this.addShelf(455, 128, 100, 46);
+    this.addShelf(825, 128, 100, 46);
+
+    this.drawNoticeBoard(245, 307);
+    this.drawWeaponCabinet(995, 307);
+    this.drawVaultCabinet(245, 562);
+    this.drawMissionGate(995, 562);
+    this.drawCuratorDesk(ROOM_W / 2, 372);
+
+    this.addPixelLamp(578, 364, 0.72, 7);
+    this.addPixelLamp(702, 364, 0.72, 7);
+    this.addPottedPlant(150, 390);
+    this.addPottedPlant(ROOM_W - 150, 390);
+  }
+
+  drawCarpet(cx, cy, w, h) {
+    this.add.rectangle(cx, cy, w, h, 0x4b1c18, 0.92)
+      .setDepth(0.45)
+      .setStrokeStyle(3, 0xa77a2a, 0.8);
+    this.add.rectangle(cx, cy, w - 28, h - 28, 0x5e2420, 0.85)
+      .setDepth(0.47)
+      .setStrokeStyle(2, 0x7f5a24, 0.65);
+    this.add.rectangle(cx, cy, 180, 120, 0x6c2a23, 0.6)
+      .setDepth(0.48)
+      .setStrokeStyle(1, 0xa77a2a, 0.45);
+    for (const [dx, dy] of [[-185, -112], [185, -112], [-185, 112], [185, 112]]) {
+      this.add.rectangle(cx + dx, cy + dy, 10, 10, 0xd4af37, 0.6).setDepth(0.5);
+    }
+    for (let i = -3; i <= 3; i++) {
+      this.add.rectangle(cx + i * 24, cy, 10, 10, 0x8a6428, 0.45)
+        .setDepth(0.5)
+        .setStrokeStyle(1, 0xd4af37, 0.24);
+    }
+  }
+
+  addPixelPanel(x, y, w, h, fill, border, depth = 1) {
+    const bg = this.add.rectangle(x, y, w, h, fill, 0.96).setOrigin(0, 0).setDepth(depth);
+    bg.setStrokeStyle(2, border, 0.88);
+    this.add.rectangle(x + 4, y + 4, w - 8, 2, 0xe1b94b, 0.25).setOrigin(0, 0).setDepth(depth + 0.01);
+    this.add.rectangle(x + 4, y + h - 6, w - 8, 2, 0x000000, 0.25).setOrigin(0, 0).setDepth(depth + 0.01);
+    for (const [cx, cy] of [[x + 7, y + 7], [x + w - 7, y + 7], [x + 7, y + h - 7], [x + w - 7, y + h - 7]]) {
+      this.add.rectangle(cx, cy, 4, 4, border, 0.9).setDepth(depth + 0.02);
+    }
+    return bg;
+  }
+
+  addPixelLamp(x, y, scale = 1, depth = 2) {
+    const glow = this.add.image(x, y + 8, 'tex_light_warm')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0.7)
+      .setScale(scale * 1.15)
+      .setDepth(depth - 0.2);
+    this.tweens.add({ targets: glow, alpha: 0.95, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.add.rectangle(x, y - 10, 14 * scale, 6 * scale, 0x2a1608, 1).setDepth(depth);
+    this.add.rectangle(x, y, 10 * scale, 24 * scale, 0xc82e24, 1).setDepth(depth + 0.1).setStrokeStyle(1, 0xf0c060);
+    this.add.rectangle(x, y + 2, 3 * scale, 20 * scale, 0xf6d05a, 0.95).setDepth(depth + 0.2);
+    this.add.rectangle(x, y + 17 * scale, 18 * scale, 4 * scale, 0x2a1608, 1).setDepth(depth + 0.1);
+    return glow;
+  }
+
+  addShelf(x, y, w, h) {
+    this.addPixelPanel(x - w / 2, y - h / 2, w, h, 0x1a1008, 0x5f3e18, 1.8);
+    for (let i = 0; i < 5; i++) {
+      const bx = x - w / 2 + 12 + i * 16;
+      const bh = 12 + (i % 3) * 5;
+      this.add.rectangle(bx, y + 12 - bh, 9, bh, [0x8a4a28, 0xb68a38, 0x566b4e][i % 3], 1).setDepth(2.1);
+    }
+  }
+
+  addBanner(x, y, text) {
+    this.addPixelPanel(x - 44, y - 40, 88, 74, 0x120d08, 0x6b4b1d, 1.8);
+    this.add.text(x, y - 5, text, {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '16px',
+      color: '#b99235',
+      align: 'center',
+      lineSpacing: -3
+    }).setOrigin(0.5).setDepth(2.1);
+  }
+
+  addPottedPlant(x, y) {
+    this.add.rectangle(x, y + 24, 26, 20, 0x4a2810, 1).setDepth(2).setStrokeStyle(1, 0x8a6428);
+    for (let i = 0; i < 7; i++) {
+      const a = -Math.PI + i * Math.PI / 6;
+      this.add.rectangle(x + Math.cos(a) * 15, y + Math.sin(a) * 16, 8, 22, 0x2f6f3a, 0.95)
+        .setAngle(Phaser.Math.RadToDeg(a) + 90)
+        .setDepth(2.1);
+    }
+  }
+
+  drawNoticeBoard(x, y) {
+    this.addPixelPanel(x - 118, y - 52, 236, 104, 0x2b190b, 0x7a5520, 1.4);
+    this.add.rectangle(x, y - 38, 200, 8, 0x523013, 1).setDepth(1.6);
+    for (let i = 0; i < 7; i++) {
+      const px = x - 84 + (i % 4) * 46;
+      const py = y - 22 + Math.floor(i / 4) * 38;
+      this.add.rectangle(px, py, 28, 34, 0xe6c88f, 1).setDepth(1.7).setStrokeStyle(1, 0x7a5520);
+      this.add.rectangle(px, py - 6, 6, 4, 0xc33a2a, 1).setDepth(1.8);
+    }
+  }
+
+  drawWeaponCabinet(x, y) {
+    this.addPixelPanel(x - 118, y - 52, 236, 104, 0x1a1209, 0x7a5520, 1.4);
+    this.add.rectangle(x, y + 30, 200, 16, 0x4a2a10, 1).setDepth(1.6).setStrokeStyle(1, 0xa77a2a);
+    for (let i = 0; i < 4; i++) {
+      const bx = x - 70 + i * 45;
+      this.add.rectangle(bx, y - 8, 5, 48, 0xc8d0d8, 1).setDepth(1.8);
+      this.add.rectangle(bx, y + 18, 18, 6, 0x8a6428, 1).setDepth(1.9);
+    }
+    this.add.rectangle(x + 72, y - 4, 30, 38, 0x242a32, 1).setDepth(1.8).setStrokeStyle(1, 0xb0b8c8);
+  }
+
+  drawVaultCabinet(x, y) {
+    this.addPixelPanel(x - 118, y - 44, 236, 88, 0x20120a, 0x7a5520, 1.4);
+    this.add.rectangle(x - 42, y + 4, 78, 62, 0x2a2422, 1).setDepth(1.7).setStrokeStyle(2, 0xc084fc);
+    this.add.rectangle(x - 42, y + 4, 38, 28, 0x5f3e18, 1).setDepth(1.8).setStrokeStyle(1, 0xd4af37);
+    this.add.rectangle(x + 48, y + 8, 54, 44, 0x4a2a10, 1).setDepth(1.7).setStrokeStyle(1, 0x8a6428);
+    this.add.rectangle(x + 48, y + 8, 18, 18, 0xd4af37, 0.75).setDepth(1.8);
+  }
+
+  drawMissionGate(x, y) {
+    this.addPixelPanel(x - 118, y - 56, 236, 112, 0x1b0c08, 0x7a5520, 1.4);
+    this.add.rectangle(x, y + 12, 86, 92, 0x351010, 1).setDepth(1.7).setStrokeStyle(2, 0xd4af37);
+    this.add.rectangle(x, y + 12, 56, 78, 0x8a1e2a, 0.92).setDepth(1.8).setStrokeStyle(1, 0xff8c42);
+    this.add.rectangle(x, y + 12, 14, 78, 0xff5c57, 0.5).setDepth(1.9);
+    this.addPixelLamp(x - 70, y + 32, 0.7, 2.1);
+    this.addPixelLamp(x + 70, y + 32, 0.7, 2.1);
+  }
+
+  drawCuratorDesk(x, y) {
+    this.addPixelPanel(x - 170, y - 28, 340, 76, 0x3a2412, 0x8a6428, 5.3);
+    this.add.rectangle(x, y - 42, 360, 18, 0x5a3517, 1).setDepth(5.5).setStrokeStyle(1, 0xd4af37, 0.55);
+    this.add.rectangle(x - 82, y - 3, 48, 22, 0xe8d6a8, 1).setDepth(5.7).setStrokeStyle(1, 0x8a6428);
+    this.add.rectangle(x + 76, y - 3, 34, 28, 0xc6913a, 1).setDepth(5.7).setStrokeStyle(1, 0x4a1e1e);
+    this.add.rectangle(x + 128, y + 4, 28, 18, 0x26333a, 1).setDepth(5.7).setStrokeStyle(1, 0x7ae8e8, 0.5);
+  }
+
+  createStation(st) {
+    const panelY = st.id === 'vault' || st.id === 'depart' ? st.y - 82 : st.y - 78;
+    this.addPixelPanel(st.x - 88, panelY, 176, 48, 0x160f08, st.color, 7);
+    const label = this.add.text(st.x, panelY + 15, st.name, {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '15px',
+      color: '#fff3b8',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(8);
+    this.add.text(st.x, panelY + 34, this.stationSubtitle(st.id), {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '10px',
+      color: '#a08434'
+    }).setOrigin(0.5).setDepth(8);
+
+    const table = this.add.rectangle(st.x, st.y, 112, 68, 0x3a2412, 0.96).setDepth(6);
+    table.setStrokeStyle(2, st.color, 0.95);
+    this.add.rectangle(st.x, st.y - 28, 112, 8, 0x5a3517, 1).setDepth(6.2);
+    const glyph = this.add.text(st.x, st.y - 2, st.glyph, {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '26px',
+      color: '#e8d27a'
+    }).setOrigin(0.5).setDepth(8);
+    this.drawStationIcon(st);
+
+    const halo = this.add.image(st.x, st.y + 18, 'tex_light_warm')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0.32)
+      .setTint(st.color)
+      .setScale(0.8)
+      .setDepth(5.5);
+    this.tweens.add({ targets: halo, alpha: 0.58, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    return { ...st, table, glyph, label, halo };
+  }
+
+  stationSubtitle(id) {
+    return {
+      contract: '查看与接取委托',
+      loadout: '配置装备与技能',
+      vault: '存放守夜藏品',
+      depart: '进入夜行动任务'
+    }[id] || '';
+  }
+
+  drawStationIcon(st) {
+    const x = st.x;
+    const y = st.y - 2;
+    if (st.id === 'contract') {
+      this.add.rectangle(x - 18, y - 16, 30, 36, 0xe6c88f, 1).setDepth(7.4).setStrokeStyle(1, 0x8a6428);
+      this.add.rectangle(x - 18, y - 8, 18, 2, 0xb45a32, 1).setDepth(7.5);
+      this.add.rectangle(x - 18, y, 18, 2, 0xb45a32, 1).setDepth(7.5);
+    } else if (st.id === 'loadout') {
+      this.add.rectangle(x - 22, y - 16, 5, 36, 0xbec8d2, 1).setDepth(7.4);
+      this.add.rectangle(x - 22, y + 6, 20, 5, 0x8a6428, 1).setDepth(7.5);
+      this.add.rectangle(x + 20, y - 14, 28, 34, 0x2d333d, 1).setDepth(7.4).setStrokeStyle(1, 0xc8d0d8);
+    } else if (st.id === 'vault') {
+      this.add.rectangle(x - 22, y - 16, 44, 34, 0x423631, 1).setDepth(7.4).setStrokeStyle(2, 0xc084fc);
+      this.add.rectangle(x, y, 14, 14, 0xd4af37, 0.8).setDepth(7.5);
+    } else {
+      this.add.rectangle(x - 24, y - 20, 48, 46, 0x651d24, 1).setDepth(7.4).setStrokeStyle(2, 0xff8c42);
+      this.add.rectangle(x, y + 2, 12, 44, 0xff6b6b, 0.5).setDepth(7.5);
+    }
+  }
+
+  createCurator(cur) {
+    const sprite = this.add.sprite(cur.x, cur.y, 'lz_amelia_idle', 0).setDepth(cur.y);
+    sprite.setScale(2.6);
+    if (this.anims.exists('amelia_idle_down')) sprite.play('amelia_idle_down');
+
+    this.addPixelPanel(cur.x - 92, cur.y - 96, 184, 38, 0x160f08, 0xd4af37, 10);
+    this.add.text(cur.x, cur.y - 84, cur.name, {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '13px',
+      color: '#fff3b8',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(11);
+    this.add.text(cur.x, cur.y - 66, '总师负责人', {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '10px',
+      color: '#a08434'
+    }).setOrigin(0.5).setDepth(11);
+
+    const halo = this.add.image(cur.x, cur.y + 18, 'tex_light_warm')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0.52)
+      .setScale(1.05)
+      .setDepth(8);
+    this.tweens.add({ targets: halo, alpha: 0.76, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    return { ...cur, sprite, halo, isCurator: true };
+  }
+
+  // Final hub renderer: use generated pixel-art layers as the scene art, and keep
+  // Phaser objects only for labels, player/NPC, lights, and interaction logic.
+  drawFloor() {
+    this.add.rectangle(0, 0, ROOM_W, ROOM_H, 0x050403).setOrigin(0, 0).setDepth(-2);
+    this.hubBackground = this.add.image(0, 0, 'hub_hall_back')
+      .setOrigin(0, 0)
+      .setDisplaySize(ROOM_W, ROOM_H)
+      .setDepth(0);
+  }
+
+  drawWalls() {
+    // The generated background already contains walls, floor, furniture, and trim.
+  }
+
+  drawDecor() {
+    const lanterns = [
+      [114, 180, 0.55],
+      [1166, 180, 0.55],
+      [198, 576, 0.45],
+      [1082, 576, 0.45],
+      [640, 302, 0.35]
+    ];
+
+    for (const [x, y, scale] of lanterns) {
+      const glow = this.add.image(x, y, 'tex_light_warm')
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setAlpha(0.22)
+        .setScale(scale)
+        .setDepth(1.5);
+      this.tweens.add({
+        targets: glow,
+        alpha: 0.36,
+        duration: 1500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+  }
+
+  createObstacleLayer() {
+    this.hubObstacles = this.physics.add.staticGroup();
+    for (const box of HUB_OBSTACLES) {
+      this.addObstacle(box.x, box.y, box.w, box.h);
+    }
+  }
+
+  createOcclusionLayer() {
+    this.hubOccluders = [];
+    for (const occ of HUB_OCCLUDERS) {
+      const sprite = this.add.image(occ.x, occ.y, 'hub_hall_back')
+        .setOrigin(0, 0)
+        .setCrop(occ.x, occ.y, occ.w, occ.h)
+        .setDepth(occ.depthY);
+      this.hubOccluders.push(sprite);
+    }
+  }
+
+  addObstacle(x, y, width, height) {
+    const zone = this.add.zone(x, y, width, height).setOrigin(0.5);
+    this.physics.add.existing(zone, true);
+    zone.body.setSize(width, height, false);
+    zone.body.updateFromGameObject();
+    this.hubObstacles.add(zone);
+    return zone;
+  }
+
+  createStation(st) {
+    const visualX = st.x;
+    const visualY = st.y;
+    const interactX = st.interactX ?? visualX;
+    const interactY = st.interactY ?? visualY;
+    const panelY = st.id === 'vault' || st.id === 'depart' ? st.y - 88 : st.y - 86;
+    const panelW = st.id === 'loadout' ? 190 : 178;
+    const panel = this.add.rectangle(visualX, panelY, panelW, 52, 0x140d07, 0.86)
+      .setDepth(1500)
+      .setStrokeStyle(2, st.color, 0.9);
+
+    this.add.rectangle(visualX - panelW / 2 + 8, panelY - 18, 4, 4, st.color, 1).setDepth(1501);
+    this.add.rectangle(visualX + panelW / 2 - 8, panelY - 18, 4, 4, st.color, 1).setDepth(1501);
+    this.add.rectangle(visualX - panelW / 2 + 8, panelY + 18, 4, 4, st.color, 1).setDepth(1501);
+    this.add.rectangle(visualX + panelW / 2 - 8, panelY + 18, 4, 4, st.color, 1).setDepth(1501);
+
+    const label = this.add.text(visualX, panelY - 5, st.name, {
+      fontFamily: '"PingFang SC", "Microsoft YaHei", serif',
+      fontSize: '18px',
+      color: '#fff0b8',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(1502);
+
+    this.add.text(visualX, panelY + 17, this.stationSubtitle(st.id), {
+      fontFamily: '"PingFang SC", "Microsoft YaHei", serif',
+      fontSize: '11px',
+      color: '#b9943a'
+    }).setOrigin(0.5).setDepth(1502);
+
+    const halo = this.add.image(interactX, interactY, 'tex_light_warm')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0.12)
+      .setTint(st.color)
+      .setScale(0.55)
+      .setDepth(2);
+    this.tweens.add({
+      targets: halo,
+      alpha: 0.24,
+      duration: 1400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    return { ...st, x: interactX, y: interactY, visualX, visualY, panel, label, halo };
+  }
+
+  stationSubtitle(id) {
+    return {
+      contract: '查看与接取委托',
+      loadout: '配置装备与技能',
+      vault: '存放守夜藏品',
+      depart: '进入夜行任务'
+    }[id] || '';
+  }
+
+  createCurator(cur) {
+    const sprite = this.add.sprite(cur.x, cur.y, 'lz_amelia_idle', 0).setDepth(cur.y);
+    sprite.setScale(2.45);
+    if (this.anims.exists('amelia_idle_down')) sprite.play('amelia_idle_down');
+
+    const panelY = cur.y - 88;
+    this.add.rectangle(cur.x, panelY, 188, 48, 0x140d07, 0.88)
+      .setDepth(1500)
+      .setStrokeStyle(2, 0xd4af37, 0.9);
+    this.add.text(cur.x, panelY - 5, cur.name, {
+      fontFamily: '"PingFang SC", "Microsoft YaHei", serif',
+      fontSize: '15px',
+      color: '#fff0b8',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(1502);
+    this.add.text(cur.x, panelY + 16, '总部负责人', {
+      fontFamily: '"PingFang SC", "Microsoft YaHei", serif',
+      fontSize: '11px',
+      color: '#b9943a'
+    }).setOrigin(0.5).setDepth(1502);
+
+    const halo = this.add.image(cur.x, cur.y + 18, 'tex_light_warm')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0.28)
+      .setScale(0.85)
+      .setDepth(cur.y - 1);
+    this.tweens.add({
+      targets: halo,
+      alpha: 0.46,
+      duration: 1500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    return { ...cur, sprite, halo, isCurator: true };
+  }
+
   refreshStatBar() {
     const gold = SaveData.getGold();
     const rep = SaveData.getRep();
@@ -475,6 +1004,7 @@ export default class HubScene extends Phaser.Scene {
       vx *= inv; vy *= inv;
     }
     this.player.setVelocity(vx * speed, vy * speed);
+    this.player.setDepth(this.player.y);
 
     // —— 朝向与动画 ——
     const moving = vx !== 0 || vy !== 0;
@@ -491,7 +1021,9 @@ export default class HubScene extends Phaser.Scene {
     this._playerDir = dir;
 
     // 玩家光晕跟随
-    this.playerHalo.setPosition(this.player.x, this.player.y + 20);
+    this.playerHalo
+      .setPosition(this.player.x, this.player.y + 20)
+      .setDepth(this.player.depth - 1);
 
     // —— 找最近交互对象（含馆长 NPC） ——
     let nearest = null;
@@ -558,7 +1090,7 @@ export default class HubScene extends Phaser.Scene {
     this.scene.launch('DialogScene', {
       pages: dlg.pages,
       speaker: dlg.speaker || '林默 · 馆长',
-      portraitKey: CURATOR.portraitKey,
+      portraitKey: REFINED_CURATOR.portraitKey,
       portraitFrame: 0,
       returnTo: 'HubScene',
       onComplete: () => {

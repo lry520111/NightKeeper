@@ -29,6 +29,8 @@ export default class BootScene extends Phaser.Scene {
       frameWidth: 16,
       frameHeight: 32
     });
+
+    this.load.image('hub_hall_back', 'assets/hub/hall_back.png');
   }
 
   create() {
@@ -113,7 +115,7 @@ export default class BootScene extends Phaser.Scene {
     const Filter = Phaser.Textures.FilterMode || { NEAREST: 0 };
     const NEAREST = (Filter.NEAREST !== undefined) ? Filter.NEAREST : 0;
     Object.keys(this.textures.list).forEach((key) => {
-      if (key.startsWith('tex_') || key.startsWith('lz_')) {
+      if (key.startsWith('tex_') || key.startsWith('lz_') || key.startsWith('hub_')) {
         const t = this.textures.get(key);
         if (t && typeof t.setFilter === 'function') t.setFilter(NEAREST);
       }
@@ -1577,10 +1579,10 @@ export default class BootScene extends Phaser.Scene {
   // idle_anim 也是 24 帧，每方向 6 帧的呼吸
   registerLZAnims() {
     const dirs = [
-      { name: 'down',  base: 0 },
+      { name: 'right', base: 0 },
       { name: 'up',    base: 6 },
-      { name: 'right', base: 12 },
-      { name: 'left',  base: 18 }
+      { name: 'left',  base: 12 },
+      { name: 'down',  base: 18 }
     ];
     const chars = ['adam', 'amelia', 'alex'];
     for (const ch of chars) {

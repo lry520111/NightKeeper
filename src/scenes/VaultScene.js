@@ -7,8 +7,8 @@ import SaveData from '../systems/SaveData.js';
 import Audio from '../systems/AudioFx.js';
 import { RARITY_COLOR } from '../data/relics.js';
 
-const W = 960;
-const H = 540;
+const W = 1280;
+const H = 720;
 const PAGE_SIZE = 8;
 
 export default class VaultScene extends Phaser.Scene {

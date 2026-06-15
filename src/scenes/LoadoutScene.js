@@ -8,10 +8,12 @@ import SaveData from '../systems/SaveData.js';
 import Audio from '../systems/AudioFx.js';
 import { TOOLS, SLOT_NAME, getToolById, toolsBySlot, CONSUMABLES } from '../data/tools.js';
 
-const W = 960;
-const H = 540;
+const W = 1280;
+const H = 720;
 
 const SLOT_ORDER = ['head', 'feet', 'tool', 'sub'];
+const LEFT_X = 80;
+const SHOP_X = 700;
 
 export default class LoadoutScene extends Phaser.Scene {
   constructor() { super('LoadoutScene'); }
@@ -76,40 +78,40 @@ export default class LoadoutScene extends Phaser.Scene {
       fontFamily: '"PingFang SC", serif', fontSize: '16px', color: '#d4af37'
     }));
     SLOT_ORDER.forEach((slot, i) => {
-      const x = 60;
+      const x = LEFT_X;
       const y = 160 + i * 80;
       const cur = loadout[slot] ? getToolById(loadout[slot]) : null;
       this.slotGroup.add(this.makeSlotCard(slot, cur, x, y));
     });
 
     // —— 右侧：商店 ——
-    this.shopGroup.add(this.add.text(540, 130, '器物坊（购买）', {
+    this.shopGroup.add(this.add.text(SHOP_X, 130, '器物坊（购买）', {
       fontFamily: '"PingFang SC", serif', fontSize: '16px', color: '#d4af37'
     }));
     const sellable = TOOLS.filter((t) => !owned.includes(t.id))
       .sort((a, b) => a.price - b.price);
     let yCursor = 160;
     if (!sellable.length) {
-      this.shopGroup.add(this.add.text(540, yCursor, '所有器物均已购齐。', {
+      this.shopGroup.add(this.add.text(SHOP_X, yCursor, '所有器物均已购齐。', {
         fontFamily: '"PingFang SC", serif', fontSize: '13px', color: '#6b5824'
       }));
       yCursor += 30;
     } else {
       sellable.forEach((t) => {
-        this.shopGroup.add(this.makeShopCard(t, 540, yCursor, gold));
+        this.shopGroup.add(this.makeShopCard(t, SHOP_X, yCursor, gold));
         yCursor += 65;
       });
     }
 
     // —— 消耗品柜台：不占槽位，可重复购买，入库存 ——
     yCursor += 8;
-    this.shopGroup.add(this.add.text(540, yCursor, '药囊柜台（消耗品）', {
+    this.shopGroup.add(this.add.text(SHOP_X, yCursor, '药囊柜台（消耗品）', {
       fontFamily: '"PingFang SC", serif', fontSize: '14px', color: '#7ae8e8'
     }));
     yCursor += 26;
     const consumables = SaveData.getConsumables();
     CONSUMABLES.forEach((c) => {
-      this.shopGroup.add(this.makeConsumableCard(c, 540, yCursor, gold, consumables[c.id] || 0));
+      this.shopGroup.add(this.makeConsumableCard(c, SHOP_X, yCursor, gold, consumables[c.id] || 0));
       yCursor += 56;
     });
 
@@ -122,9 +124,9 @@ export default class LoadoutScene extends Phaser.Scene {
     const safeId = SaveData.getState().safeBox;
     const cur = safeId ? vault.find((v) => v.id === safeId) : null;
 
-    const x = 60;
-    const y = 480;
-    const w = 880;
+    const x = LEFT_X;
+    const y = H - 120;
+    const w = W - LEFT_X * 2;
     const h = 46;
 
     const bg = this.add.rectangle(x, y, w, h, 0x1a1208).setOrigin(0, 0);

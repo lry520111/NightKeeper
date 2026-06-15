@@ -19,8 +19,8 @@ import Phaser from 'phaser';
 
 const BOX_W = 880;
 const BOX_H = 150;
-const SCREEN_W = 960;
-const SCREEN_H = 540;
+const SCREEN_W = 1280;
+const SCREEN_H = 720;
 
 export default class DialogScene extends Phaser.Scene {
   constructor() {

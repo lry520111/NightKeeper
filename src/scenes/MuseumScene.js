@@ -12,8 +12,8 @@ import SaveData from '../systems/SaveData.js';
 import { getBiome } from '../data/biomes.js';
 
 const TILE = 32;
-const MAP_W = 30; // 30 * 32 = 960
-const MAP_H = 17; // 17 * 32 = 544
+const MAP_W = 40; // 40 * 32 = 1280
+const MAP_H = 22; // 22 * 32 = 704
 
 // 光照层颜色（近似纯黑、略带紫调，像月夜）
 const DARKNESS = 0x05060a;
@@ -252,8 +252,8 @@ export default class MuseumScene extends Phaser.Scene {
     this._stepAccum = 0;
 
     // —— 14. 屏幕暗角（受击 / 心跳闪动） ——
-    this.vignette = this.add.image(480, 270, 'tex_vignette')
-      .setDisplaySize(960, 540)
+    this.vignette = this.add.image(this.scale.width / 2, this.scale.height / 2, 'tex_vignette')
+      .setDisplaySize(this.scale.width, this.scale.height)
       .setScrollFactor(0)
       .setDepth(120)
       .setAlpha(0);
@@ -564,14 +564,16 @@ export default class MuseumScene extends Phaser.Scene {
   }
 
   createHUD() {
+    const sw = this.scale.width;
+    const sh = this.scale.height;
     // 顶部状态条背景
-    this.add.rectangle(0, 0, 960, 28, 0x000000, 0.85).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
+    this.add.rectangle(0, 0, sw, 28, 0x000000, 0.85).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
     // 顶部金线
-    this.add.rectangle(0, 28, 960, 1, 0xd4af37, 0.6).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
+    this.add.rectangle(0, 28, sw, 1, 0xd4af37, 0.6).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
 
     // —— 左下：血条 + 体力条 + 状态图标 ——
     const bx = 20;
-    const by = 510;
+    const by = sh - 30;
     this.add.text(bx, by - 14, '气', {
       fontFamily: '"PingFang SC", serif', fontSize: '11px', color: '#ff8a8a'
     }).setScrollFactor(0).setDepth(101);
@@ -622,7 +624,7 @@ export default class MuseumScene extends Phaser.Scene {
 
     // 收集进度
     this.relicCountText = this.add
-      .text(480, 14, '已得文物：0 / 0', {
+      .text(sw / 2, 14, '已得文物：0 / 0', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '14px',
         color: '#e8d27a'
@@ -634,7 +636,7 @@ export default class MuseumScene extends Phaser.Scene {
     // —— 进入提示：地图场景名 + 副标题（淡入淡出） ——
     if (this.biome) {
       const titleColor = this.biome.id === 'blackmarket' ? '#c084fc' : '#d4af37';
-      const sceneTitle = this.add.text(480, 200, this.biome.name, {
+      const sceneTitle = this.add.text(sw / 2, sh * 0.37, this.biome.name, {
         fontFamily: '"PingFang SC", serif',
         fontSize: '32px',
         color: titleColor,
@@ -642,7 +644,7 @@ export default class MuseumScene extends Phaser.Scene {
         stroke: '#000',
         strokeThickness: 5
       }).setOrigin(0.5).setScrollFactor(0).setDepth(120).setAlpha(0);
-      const sceneSub = this.add.text(480, 240, this.biome.subtitle || '', {
+      const sceneSub = this.add.text(sw / 2, sh * 0.37 + 40, this.biome.subtitle || '', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '14px',
         color: '#e8d27a',
@@ -662,7 +664,7 @@ export default class MuseumScene extends Phaser.Scene {
 
     // 提示
     this.hintText = this.add
-      .text(940, 14, 'WASD移动 · 鼠标瞄向 · Shift潜行 · Ctrl疾跑 · J/左键攻击 · K格挡 · E拾取 · F阅读 · Tab背包', {
+      .text(sw - 20, 14, 'WASD移动 · 鼠标瞄向 · Shift潜行 · Ctrl疾跑 · J/左键攻击 · K格挡 · E拾取 · F阅读 · Tab背包', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '11px',
         color: '#a08434'
@@ -685,7 +687,7 @@ export default class MuseumScene extends Phaser.Scene {
 
     // 剧情碎片阅读提示（屏幕下部居中）
     this.cluePromptText = this.add
-      .text(480, 500, '', {
+      .text(sw / 2, sh - 40, '', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '13px',
         color: '#d4af37',
@@ -732,7 +734,7 @@ export default class MuseumScene extends Phaser.Scene {
     const padding = 14;
     const panelW = INV_COLS * cell + padding * 2;
     const panelH = INV_ROWS * cell + padding * 2 + 26; // 顶部留标题
-    const px = 960 - panelW - 16;
+    const px = this.scale.width - panelW - 16;
     const py = 56;
 
     this.invPanel = this.add.container(px, py).setDepth(150).setScrollFactor(0);
@@ -1119,8 +1121,8 @@ export default class MuseumScene extends Phaser.Scene {
   showLoreCard(relic, lore) {
     const W = 300;
     const H = 78;
-    const x = 960 - W - 16;
-    const yEnd = 540 - H - 60;       // 最终位置
+    const x = this.scale.width - W - 16;
+    const yEnd = this.scale.height - H - 60;       // 最终位置
     const yStart = yEnd + 30;        // 从下方升起
 
     const layer = this.add.container(x, yStart).setScrollFactor(0).setDepth(140).setAlpha(0);
@@ -1466,7 +1468,7 @@ export default class MuseumScene extends Phaser.Scene {
       }
     }
     // 屏幕红闪
-    const flash = this.add.rectangle(0, 0, 960, 540, 0xff0000, 0.35).setOrigin(0, 0).setScrollFactor(0).setDepth(180);
+    const flash = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0xff0000, 0.35).setOrigin(0, 0).setScrollFactor(0).setDepth(180);
     this.tweens.add({
       targets: flash,
       alpha: 0,
@@ -1484,13 +1486,15 @@ export default class MuseumScene extends Phaser.Scene {
     const code = c.data.code || '0000';
     const W = 360;
     const H = 220;
-    const x = 480 - W / 2;
-    const y = 270 - H / 2;
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2;
+    const x = cx - W / 2;
+    const y = cy - H / 2;
 
     const layer = this.add.container(0, 0).setDepth(220).setScrollFactor(0);
 
     // 半透明遮罩（也阻断点击穿透）
-    const mask = this.add.rectangle(0, 0, 960, 540, 0x000000, 0.55).setOrigin(0, 0).setScrollFactor(0);
+    const mask = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0.55).setOrigin(0, 0).setScrollFactor(0);
     mask.setInteractive();
     layer.add(mask);
 
@@ -1502,12 +1506,12 @@ export default class MuseumScene extends Phaser.Scene {
     bg.strokeRoundedRect(x, y, W, H, 8);
     layer.add(bg);
 
-    layer.add(this.add.text(480, y + 18, '· 密  码  锁 ·', {
+    layer.add(this.add.text(cx, y + 18, '· 密  码  锁 ·', {
       fontFamily: '"PingFang SC", serif',
       fontSize: '16px',
       color: '#c084fc'
     }).setOrigin(0.5));
-    layer.add(this.add.text(480, y + 40, '↑↓ 调整数字   ←→ 切换位   Enter 确认   ESC 放弃', {
+    layer.add(this.add.text(cx, y + 40, '↑↓ 调整数字   ←→ 切换位   Enter 确认   ESC 放弃', {
       fontFamily: '"PingFang SC", serif',
       fontSize: '11px',
       color: '#7a6228'
@@ -1517,7 +1521,7 @@ export default class MuseumScene extends Phaser.Scene {
     const digits = [0, 0, 0, 0];
     let cursor = 0;
     const digitTxts = [];
-    const startX = 480 - 60;
+    const startX = cx - 60;
     for (let i = 0; i < 4; i++) {
       const dt = this.add.text(startX + i * 40, y + 100, '0', {
         fontFamily: 'Georgia, serif',
@@ -1530,7 +1534,7 @@ export default class MuseumScene extends Phaser.Scene {
       layer.add(dt);
     }
 
-    const hint = this.add.text(480, y + H - 32, '提示：本箱密码为 4 位数字', {
+    const hint = this.add.text(cx, y + H - 32, '提示：本箱密码为 4 位数字', {
       fontFamily: '"PingFang SC", serif',
       fontSize: '12px',
       color: '#a08434'
@@ -1822,10 +1826,12 @@ export default class MuseumScene extends Phaser.Scene {
 
 
     const layer = this.add.container(0, 0).setDepth(190).setScrollFactor(0);
-    const mask = this.add.rectangle(0, 0, 960, 540, 0x000000, 0.78).setOrigin(0, 0);
-    const panel = this.add.rectangle(480, 270, 480, 280, 0x1a1410, 0.96).setStrokeStyle(2, 0xa08434);
+    const cx = this.scale.width / 2;
+    const cy = this.scale.height / 2;
+    const mask = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0.78).setOrigin(0, 0);
+    const panel = this.add.rectangle(cx, cy, 480, 280, 0x1a1410, 0.96).setStrokeStyle(2, 0xa08434);
     const title = this.add
-      .text(480, 160, clue.title, {
+      .text(cx, cy - 110, clue.title, {
         fontFamily: '"PingFang SC", serif',
         fontSize: '22px',
         color: '#d4af37',
@@ -1833,7 +1839,7 @@ export default class MuseumScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const body = this.add
-      .text(480, 270, clue.body, {
+      .text(cx, cy, clue.body, {
         fontFamily: '"PingFang SC", serif',
         fontSize: '14px',
         color: '#fff3b8',
@@ -1843,7 +1849,7 @@ export default class MuseumScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const tip = this.add
-      .text(480, 380, '按  F  /  ESC  收起', {
+      .text(cx, cy + 110, '按  F  /  ESC  收起', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '12px',
         color: '#a08434'
