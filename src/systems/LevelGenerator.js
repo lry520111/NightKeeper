@@ -1,15 +1,19 @@
-// LevelGenerator - 博物馆关卡程序化生成
-// 输入：种子 + 地图尺寸；输出：墙体瓦片表、文物点、守卫巡逻路径、撤离点
+// LevelGenerator - 追回任务关卡程序化生成
+// 输入：种子 + 地图尺寸；输出：墙体瓦片表、文物点、容器点、守卫巡逻路径、撤离点
 // 设计目标：每局布局不同，但保证从左上出生点到右下撤离点必然连通
 //
 // 返回结构：
 // {
-//   walls:       Set<string>     键 "x,y"
-//   relicSpawns: Array<{x,y,relicIdx}>
-//   exit:        {x,y}
-//   spawn:       {x,y}
-//   guardPaths:  Array<Array<{x,y}>>   每条 = 一名守卫的巡逻点（瓦片坐标）
-//   rooms:       Array<{x,y,w,h}>      仅供调试/装饰参考
+//   walls:        Set<string>     键 "x,y"
+//   relicSpawns:  Array<{x,y,relicIdx, containerKind?}>  裸露或装在某个容器里
+//   containers:   Array<{x,y,kind, relicIdx?, lootKind?, code?}>
+//                 kind ∈ 'plain' | 'safe' | 'puzzle' | 'trap'
+//                 装了文物的容器由 relicIdx 存在；装补给品的则是 lootKind
+//                 puzzle 容器附带 4 位随机密码字符串
+//   exit:         {x,y}
+//   spawn:        {x,y}
+//   guardPaths:   Array<Array<{x,y}>>
+//   rooms:        Array<{x,y,w,h}>
 // }
 
 // ——————————————————————————————————————
@@ -143,6 +147,7 @@ export function generateLevel(opts) {
   forEachInRect(exit.x - 2, exit.y - 2, 3, 3, (x, y) => blocked.add(k(x, y)));
 
   const relicSpawns = [];
+  const containers = [];
   const usedRelicIdx = new Set();
   const candidateRooms = shuffleArr(rooms.slice(), rng);
   let relicNeed = relicCount;
@@ -161,13 +166,24 @@ export function generateLevel(opts) {
         tries++;
       } while (usedRelicIdx.has(idx) && tries < 12 && usedRelicIdx.size < relicPoolSize);
       usedRelicIdx.add(idx);
-      relicSpawns.push({ x: cell.x, y: cell.y, relicIdx: idx });
+      // 70% 装在容器里；30% 裸露
+      const inContainer = rng() < 0.7;
+      if (inContainer) {
+        // 装有文物的容器：按品级权重决定类型
+        // 高价值文物更可能在保险柜/密码锁里
+        const kind = pickRelicContainerKind(rng);
+        const c = makeContainer(cell.x, cell.y, kind, rng);
+        c.relicIdx = idx;
+        containers.push(c);
+      } else {
+        relicSpawns.push({ x: cell.x, y: cell.y, relicIdx: idx });
+      }
       blocked.add(k(cell.x, cell.y));
       relicNeed--;
     }
   }
 
-  // 若房间不够，回退到全图随机
+  // 若房间不够，回退到全图随机裸放
   while (relicNeed > 0) {
     const x = 2 + Math.floor(rng() * (W - 4));
     const y = 2 + Math.floor(rng() * (H - 4));
@@ -178,6 +194,25 @@ export function generateLevel(opts) {
     relicNeed--;
   }
 
+  // 7b. 额外生成一批"补给箱 / 陷阱箱"（不装文物，只为丰富搜索体验）
+  // 数量 ≈ 地图房间数的 60%，随机挥在房间内
+  const extraCount = Math.max(2, Math.floor(rooms.length * 0.6));
+  let extraNeed = extraCount;
+  let safety = 0;
+  while (extraNeed > 0 && safety < 80) {
+    safety++;
+    const room = candidateRooms[safety % candidateRooms.length];
+    if (!room) break;
+    const cell = pickRoomCell(room, blocked, rng, [...relicSpawns, ...containers]);
+    if (!cell) continue;
+    const kind = pickLootContainerKind(rng);
+    const c = makeContainer(cell.x, cell.y, kind, rng);
+    c.lootKind = pickLootKind(rng);
+    containers.push(c);
+    blocked.add(k(cell.x, cell.y));
+    extraNeed--;
+  }
+
   // 8. 守卫巡逻路径：从房间集合里挑几个，用矩形周长四角作为巡逻点
   const guardRooms = pickGuardRooms(rooms, guardCount, rng, spawn);
   const guardPaths = guardRooms.map((room) => buildPatrolPath(room, walls, W, H));
@@ -185,6 +220,7 @@ export function generateLevel(opts) {
   return {
     walls,
     relicSpawns,
+    containers,
     exit,
     spawn,
     guardPaths,
@@ -341,3 +377,46 @@ function buildPatrolPath(room, walls, W, H) {
   // 极端兜底
   return [{ x: x0, y: y0 }, { x: x1, y: y1 }];
 }
+
+// ——————————————————————————————————————
+//  容器辅助
+// ——————————————————————————————————————
+
+/** 装文物的容器：保险柜/密码锁概率高些，让高价值物品更"有戏" */
+function pickRelicContainerKind(rng) {
+  const r = rng();
+  if (r < 0.45) return 'plain';   // 45% 普通箱
+  if (r < 0.75) return 'safe';    // 30% 保险柜（需撬锁器）
+  if (r < 0.95) return 'puzzle';  // 20% 密码锁（小游戏）
+  return 'trap';                  // 5%  陷阱箱
+}
+
+/** 不装文物的"补给箱/陷阱箱"分布：更随意 */
+function pickLootContainerKind(rng) {
+  const r = rng();
+  if (r < 0.55) return 'plain';
+  if (r < 0.75) return 'safe';
+  if (r < 0.90) return 'puzzle';
+  return 'trap';
+}
+
+/** 不装文物时随机生成的战利品类型（用于 MuseumScene 决定到底吐什么） */
+function pickLootKind(rng) {
+  const r = rng();
+  if (r < 0.45) return 'gold';      // 一笔金币
+  if (r < 0.75) return 'shard';     // 文物碎片
+  if (r < 0.92) return 'medkit';    // 急救包
+  return 'rep';                     // 声望小幅提升
+}
+
+function makeContainer(x, y, kind, rng) {
+  const c = { x, y, kind };
+  if (kind === 'puzzle') {
+    // 4 位密码：每位 0~9
+    let code = '';
+    for (let i = 0; i < 4; i++) code += String(Math.floor(rng() * 10));
+    c.code = code;
+  }
+  return c;
+}
+

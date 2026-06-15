@@ -47,7 +47,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.refresh();
 
     this.add
-      .text(W / 2, H - 20, 'Esc / Q  返回前室   ·   每槽位仅一件   ·   已装备亮金边', {
+      .text(W / 2, H - 20, 'Esc / Q  返回前室   ·   每槽位仅一件   ·   已装备亮金边   ·   安全箱：失败保底', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '12px',
         color: '#6b5824'
@@ -63,6 +63,8 @@ export default class LoadoutScene extends Phaser.Scene {
   refresh() {
     this.slotGroup.removeAll(true);
     this.shopGroup.removeAll(true);
+    if (this.safeBoxGroup) this.safeBoxGroup.removeAll(true);
+    else this.safeBoxGroup = this.add.container(0, 0);
 
     const gold = SaveData.getGold();
     const owned = SaveData.getOwnedTools();
@@ -97,6 +99,131 @@ export default class LoadoutScene extends Phaser.Scene {
         this.shopGroup.add(this.makeShopCard(t, x, y, gold));
       });
     }
+
+    // —— 底部：安全箱（失败保底一件仓库文物）——
+    this.drawSafeBox();
+  }
+
+  drawSafeBox() {
+    const vault = SaveData.getVault();
+    const safeId = SaveData.getState().safeBox;
+    const cur = safeId ? vault.find((v) => v.id === safeId) : null;
+
+    const x = 60;
+    const y = 480;
+    const w = 880;
+    const h = 46;
+
+    const bg = this.add.rectangle(x, y, w, h, 0x1a1208).setOrigin(0, 0);
+    bg.setStrokeStyle(2, cur ? 0xc084fc : 0x3a2814);
+    this.safeBoxGroup.add(bg);
+
+    const title = this.add.text(x + 12, y + 6, '📦  安全箱预存', {
+      fontFamily: '"PingFang SC", serif', fontSize: '13px', color: '#c084fc'
+    });
+    this.safeBoxGroup.add(title);
+
+    const info = cur
+      ? `已预存：${cur.name}（${cur.dynasty}）  ·  价值 ¥${cur.value}  ·  失败不丢`
+      : '未预存·点击从仓库挑一件。出击失败时，该件仓库文物不受影响。';
+    const infoTxt = this.add.text(x + 12, y + 26, info, {
+      fontFamily: '"PingFang SC", serif', fontSize: '12px',
+      color: cur ? '#e8d27a' : '#6b5824'
+    });
+    this.safeBoxGroup.add(infoTxt);
+
+    // 从仓库挑一件
+    const pickBtn = this.add.text(x + w - 90, y + h / 2, cur ? '更换' : '选择', {
+      fontFamily: '"PingFang SC", serif', fontSize: '12px',
+      color: '#fff3b8', backgroundColor: '#3a2814', padding: { x: 8, y: 4 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    pickBtn.on('pointerover', () => pickBtn.setBackgroundColor('#5a3e1c'));
+    pickBtn.on('pointerout', () => pickBtn.setBackgroundColor('#3a2814'));
+    pickBtn.on('pointerdown', () => {
+      Audio.sfx.click();
+      this.openSafeBoxPicker();
+    });
+    this.safeBoxGroup.add(pickBtn);
+
+    if (cur) {
+      const clrBtn = this.add.text(x + w - 24, y + h / 2, '×', {
+        fontFamily: 'Georgia, serif', fontSize: '16px',
+        color: '#a08434', backgroundColor: '#1a1208', padding: { x: 6, y: 2 }
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      clrBtn.on('pointerdown', () => {
+        Audio.sfx.click();
+        SaveData.setSafeBox(null);
+        this.refresh();
+      });
+      this.safeBoxGroup.add(clrBtn);
+    }
+  }
+
+  openSafeBoxPicker() {
+    this.popupGroup.removeAll(true);
+    const vault = SaveData.getVault();
+
+    const w = 460;
+    const h = 380;
+    const x = (W - w) / 2;
+    const y = (H - h) / 2;
+
+    const overlay = this.add.rectangle(0, 0, W, H, 0x000000, 0.65).setOrigin(0, 0).setInteractive();
+    overlay.on('pointerdown', () => this.closePopup());
+    this.popupGroup.add(overlay);
+
+    const bg = this.add.rectangle(x, y, w, h, 0x1a1208).setOrigin(0, 0);
+    bg.setStrokeStyle(2, 0xc084fc);
+    bg.setInteractive();
+    this.popupGroup.add(bg);
+
+    this.popupGroup.add(this.add.text(x + w / 2, y + 20, '选择一件存入安全箱', {
+      fontFamily: '"PingFang SC", serif', fontSize: '16px', color: '#c084fc', fontStyle: 'bold'
+    }).setOrigin(0.5));
+    this.popupGroup.add(this.add.text(x + w / 2, y + 42, '仅作为失败保底标记，文物仍留在仓库。', {
+      fontFamily: '"PingFang SC", serif', fontSize: '11px', color: '#7a6228'
+    }).setOrigin(0.5));
+
+    if (!vault.length) {
+      this.popupGroup.add(this.add.text(x + w / 2, y + h / 2, '仓库仍空。先追回一件文物。', {
+        fontFamily: '"PingFang SC", serif', fontSize: '13px', color: '#6b5824'
+      }).setOrigin(0.5));
+    } else {
+      // 只列前 6 件（避免面板超高；后续可加滚动）
+      const list = vault.slice(0, 6);
+      list.forEach((it, i) => {
+        const ty = y + 70 + i * 44;
+        const row = this.add.rectangle(x + 20, ty, w - 40, 36, 0x140d05).setOrigin(0, 0);
+        row.setStrokeStyle(1, 0x6b5824);
+        row.setInteractive({ useHandCursor: true });
+        row.on('pointerover', () => row.setStrokeStyle(1, 0xc084fc));
+        row.on('pointerout', () => row.setStrokeStyle(1, 0x6b5824));
+        row.on('pointerdown', () => {
+          Audio.sfx.click();
+          SaveData.setSafeBox(it.id);
+          this.closePopup();
+          this.refresh();
+        });
+        this.popupGroup.add(row);
+        this.popupGroup.add(this.add.text(x + 32, ty + 6, `${it.name}（${it.dynasty}）`, {
+          fontFamily: '"PingFang SC", serif', fontSize: '13px', color: '#e8d27a'
+        }));
+        this.popupGroup.add(this.add.text(x + w - 40, ty + 12, `¥${it.value}`, {
+          fontFamily: 'Georgia, serif', fontSize: '12px', color: '#a08434'
+        }).setOrigin(1, 0.5));
+      });
+      if (vault.length > 6) {
+        this.popupGroup.add(this.add.text(x + w / 2, y + h - 36, `… 仓库共 ${vault.length} 件·仅显示前 6 件`, {
+          fontFamily: '"PingFang SC", serif', fontSize: '11px', color: '#6b5824'
+        }).setOrigin(0.5));
+      }
+    }
+
+    const close = this.add.text(x + w - 20, y + 20, '✕', {
+      fontFamily: 'Georgia, serif', fontSize: '16px', color: '#a08434'
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    close.on('pointerdown', () => this.closePopup());
+    this.popupGroup.add(close);
   }
 
   makeSlotCard(slot, tool, x, y) {

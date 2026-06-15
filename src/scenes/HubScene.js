@@ -1,13 +1,13 @@
 // HubScene - 行动前室
-// 玩家在此操作的"主城"：选委托、配装、查看仓库、出击
+// 玩家在此操作的"主城"：选委托、配装、查看仓库、出发追回行动
 // 顶视像素房间，4 个交互台分布在房间四角，玩家以小人走过去按 E 触发。
 //
 // 交互台：
 //   · 委托板（西北）→ ContractScene
 //   · 配装台（东北）→ LoadoutScene
 //   · 仓库柜（西南）→ VaultScene
-//   · 出击门（东南）→ MuseumScene（必须有 activeContract 才可出击）
-// 顶部：金币 / 声望 / 已收藏数 / 出击次数
+//   · 任务门（东南）→ MuseumScene（必须有 activeContract 才可出发）
+// 顶部：金币 / 声望 / 已归藏数 / 追回成功次数
 // 左下角：当前接取的委托提示
 // 全局：B 键打开图鉴，ESC 回标题
 
@@ -27,7 +27,7 @@ const STATIONS = [
   { id: 'contract', name: '委托板',  x: 200, y: 220, color: 0xd4af37, glyph: '📜', target: 'ContractScene' },
   { id: 'loadout',  name: '配装台',  x: 760, y: 220, color: 0x7ae8e8, glyph: '🛡', target: 'LoadoutScene' },
   { id: 'vault',    name: '保险柜',  x: 200, y: 420, color: 0xc084fc, glyph: '📦', target: 'VaultScene' },
-  { id: 'depart',   name: '出击门',  x: 760, y: 420, color: 0xff8c42, glyph: '🏯', target: 'MuseumScene' }
+  { id: 'depart',   name: '任务门',  x: 760, y: 420, color: 0xff8c42, glyph: '🏯', target: 'MuseumScene' }
 ];
 
 export default class HubScene extends Phaser.Scene {
@@ -44,7 +44,7 @@ export default class HubScene extends Phaser.Scene {
 
     // 房间标题（卷轴感）
     this.add
-      .text(ROOM_W / 2, 60, '夜行司·行动前室', {
+      .text(ROOM_W / 2, 60, '夜行司·追回总部', {
         fontFamily: '"PingFang SC", "Microsoft YaHei", serif',
         fontSize: '22px',
         color: '#d4af37',
@@ -233,7 +233,7 @@ export default class HubScene extends Phaser.Scene {
     const codex = Codex.getState();
     const found = Object.keys(codex.relics).length;
     this.statBar.setText(
-      `金 ¥${gold}    声望 ${rep}    仓库 ${found}/${RELICS.length}    出击 ${codex.runs.success}/${codex.runs.total}`
+      `金 ¥${gold}    声望 ${rep}    已归藏 ${found}/${RELICS.length}    追回 ${codex.runs.success}/${codex.runs.total}`
     );
   }
 
@@ -241,7 +241,7 @@ export default class HubScene extends Phaser.Scene {
     const c = SaveData.getActiveContract();
     if (!c) {
       this.contractTip.setColor('#6b5824');
-      this.contractTip.setText('当前无委托。先到【委托板】接一份再出击。');
+      this.contractTip.setText('当前无委托。先到【委托板】接一份追回任务。');
       return;
     }
     this.contractTip.setColor('#a08434');
@@ -301,7 +301,7 @@ export default class HubScene extends Phaser.Scene {
     Audio.sfx.click();
     const target = this._near.target;
 
-    // 出击门要求：必须有 activeContract
+    // 出发要求：必须有 activeContract
     if (target === 'MuseumScene') {
       if (!SaveData.getActiveContract()) {
         this.flashWarn('没有委托，先去委托板接一份。');

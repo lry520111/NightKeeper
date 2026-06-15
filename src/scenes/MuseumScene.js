@@ -85,6 +85,16 @@ export default class MuseumScene extends Phaser.Scene {
     });
     this.totalRelicsOnMap = relicSpawns.length;
 
+    // —— 3.5 容器（文物可能装在容器里；另有补给箱/陷阱箱） ——
+    this.containerGroup = this.physics.add.staticGroup();
+    this.containers = [];
+    if (level.containers && level.containers.length) {
+      // 把容器里"装的文物"也算进总数（决定通关进度显示）
+      const relicInBox = level.containers.filter((c) => typeof c.relicIdx === 'number').length;
+      this.totalRelicsOnMap += relicInBox;
+      for (const cd of level.containers) this.spawnContainer(cd);
+    }
+
     // —— 4. 撤离点（位置由生成器提供） ——
     const exitTx = level.exit.x;
     const exitTy = level.exit.y;
@@ -828,7 +838,26 @@ export default class MuseumScene extends Phaser.Scene {
 
     // —— 检测附近可拾取文物 ——
     const nearestRelic = this.findNearest(this.relicGroup.getChildren(), 28);
-    if (nearestRelic) {
+    // —— 检测附近可交互容器 ——
+    const nearestContainer = this._findNearestContainer(36);
+
+    if (this._puzzleActive) {
+      // 密码小游戏开启时屏蔽 E 拾取/容器
+      this.pickupPrompt.setVisible(false);
+    } else if (nearestContainer && (!nearestRelic ||
+        Phaser.Math.Distance.Between(this.player.x, this.player.y, nearestContainer.sprite.x, nearestContainer.sprite.y)
+        < Phaser.Math.Distance.Between(this.player.x, this.player.y, nearestRelic.x, nearestRelic.y))) {
+      // 容器优先级（同距离时）
+      const c = nearestContainer;
+      const tip = this._containerPromptText(c);
+      this.pickupPrompt
+        .setText(tip)
+        .setPosition(c.sprite.x, c.sprite.y - 22)
+        .setVisible(true);
+      if (Phaser.Input.Keyboard.JustDown(this.keys.E) && !c.opening && !c.opened) {
+        this.tryOpenContainer(c);
+      }
+    } else if (nearestRelic) {
       const data = nearestRelic.getData('relic');
       this.pickupPrompt
         .setText(`E  拾取  「${data.name}」`)
@@ -1131,11 +1160,365 @@ export default class MuseumScene extends Phaser.Scene {
     // —— 交给 ResultScene 统一结算（金币 / 仓库 / 委托 / 图鉴） ——
     const items = this.inventory.list();
     const value = this.inventory.totalValue();
+    // 把局内额外奖励（金币 / 声望）一起带过去
+    const bonusGold = this._bonusGold || 0;
+    const bonusRep = this._bonusRep || 0;
     this.cameras.main.fadeOut(450, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('ResultScene', { success, items, value, reason });
+      this.scene.start('ResultScene', { success, items, value, reason, bonusGold, bonusRep });
     });
   }
+
+  // ============================================================
+  //  容器系统
+  //  · plain  - 普通箱：1.5s 进度条直接打开
+  //  · safe   - 保险柜：需「撬锁器」工具，4s 进度条
+  //  · puzzle - 密码锁：触发 4 位密码小游戏
+  //  · trap   - 陷阱箱：1.2s 后开启，10% 触发警报
+  // ============================================================
+  spawnContainer(cd) {
+    const cx = cd.x * TILE + TILE / 2;
+    const cy = cd.y * TILE + TILE / 2;
+    // 用矩形 + emoji 字符画占位（贴图改造可以后期接素材）
+    const colors = {
+      plain:  { fill: 0x3a2814, edge: 0x6b5824, glyph: '📦' },
+      safe:   { fill: 0x2a2a2a, edge: 0xd4af37, glyph: '🔒' },
+      puzzle: { fill: 0x1f1230, edge: 0xc084fc, glyph: '🔢' },
+      trap:   { fill: 0x3a1414, edge: 0xff8c42, glyph: '⚠' }
+    };
+    const col = colors[cd.kind] || colors.plain;
+    const box = this.add.rectangle(cx, cy, 24, 22, col.fill, 1).setDepth(2);
+    box.setStrokeStyle(2, col.edge, 0.9);
+    const glyph = this.add.text(cx, cy - 1, col.glyph, { fontSize: '16px' }).setOrigin(0.5).setDepth(3);
+    // 物理碰撞
+    const phys = this.physics.add.staticImage(cx, cy, 'tex_case').setDepth(2).setVisible(false);
+    phys.body.setSize(20, 20);
+    this.containerGroup.add(phys);
+    this.physics.add.collider(this.player, phys);
+
+    const obj = {
+      data: cd,
+      sprite: box,
+      glyph,
+      phys,
+      opened: false,
+      opening: false
+    };
+    this.containers.push(obj);
+
+    // 容器中心点的微弱光晕，便于黑暗中辨识
+    if (this.staticLights) {
+      this.staticLights.push({
+        x: cx, y: cy, key: 'tex_light_xs', alpha: 0.35,
+        tint: col.edge
+      });
+    }
+    return obj;
+  }
+
+  _findNearestContainer(maxDist) {
+    let best = null;
+    let bd = maxDist;
+    for (const c of this.containers) {
+      if (c.opened) continue;
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, c.sprite.x, c.sprite.y);
+      if (d < bd) { bd = d; best = c; }
+    }
+    return best;
+  }
+
+  _containerPromptText(c) {
+    if (c.opening) return '… 正在打开 …';
+    const k = c.data.kind;
+    if (k === 'plain')  return 'E  搜  普通木箱';
+    if (k === 'safe') {
+      const hasPick = !!(this._loadoutEff && this._loadoutEff.tools &&
+        this._loadoutEff.tools.some((t) => t.id === 'lockpick'));
+      return hasPick ? 'E  撬开  保险柜' : 'E  保险柜（需「撬锁器」）';
+    }
+    if (k === 'puzzle') return 'E  尝试解锁  密码箱';
+    if (k === 'trap')   return 'E  搜  锈蚀木箱（小心！）';
+    return 'E  打开';
+  }
+
+  tryOpenContainer(c) {
+    const k = c.data.kind;
+    if (k === 'safe') {
+      const hasPick = !!(this._loadoutEff && this._loadoutEff.tools &&
+        this._loadoutEff.tools.some((t) => t.id === 'lockpick'));
+      if (!hasPick) {
+        this._floatText(c.sprite.x, c.sprite.y - 18, '需要「撬锁器」', '#ff8c42');
+        Audio.sfx.bad && Audio.sfx.bad();
+        return;
+      }
+    }
+    if (k === 'puzzle') { this._openPuzzleUI(c); return; }
+    const dur = k === 'safe' ? 4000 : (k === 'trap' ? 1200 : 1500);
+    this._beginOpenProgress(c, dur);
+  }
+
+  _beginOpenProgress(c, durationMs) {
+    c.opening = true;
+    Audio.sfx.click && Audio.sfx.click();
+    // 进度条
+    const px = c.sprite.x;
+    const py = c.sprite.y - 22;
+    const bg = this.add.rectangle(px, py, 36, 5, 0x000000, 0.7).setDepth(120);
+    bg.setStrokeStyle(1, 0xa08434, 0.8);
+    const bar = this.add.rectangle(px - 18, py, 0, 3, 0xd4af37).setOrigin(0, 0.5).setDepth(121);
+    let elapsed = 0;
+    const timer = this.time.addEvent({
+      delay: 50,
+      loop: true,
+      callback: () => {
+        if (this._ended) { timer.remove(false); bg.destroy(); bar.destroy(); return; }
+        // 玩家移动太远则中断
+        const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, c.sprite.x, c.sprite.y);
+        if (d > 48) {
+          timer.remove(false);
+          bg.destroy(); bar.destroy();
+          c.opening = false;
+          this._floatText(c.sprite.x, c.sprite.y - 18, '中断！', '#ff8c42');
+          return;
+        }
+        elapsed += 50;
+        bar.width = (elapsed / durationMs) * 36;
+        if (elapsed >= durationMs) {
+          timer.remove(false);
+          bg.destroy(); bar.destroy();
+          this._finishOpenContainer(c);
+        }
+      }
+    });
+  }
+
+  _finishOpenContainer(c) {
+    c.opening = false;
+    c.opened = true;
+    const k = c.data.kind;
+    // 视觉：箱子变暗
+    c.sprite.setFillStyle(0x222018, 0.6);
+    c.glyph.setAlpha(0.35).setText('·');
+    Audio.sfx.pickup && Audio.sfx.pickup('common');
+
+    // 陷阱箱：10% 触发警报
+    if (k === 'trap' && Math.random() < 0.10) {
+      this._triggerAlarm(c.sprite.x, c.sprite.y);
+    }
+
+    // 装文物的容器：吐出文物到地面（自动尝试入背包；满则掉地上）
+    if (typeof c.data.relicIdx === 'number') {
+      const data = RELICS[c.data.relicIdx];
+      this._dropRelicAt(c.sprite.x, c.sprite.y, data);
+      return;
+    }
+
+    // 否则吐出战利品（金币/碎片/医疗包/声望）
+    const lootKind = c.data.lootKind || 'gold';
+    if (lootKind === 'gold') {
+      const amt = 8 + Math.floor(Math.random() * 25);
+      this._bonusGold = (this._bonusGold || 0) + amt;
+      this._floatText(c.sprite.x, c.sprite.y - 18, `+ 金 ¥${amt}`, '#d4af37');
+    } else if (lootKind === 'shard') {
+      const amt = 12 + Math.floor(Math.random() * 18);
+      this._bonusGold = (this._bonusGold || 0) + amt;
+      this._floatText(c.sprite.x, c.sprite.y - 18, `+ 碎片  (¥${amt})`, '#a08434');
+    } else if (lootKind === 'medkit') {
+      // 直接补血一格
+      const ps = this.playerState;
+      if (ps && ps.hp < ps.hpMax) {
+        ps.hp = Math.min(ps.hpMax, ps.hp + 1);
+        this._floatText(c.sprite.x, c.sprite.y - 18, '+ 急救包  生命+1', '#7ae8e8');
+      } else {
+        const amt = 15;
+        this._bonusGold = (this._bonusGold || 0) + amt;
+        this._floatText(c.sprite.x, c.sprite.y - 18, `急救包  折现 ¥${amt}`, '#7ae8e8');
+      }
+    } else if (lootKind === 'rep') {
+      this._bonusRep = (this._bonusRep || 0) + 1;
+      this._floatText(c.sprite.x, c.sprite.y - 18, '+ 声望', '#c084fc');
+    }
+  }
+
+  /** 把文物作为可拾取物投到 (x,y) */
+  _dropRelicAt(x, y, data) {
+    const r = this.relicGroup.create(x, y, data.icon || 'tex_relic');
+    r.setData('relic', data).setDepth(2);
+    if (r.body) r.body.setSize(12, 12);
+    r.setData('basePos', { x, y });
+    // 弹跳动画
+    this.tweens.add({
+      targets: r,
+      y: y - 4,
+      duration: 1400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.inOut'
+    });
+    // 注册到静态光晕，便于在黑暗中可见
+    if (this.staticLights) {
+      this.staticLights.push({ x, y, key: 'tex_light_xs', alpha: 0.5 });
+    }
+    this._floatText(x, y - 18, `发现 ${data.name}！`, '#fff3b8');
+  }
+
+  _floatText(x, y, text, color = '#fff3b8') {
+    const ft = this.add.text(x, y, text, {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '13px',
+      color,
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5).setDepth(120);
+    this.tweens.add({
+      targets: ft,
+      y: y - 26,
+      alpha: 0,
+      duration: 1100,
+      onComplete: () => ft.destroy()
+    });
+  }
+
+  /** 触发警报：把所有守卫警觉拉满（如有 alert API），否则只刷一段提示 */
+  _triggerAlarm(x, y) {
+    Audio.sfx.bad && Audio.sfx.bad();
+    this._floatText(x, y - 28, '⚠ 警报触发！', '#ff4444');
+    if (this.guards) {
+      for (const g of this.guards) {
+        // 通用：把警觉直接设为最大；若守卫未提供方法，则尝试常见字段
+        if (typeof g.alert === 'function') g.alert(this.player);
+        else if (typeof g.setAlertMax === 'function') g.setAlertMax();
+        else if (g.alertValue != null) g.alertValue = g.alertMax || 100;
+      }
+    }
+    // 屏幕红闪
+    const flash = this.add.rectangle(0, 0, 960, 540, 0xff0000, 0.35).setOrigin(0, 0).setScrollFactor(0).setDepth(180);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 600,
+      onComplete: () => flash.destroy()
+    });
+  }
+
+  // ——————————————————————————————————————
+  //  4 位密码锁小游戏
+  // ——————————————————————————————————————
+  _openPuzzleUI(c) {
+    if (this._puzzleActive) return;
+    this._puzzleActive = true;
+    const code = c.data.code || '0000';
+    const W = 360;
+    const H = 220;
+    const x = 480 - W / 2;
+    const y = 270 - H / 2;
+
+    const layer = this.add.container(0, 0).setDepth(220).setScrollFactor(0);
+
+    // 半透明遮罩（也阻断点击穿透）
+    const mask = this.add.rectangle(0, 0, 960, 540, 0x000000, 0.55).setOrigin(0, 0).setScrollFactor(0);
+    mask.setInteractive();
+    layer.add(mask);
+
+    // 面板背景
+    const bg = this.add.graphics();
+    bg.fillStyle(0x1a1410, 0.96);
+    bg.lineStyle(2, 0xc084fc, 0.9);
+    bg.fillRoundedRect(x, y, W, H, 8);
+    bg.strokeRoundedRect(x, y, W, H, 8);
+    layer.add(bg);
+
+    layer.add(this.add.text(480, y + 18, '· 密  码  锁 ·', {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '16px',
+      color: '#c084fc'
+    }).setOrigin(0.5));
+    layer.add(this.add.text(480, y + 40, '↑↓ 调整数字   ←→ 切换位   Enter 确认   ESC 放弃', {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '11px',
+      color: '#7a6228'
+    }).setOrigin(0.5));
+
+    // 4 位数字滚轮
+    const digits = [0, 0, 0, 0];
+    let cursor = 0;
+    const digitTxts = [];
+    const startX = 480 - 60;
+    for (let i = 0; i < 4; i++) {
+      const dt = this.add.text(startX + i * 40, y + 100, '0', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '40px',
+        color: '#e8d27a',
+        backgroundColor: '#2a1f10',
+        padding: { x: 8, y: 4 }
+      }).setOrigin(0.5);
+      digitTxts.push(dt);
+      layer.add(dt);
+    }
+
+    const hint = this.add.text(480, y + H - 32, '提示：本箱密码为 4 位数字', {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '12px',
+      color: '#a08434'
+    }).setOrigin(0.5);
+    layer.add(hint);
+
+    const refresh = () => {
+      for (let i = 0; i < 4; i++) {
+        digitTxts[i].setText(String(digits[i]));
+        digitTxts[i].setBackgroundColor(i === cursor ? '#c084fc' : '#2a1f10');
+        digitTxts[i].setColor(i === cursor ? '#1a1410' : '#e8d27a');
+      }
+    };
+    refresh();
+
+    let attempts = 0;
+
+    const close = (success) => {
+      this._puzzleActive = false;
+      cleanupKeys();
+      layer.destroy();
+      if (success) {
+        this._beginOpenProgress(c, 400); // 已破解：象征性 0.4s 完成动画
+      }
+    };
+
+    const keyHandler = (event) => {
+      if (event.code === 'ArrowUp')   { digits[cursor] = (digits[cursor] + 1) % 10; refresh(); }
+      else if (event.code === 'ArrowDown') { digits[cursor] = (digits[cursor] + 9) % 10; refresh(); }
+      else if (event.code === 'ArrowLeft') { cursor = (cursor + 3) % 4; refresh(); }
+      else if (event.code === 'ArrowRight') { cursor = (cursor + 1) % 4; refresh(); }
+      else if (event.code === 'Enter' || event.code === 'NumpadEnter') {
+        attempts++;
+        const guess = digits.join('');
+        if (guess === code) {
+          hint.setText('✓ 解锁成功').setColor('#7ae8e8');
+          Audio.sfx.exit && Audio.sfx.exit();
+          this.time.delayedCall(450, () => close(true));
+        } else {
+          // 给位级提示：每位是大了/小了/正确
+          let cues = '';
+          for (let i = 0; i < 4; i++) {
+            if (digits[i] === Number(code[i])) cues += '✓';
+            else cues += digits[i] > Number(code[i]) ? '↓' : '↑';
+          }
+          hint.setText(`✗ 错误（${cues}）  尝试 ${attempts}`).setColor('#ff8c42');
+          Audio.sfx.bad && Audio.sfx.bad();
+          // 5 次失败 → 自动放弃 + 触发轻微警报
+          if (attempts >= 5) {
+            this._triggerAlarm(c.sprite.x, c.sprite.y);
+            this.time.delayedCall(450, () => close(false));
+          }
+        }
+      } else if (event.code === 'Escape') {
+        close(false);
+      }
+    };
+    const cleanupKeys = () => { window.removeEventListener('keydown', keyHandler); };
+    window.addEventListener('keydown', keyHandler);
+  }
+
+
 
   // ============================================================
   //  互动 / 对话系统

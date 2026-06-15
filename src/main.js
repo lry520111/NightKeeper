@@ -2,6 +2,7 @@
 import Phaser from 'phaser';
 import BootScene from './scenes/BootScene.js';
 import TitleScene from './scenes/TitleScene.js';
+import IntroScene from './scenes/IntroScene.js';
 import HubScene from './scenes/HubScene.js';
 import ContractScene from './scenes/ContractScene.js';
 import VaultScene from './scenes/VaultScene.js';
@@ -34,6 +35,7 @@ const config = {
   scene: [
     BootScene,
     TitleScene,
+    IntroScene,
     HubScene,
     ContractScene,
     VaultScene,

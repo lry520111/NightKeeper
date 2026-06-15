@@ -29,6 +29,8 @@ function emptyState() {
     ownedTools: STARTER_TOOLS.slice(),
     // 装备槽：head / feet / tool / sub
     loadout: { head: null, feet: 'silent_shoes', tool: null, sub: null },
+    // 安全箱：从仓库预选 1 件文物 ID（失败不丢）
+    safeBox: null,
     // 当前接取的委托对象（结构见 contracts.js）
     activeContract: null,
     // 已完成委托 ID 列表
@@ -51,6 +53,7 @@ function safeParse(raw) {
       vault: Array.isArray(obj.vault) ? obj.vault : [],
       ownedTools: Array.isArray(obj.ownedTools) ? obj.ownedTools : base.ownedTools,
       loadout: Object.assign({ head: null, feet: null, tool: null, sub: null }, obj.loadout || {}),
+      safeBox: typeof obj.safeBox === 'string' ? obj.safeBox : null,
       activeContract: obj.activeContract || null,
       completedContracts: Array.isArray(obj.completedContracts) ? obj.completedContracts : [],
       contractPool: Array.isArray(obj.contractPool) ? obj.contractPool : null,
@@ -131,6 +134,26 @@ export const SaveData = {
     s.gold += gold;
     save(s);
     return gold;
+  },
+
+  // —— 安全箱 （存仓库中的一件文物 ID，失败不丢）——
+  getSafeBox() {
+    const s = load();
+    if (!s.safeBox) return null;
+    // 返回仓库里该 ID 的实例（取第一个匹配）
+    return s.vault.find((v) => v.id === s.safeBox) || null;
+  },
+
+  /** 设置安全箱预选：itemId = 仓库中某文物的 id；null = 清空 */
+  setSafeBox(itemId) {
+    const s = load();
+    if (itemId !== null) {
+      const exists = s.vault.some((v) => v.id === itemId);
+      if (!exists) return false;
+    }
+    s.safeBox = itemId;
+    save(s);
+    return true;
   },
 
   // —— 工具 / 配装 ——

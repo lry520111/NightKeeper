@@ -8,7 +8,7 @@ import { RELICS } from './relics.js';
 const PATRONS = {
   collector: { name: '苏老爷', tag: '私人藏家', avatar: '🎩', color: '#d4af37' },
   scholar:   { name: '陆教授', tag: '考古学者', avatar: '📜', color: '#7ae8e8' },
-  syndicate: { name: '黑面客', tag: '盗墓盟',   avatar: '🃏', color: '#c084fc' }
+  syndicate: { name: '黑面客', tag: '黑市掠客',   avatar: '🃏', color: '#c084fc' }
 };
 
 /** 模板池。生成时会按 daySeed 随机抽取并填充参数。 */
@@ -16,12 +16,12 @@ const CONTRACT_TEMPLATES = [
   // —— 私人藏家：要品级 ——
   {
     patron: 'collector',
-    title: '夜里给我一件传世名物',
+    title: '为我追回一件传世名物',
     requirement: { type: 'rarity', rarity: 'legendary', count: 1 },
     goldReward: 320,
     repReward: 2,
     failPenalty: -1,
-    quote: '价钱不是问题，问题是它得在我手上。'
+    quote: '它本就属于这片土地，我只是要让它回来。'
   },
   {
     patron: 'collector',
@@ -41,9 +41,9 @@ const CONTRACT_TEMPLATES = [
     goldReward: 200,
     repReward: 3,
     failPenalty: 0,
-    quote: '我只看一眼，就一眼。然后你想拿回家也无妨。'
+    quote: '它不该躺在别人的保险柜里。'
   },
-  // —— 盗墓盟：高赏金、损声望 ——
+  // —— 黑面客：高赏金、损声望（黑市重购，有伦理争议） ——
   {
     patron: 'syndicate',
     title: '今晚只看价钱',
@@ -51,11 +51,11 @@ const CONTRACT_TEMPLATES = [
     goldReward: 380,
     repReward: -2,
     failPenalty: -1,
-    quote: '别问东西去哪儿，钱货两清。'
+    quote: '货出了黑市，不必问去哪。钱货两清。'
   },
   {
     patron: 'syndicate',
-    title: '清空一柜子',
+    title: '扫荡一柜货',
     requirement: { type: 'count', count: 3 },
     goldReward: 280,
     repReward: -1,

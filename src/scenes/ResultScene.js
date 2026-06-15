@@ -21,7 +21,7 @@ export default class ResultScene extends Phaser.Scene {
 
   init(data) {
     this.payload = Object.assign(
-      { success: false, items: [], value: 0, reason: '' },
+      { success: false, items: [], value: 0, reason: '', bonusGold: 0, bonusRep: 0 },
       data || {}
     );
   }
@@ -30,7 +30,7 @@ export default class ResultScene extends Phaser.Scene {
     Audio.init();
     this.add.rectangle(0, 0, W, H, 0x0a0a0a).setOrigin(0, 0);
 
-    const { success, items, value, reason } = this.payload;
+    const { success, items, value, reason, bonusGold, bonusRep } = this.payload;
 
     // —— 1. 写入 Codex（图鉴）——
     let newDiscoveries = [];
@@ -61,6 +61,13 @@ export default class ResultScene extends Phaser.Scene {
       SaveData.addRep(-1);
     }
 
+    // 额外奖励（容器中拾取的金币 / 声望，无论成败都发放）
+    if (bonusGold) SaveData.addGold(bonusGold);
+    if (bonusRep)  SaveData.addRep(bonusRep);
+
+    // 失败时检查安全箱：文物本来就在仓库里，这里只作为反馈提示
+    const safeBoxRef = (!success) ? SaveData.getSafeBox() : null;
+
     const afterGold = SaveData.getGold();
     const afterRep = SaveData.getRep();
     const goldDelta = afterGold - beforeGold;
@@ -68,7 +75,7 @@ export default class ResultScene extends Phaser.Scene {
 
     // —— 标题 ——
     this.add
-      .text(W / 2, 60, success ? '撤  离  成  功' : '行  动  失  败', {
+      .text(W / 2, 60, success ? '追  回  成  功' : '行  动  失  败', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '32px',
         color: success ? '#d4af37' : '#ff8c42',
@@ -94,7 +101,7 @@ export default class ResultScene extends Phaser.Scene {
             return `${isNew ? '★ ' : '· '}${r.name}（${r.dynasty}）  ¥${r.value}`;
           })
           .join('\n')
-      : '此行空手而归。';
+      : '此行未带回文物。';
     this.add
       .text(W / 2, 180, lines, {
         fontFamily: '"PingFang SC", serif',
@@ -111,6 +118,17 @@ export default class ResultScene extends Phaser.Scene {
           fontFamily: '"PingFang SC", serif',
           fontSize: '13px',
           color: '#7ae8e8'
+        })
+        .setOrigin(0.5);
+    }
+
+    // 安全箱提示（失败时）
+    if (safeBoxRef) {
+      this.add
+        .text(W / 2, 268, `📦 安全箱：【${safeBoxRef.name}】完好无损，仍在仓库。`, {
+          fontFamily: '"PingFang SC", serif',
+          fontSize: '13px',
+          color: '#c084fc'
         })
         .setOrigin(0.5);
     }
