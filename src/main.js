@@ -1,0 +1,32 @@
+// 夜行者：归藏 - 入口
+import Phaser from 'phaser';
+import BootScene from './scenes/BootScene.js';
+import TitleScene from './scenes/TitleScene.js';
+import MuseumScene from './scenes/MuseumScene.js';
+
+const config = {
+  type: Phaser.AUTO,
+  parent: 'game-root',
+  backgroundColor: '#0a0a0a',
+  // 像素游戏关键设置
+  pixelArt: true,
+  antialias: false,
+  roundPixels: true,
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: 960,
+    height: 540
+  },
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { x: 0, y: 0 },
+      debug: false
+    }
+  },
+  scene: [BootScene, TitleScene, MuseumScene]
+};
+
+// eslint-disable-next-line no-new
+new Phaser.Game(config);
