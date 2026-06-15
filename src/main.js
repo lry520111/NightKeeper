@@ -12,6 +12,7 @@ import ResultScene from './scenes/ResultScene.js';
 import CodexScene from './scenes/CodexScene.js';
 import DialogScene from './scenes/DialogScene.js';
 import EndingScene from './scenes/EndingScene.js';
+import EndingPreviewScene from './scenes/EndingPreviewScene.js';
 import SaveSlotsScene from './scenes/SaveSlotsScene.js';
 
 const config = {
@@ -51,6 +52,7 @@ const config = {
     CodexScene,
     DialogScene,
     EndingScene,
+    EndingPreviewScene,
     SaveSlotsScene
   ]
 };

@@ -110,10 +110,21 @@ export default class TitleScene extends Phaser.Scene {
         label: '［ 重看序章 ］',
         size: '13px',
         color: '#7a6228',
-        gapBelow: 0,
+        gapBelow: 24,
         onClick: () => {
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('IntroScene'));
+        }
+      },
+      {
+        // 开发期 / 演示期工具：直接预览 4 种结局而无需真的通关
+        label: '［ 结局预览 · 开发 ］',
+        size: '12px',
+        color: '#5a4a20',
+        gapBelow: 0,
+        onClick: () => {
+          this.cameras.main.fadeOut(300, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('EndingPreviewScene'));
         }
       }
     ];

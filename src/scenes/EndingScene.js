@@ -14,6 +14,7 @@ import Phaser from 'phaser';
 import SaveData from '../systems/SaveData.js';
 import Audio from '../systems/AudioFx.js';
 import LLM from '../systems/LLM.js';
+import { RELICS } from '../data/relics.js';
 import {
   getEndingMeta,
   markEndingSeen,
@@ -28,18 +29,28 @@ export default class EndingScene extends Phaser.Scene {
 
   init(data) {
     this.endingId = (data && data.endingId) || 'gui_cang';
+    // 预览模式：从 EndingPreviewScene 进入；不写存档、不清存档、按钮回到预览菜单
+    this.previewMode = !!(data && data.preview);
+    // 预览模式专用的虚拟统计；让数据条不暴露玩家真实存档
+    this.previewStats = (data && data.stats) || null;
   }
 
   create() {
     Audio.init();
     const meta = getEndingMeta(this.endingId);
     if (!meta) {
-      // 数据非法：直接回 Hub 兜底
-      this.scene.start('HubScene');
+      // 数据非法：直接回 Hub 兜底（预览模式下回到预览菜单）
+      this.scene.start(this.previewMode ? 'EndingPreviewScene' : 'HubScene');
       return;
     }
-    const stats = gatherStatsForEnding();
-    markEndingSeen(this.endingId);
+    // 预览模式使用一组与该结局触发条件相符的「展示用数据」，不读真实存档
+    const stats = this.previewMode
+      ? (this.previewStats || this._buildPreviewStats(this.endingId))
+      : gatherStatsForEnding();
+    // 仅在正式触发时写入存档；预览不污染存档
+    if (!this.previewMode) {
+      markEndingSeen(this.endingId);
+    }
 
     const colorNum = Phaser.Display.Color.HexStringToColor(meta.color).color;
 
@@ -114,8 +125,8 @@ export default class EndingScene extends Phaser.Scene {
     // 异步加载独白
     LLM.call({
       scenario: 'ending_monologue',
-      cacheKey: `ending_${this.endingId}`,
-      context: { ending: meta, stats },
+      cacheKey: `ending_${this.endingId}${this.previewMode ? '_preview' : ''}`,
+      context: { ending: meta, stats, preview: this.previewMode },
       fallback: meta.fallback
     }).then((res) => {
       if (this.monologue && this.monologue.active) {
@@ -123,7 +134,47 @@ export default class EndingScene extends Phaser.Scene {
       }
     }).catch(() => { /* 已在 LLM 内做兜底 */ });
 
-    // 底部按钮：回到博物馆 / 重启周目
+    // —— 底部按钮 —— //
+    // 正式模式：回到博物馆 / 开启新周目
+    // 预览模式：返回预览菜单 / 切换上一个 / 下一个 结局（避免误清存档）
+    if (this.previewMode) {
+      this._buildPreviewButtons(colorNum);
+    } else {
+      this._buildEndingButtons();
+    }
+
+    // 渐入
+    this.cameras.main.fadeIn(800, 0, 0, 0);
+
+    // 关键提示（小字）
+    const footerText = this.previewMode
+      ? '— 预览模式：以下数据为示意，不会写入存档 —'
+      : '— 你的旅程仍可继续。所有结局共存于这一座馆。 —';
+    this.add
+      .text(W / 2, H - 22, footerText, {
+        fontFamily: '"PingFang SC", serif',
+        fontSize: '11px',
+        color: this.previewMode ? '#7a6228' : '#3d3520'
+      })
+      .setOrigin(0.5);
+
+    // 预览角标（右上角，提示当前是预览态）
+    if (this.previewMode) {
+      this.add
+        .text(W - 16, 16, 'PREVIEW', {
+          fontFamily: 'Georgia, serif',
+          fontSize: '11px',
+          color: '#1a1208',
+          backgroundColor: '#d4af37',
+          padding: { x: 8, y: 3 }
+        })
+        .setOrigin(1, 0)
+        .setResolution(2);
+    }
+  }
+
+  // —— 正式触发：回博物馆 / 开新周目 —— //
+  _buildEndingButtons() {
     const btnBack = this.add
       .text(W / 2 - 110, H - 90, '［ 回到博物馆 ］', {
         fontFamily: '"PingFang SC", serif',
@@ -158,24 +209,73 @@ export default class EndingScene extends Phaser.Scene {
     btnRestart.on('pointerout', () => btnRestart.setBackgroundColor('#1f1230'));
     btnRestart.on('pointerdown', () => {
       Audio.sfx.click && Audio.sfx.click();
-      // 保留 Codex 与图鉴解锁，但清掉 SaveData
       SaveData.reset();
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('TitleScene'));
     });
 
     this.tweens.add({ targets: [btnBack, btnRestart], alpha: 1, duration: 800, delay: 1800 });
+  }
 
-    // 渐入
-    this.cameras.main.fadeIn(800, 0, 0, 0);
+  // —— 预览模式：上一个 / 返回菜单 / 下一个 —— //
+  _buildPreviewButtons() {
+    const order = ['gui_cang', 'tie_wan', 'shi_kuai', 'ye_xing_zhe'];
+    const idx = Math.max(0, order.indexOf(this.endingId));
+    const prev = order[(idx - 1 + order.length) % order.length];
+    const next = order[(idx + 1) % order.length];
 
-    // 关键提示（小字）
-    this.add
-      .text(W / 2, H - 22, '— 你的旅程仍可继续。所有结局共存于这一座馆。 —', {
-        fontFamily: '"PingFang SC", serif',
-        fontSize: '11px',
-        color: '#3d3520'
-      })
-      .setOrigin(0.5);
+    const makeBtn = (x, label, bg, hoverBg, onClick) => {
+      const btn = this.add
+        .text(x, H - 90, label, {
+          fontFamily: '"PingFang SC", serif',
+          fontSize: '15px',
+          color: '#fff3b8',
+          backgroundColor: bg,
+          padding: { x: 12, y: 8 }
+        })
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true })
+        .setAlpha(0);
+      btn.on('pointerover', () => btn.setBackgroundColor(hoverBg));
+      btn.on('pointerout', () => btn.setBackgroundColor(bg));
+      btn.on('pointerdown', () => {
+        Audio.sfx.click && Audio.sfx.click();
+        onClick();
+      });
+      return btn;
+    };
+
+    const goPreview = (id) => {
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('EndingScene', { endingId: id, preview: true });
+      });
+    };
+
+    const btnPrev = makeBtn(W / 2 - 200, '◀ 上一个', '#2a2218', '#4a3a26', () => goPreview(prev));
+    const btnBack = makeBtn(W / 2, '［ 返回结局菜单 ］', '#3a2814', '#5a3e1c', () => {
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('EndingPreviewScene'));
+    });
+    const btnNext = makeBtn(W / 2 + 200, '下一个 ▶', '#2a2218', '#4a3a26', () => goPreview(next));
+
+    this.tweens.add({ targets: [btnPrev, btnBack, btnNext], alpha: 1, duration: 800, delay: 1800 });
+  }
+
+  // —— 给预览模式构造一组与结局触发条件相符的展示数据 —— //
+  _buildPreviewStats(id) {
+    const total = (RELICS && RELICS.length) || 8;
+    switch (id) {
+      case 'gui_cang':
+        return { relicsCollected: 7, relicsTotal: total, totalKills: 0, totalAlerts: 4, totalGhostRuns: 5, totalSpent: 820, runsSuccess: 9, runsTotal: 10 };
+      case 'tie_wan':
+        return { relicsCollected: 6, relicsTotal: total, totalKills: 12, totalAlerts: 18, totalGhostRuns: 0, totalSpent: 600, runsSuccess: 8, runsTotal: 12 };
+      case 'shi_kuai':
+        return { relicsCollected: 3, relicsTotal: total, totalKills: 4, totalAlerts: 9, totalGhostRuns: 1, totalSpent: 1820, runsSuccess: 5, runsTotal: 9 };
+      case 'ye_xing_zhe':
+        return { relicsCollected: 8, relicsTotal: total, totalKills: 0, totalAlerts: 0, totalGhostRuns: 6, totalSpent: 540, runsSuccess: 8, runsTotal: 8 };
+      default:
+        return { relicsCollected: 0, relicsTotal: total, totalKills: 0, totalAlerts: 0, totalGhostRuns: 0, totalSpent: 0, runsSuccess: 0, runsTotal: 0 };
+    }
   }
 }
