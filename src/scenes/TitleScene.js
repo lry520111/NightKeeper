@@ -48,7 +48,7 @@ export default class TitleScene extends Phaser.Scene {
 
     // 开始按钮
     const startBtn = this.add
-      .text(width / 2, height / 2 + 110, '［ 进入博物馆 ］', {
+      .text(width / 2, height / 2 + 110, '［ 开始夜行 ］', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '22px',
         color: '#e8d27a'
@@ -63,7 +63,7 @@ export default class TitleScene extends Phaser.Scene {
       Audio.sfx.click();
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('MuseumScene');
+        this.scene.start('HubScene');
       });
     });
 
@@ -103,7 +103,7 @@ export default class TitleScene extends Phaser.Scene {
 
     // 底部说明
     this.add
-      .text(width / 2, height - 50, '方向键 / WASD 移动 ·  Shift 潜行 ·  E 拾取 / 撤离', {
+      .text(width / 2, height - 50, '行动前室接委托·配装·出击·归藏', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '13px',
         color: '#6b5824'

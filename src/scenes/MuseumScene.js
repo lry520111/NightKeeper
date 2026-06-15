@@ -8,6 +8,7 @@ import { generateLevel } from '../systems/LevelGenerator.js';
 import Codex from '../systems/Codex.js';
 import Audio from '../systems/AudioFx.js';
 import AICompanion, { quipForPickup } from '../systems/AICompanion.js';
+import SaveData from '../systems/SaveData.js';
 
 const TILE = 32;
 const MAP_W = 30; // 30 * 32 = 960
@@ -186,8 +187,11 @@ export default class MuseumScene extends Phaser.Scene {
     // —— 9. HUD ——
     this.createHUD();
 
-    // —— 10. 倒计时（180 秒撤离时限） ——
-    this.timeLeft = 180;
+    // —— 装备效果：在所有依赖前提前解析一次 ——
+    this._loadoutEff = SaveData.resolveEffects();
+
+    // —— 10. 倒计时（180 秒撤离时限；信标可缩短） ——
+    this.timeLeft = Math.round(180 * (this._loadoutEff.extractCdMul || 1));
     this.time.addEvent({
       delay: 1000,
       loop: true,
@@ -446,6 +450,12 @@ export default class MuseumScene extends Phaser.Scene {
 
     // 2. 玩家近身环境光（小圆，始终亮）
     this.eraseAt(rt, 'tex_light_sm', px, py);
+
+    // 2.5 夜视镜：在玩家中心叠加一圈较大的光，整体提亮
+    if (this._loadoutEff && this._loadoutEff.visionBonus > 0) {
+      // 用大光圈再擦一次，alpha 由 visionBonus 决定（0.45 → 中等亮度）
+      this.eraseAt(rt, 'tex_light_lg', px, py);
+    }
 
     // 3. 朝向光锥（鼠标方向延伸的大光晕）
     const coneKey = isSneak ? 'tex_light_sm' : 'tex_light_lg';
@@ -1117,147 +1127,14 @@ export default class MuseumScene extends Phaser.Scene {
     else Audio.sfx.fail();
 
     this.physics.pause();
-    this.add.rectangle(0, 0, 960, 540, 0x000000, 0.88)
-      .setOrigin(0, 0).setDepth(200).setScrollFactor(0);
-    const title = success ? '撤　离　成　功' : '行　动　失　败';
-    const titleColor = success ? '#d4af37' : '#ff6b6b';
 
-    this.add
-      .text(480, 180, title, {
-        fontFamily: '"PingFang SC", serif',
-        fontSize: '40px',
-        color: titleColor,
-        fontStyle: 'bold'
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(201);
-
-    if (reason) {
-      this.add
-        .text(480, 230, reason, {
-          fontFamily: '"PingFang SC", serif',
-          fontSize: '14px',
-          color: '#a08434'
-        })
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(201);
-    }
-
+    // —— 交给 ResultScene 统一结算（金币 / 仓库 / 委托 / 图鉴） ——
     const items = this.inventory.list();
-    // —— 入库：记录撤离结果到 Codex（只有成功时文物才会被收入仓库） ——
-    let newDiscoveries = [];
-    if (success) {
-      // 记录前快照"已发现"集合，差集即为本局新发现
-      const beforeSet = new Set(Codex.discoveredIds());
-      Codex.recordRun({
-        success: true,
-        items,
-        value: this.inventory.totalValue()
-      });
-      newDiscoveries = items.filter((r) => r && r.id && !beforeSet.has(r.id));
-    } else {
-      Codex.recordRun({ success: false });
-    }
-
-    const lines = items.length
-      ? items
-          .map((r) => {
-            const isNew = newDiscoveries.some((n) => n.id === r.id);
-            return `${isNew ? '★ ' : '· '}${r.name}（${r.dynasty}）  ¥${r.value}`;
-          })
-          .join('\n')
-      : '此行空手而归。';
-    this.add
-      .text(480, 320, lines, {
-        fontFamily: '"PingFang SC", serif',
-        fontSize: '15px',
-        color: '#e8d27a',
-        align: 'center',
-        lineSpacing: 6
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(201);
-
-    if (success && items.length) {
-      this.add
-        .text(480, 410, `合计价值：¥ ${this.inventory.totalValue()}`, {
-          fontFamily: 'Georgia, serif',
-          fontSize: '20px',
-          color: '#d4af37',
-          fontStyle: 'bold'
-        })
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(201);
-
-      // "新发现"提示（图鉴解锁感）
-      if (newDiscoveries.length) {
-        this.add
-          .text(
-            480,
-            438,
-            `★ 新入仓库 ${newDiscoveries.length} 件 · 仓库累计 ${Codex.discoveredIds().length} / ${RELICS.length}`,
-            {
-              fontFamily: '"PingFang SC", serif',
-              fontSize: '13px',
-              color: '#7ae8e8'
-            }
-          )
-          .setOrigin(0.5)
-          .setScrollFactor(0)
-          .setDepth(201);
-      }
-    }
-
-    const btn = this.add
-      .text(380, 470, '［ 再来一局 ］', {
-        fontFamily: '"PingFang SC", serif',
-        fontSize: '20px',
-        color: '#e8d27a'
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(201)
-      .setInteractive({ useHandCursor: true });
-    btn.on('pointerover', () => btn.setColor('#fff3b8'));
-    btn.on('pointerout', () => btn.setColor('#e8d27a'));
-    btn.on('pointerdown', () => {
-      this._ended = false;
-      this.scene.restart();
+    const value = this.inventory.totalValue();
+    this.cameras.main.fadeOut(450, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('ResultScene', { success, items, value, reason });
     });
-
-    const btn2 = this.add
-      .text(580, 470, '［ 回到标题 ］', {
-        fontFamily: '"PingFang SC", serif',
-        fontSize: '20px',
-        color: '#a08434'
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(201)
-      .setInteractive({ useHandCursor: true });
-    btn2.on('pointerover', () => btn2.setColor('#fff3b8'));
-    btn2.on('pointerout', () => btn2.setColor('#a08434'));
-    btn2.on('pointerdown', () => {
-      this._ended = false;
-      this.scene.start('TitleScene');
-    });
-
-    // 关卡种子（小字，便于复现 / 分享）
-    if (this._level && typeof this._level.seed === 'number') {
-      this.add
-        .text(480, 510, `关卡种子：${this._level.seed.toString(16).padStart(8, '0')}`, {
-          fontFamily: 'Georgia, serif',
-          fontSize: '11px',
-          color: '#6b5824'
-        })
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(201);
-    }
   }
 
   // ============================================================

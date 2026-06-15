@@ -34,6 +34,10 @@ export default class CodexScene extends Phaser.Scene {
     super('CodexScene');
   }
 
+  init(data) {
+    this._returnTo = (data && data.returnTo) || 'TitleScene';
+  }
+
   create() {
     Audio.init();
     const { width, height } = this.scale;
@@ -124,10 +128,10 @@ export default class CodexScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     backBtn.on('pointerover', () => backBtn.setColor('#fff3b8'));
     backBtn.on('pointerout', () => backBtn.setColor('#e8d27a'));
-    backBtn.on('pointerdown', () => { Audio.sfx.click(); this.scene.start('TitleScene'); });
+    backBtn.on('pointerdown', () => { Audio.sfx.click(); this.scene.start(this._returnTo || 'TitleScene'); });
 
     // ESC 也可返回
-    this.input.keyboard.once('keydown-ESC', () => this.scene.start('TitleScene'));
+    this.input.keyboard.once('keydown-ESC', () => this.scene.start(this._returnTo || 'TitleScene'));
 
     // —— 滚动提示 ——
     if (this._scrollMin < 0) {

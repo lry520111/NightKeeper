@@ -2,7 +2,12 @@
 import Phaser from 'phaser';
 import BootScene from './scenes/BootScene.js';
 import TitleScene from './scenes/TitleScene.js';
+import HubScene from './scenes/HubScene.js';
+import ContractScene from './scenes/ContractScene.js';
+import VaultScene from './scenes/VaultScene.js';
+import LoadoutScene from './scenes/LoadoutScene.js';
 import MuseumScene from './scenes/MuseumScene.js';
+import ResultScene from './scenes/ResultScene.js';
 import CodexScene from './scenes/CodexScene.js';
 
 const config = {
@@ -26,7 +31,17 @@ const config = {
       debug: false
     }
   },
-  scene: [BootScene, TitleScene, MuseumScene, CodexScene]
+  scene: [
+    BootScene,
+    TitleScene,
+    HubScene,
+    ContractScene,
+    VaultScene,
+    LoadoutScene,
+    MuseumScene,
+    ResultScene,
+    CodexScene
+  ]
 };
 
 // eslint-disable-next-line no-new
