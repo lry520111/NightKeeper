@@ -10,6 +10,7 @@ import LoadoutScene from './scenes/LoadoutScene.js';
 import MuseumScene from './scenes/MuseumScene.js';
 import ResultScene from './scenes/ResultScene.js';
 import CodexScene from './scenes/CodexScene.js';
+import DialogScene from './scenes/DialogScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -42,7 +43,8 @@ const config = {
     LoadoutScene,
     MuseumScene,
     ResultScene,
-    CodexScene
+    CodexScene,
+    DialogScene
   ]
 };
 

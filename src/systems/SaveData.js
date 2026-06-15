@@ -37,7 +37,9 @@ function emptyState() {
     completedContracts: [],
     // 已刷新出来的可接委托池（用 daySeed 控制每"天"刷新一次）
     contractPool: null,
-    contractPoolDay: -1
+    contractPoolDay: -1,
+    // 通用 flag 池（馆长是否见过、上次行动结果等剧情/UI 状态）
+    flags: {}
   };
 }
 
@@ -57,7 +59,8 @@ function safeParse(raw) {
       activeContract: obj.activeContract || null,
       completedContracts: Array.isArray(obj.completedContracts) ? obj.completedContracts : [],
       contractPool: Array.isArray(obj.contractPool) ? obj.contractPool : null,
-      contractPoolDay: typeof obj.contractPoolDay === 'number' ? obj.contractPoolDay : -1
+      contractPoolDay: typeof obj.contractPoolDay === 'number' ? obj.contractPoolDay : -1,
+      flags: obj.flags && typeof obj.flags === 'object' ? obj.flags : {}
     };
   } catch {
     return emptyState();
@@ -292,6 +295,18 @@ export const SaveData = {
     if (typeof localStorage !== 'undefined') {
       try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
     }
+  },
+
+  // —— flag：通用标记位（剧情/UI 状态） ——
+  getFlag(key, fallback = null) {
+    const s = load();
+    return s.flags && key in s.flags ? s.flags[key] : fallback;
+  },
+  setFlag(key, value) {
+    const s = load();
+    s.flags = s.flags || {};
+    s.flags[key] = value;
+    save(s);
   }
 };
 

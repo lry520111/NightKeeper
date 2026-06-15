@@ -68,6 +68,15 @@ export default class ResultScene extends Phaser.Scene {
     // 失败时检查安全箱：文物本来就在仓库里，这里只作为反馈提示
     const safeBoxRef = (!success) ? SaveData.getSafeBox() : null;
 
+    // —— 给 Hub 馆长 NPC 留个 flag，便于其根据上一次结果说不同的台词 ——
+    SaveData.setFlag('lastRunResult', {
+      success: !!success,
+      met: contractResult ? !!contractResult.met : null,
+      itemsCount: Array.isArray(items) ? items.length : 0,
+      contractTitle: activeContract ? activeContract.title : null,
+      at: Date.now()
+    });
+
     const afterGold = SaveData.getGold();
     const afterRep = SaveData.getRep();
     const goldDelta = afterGold - beforeGold;

@@ -8,7 +8,27 @@ export default class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // 暂无外部素材
+    // —— LimeZu Modern Interiors 角色 sprite sheet ——
+    // idle_anim：每方向 4 帧，4 方向横向排列 → 16 帧 × 16x16
+    // run：每方向 6 帧，4 方向横向排列 → 24 帧 × 16x16
+    // 朝向顺序（LimeZu 标准）：下 0-?, 上, 右, 左
+    const charDir = 'assets/characters/Characters_free/';
+    this.load.spritesheet('lz_adam_idle', charDir + 'Adam_idle_anim_16x16.png', {
+      frameWidth: 16,
+      frameHeight: 32
+    });
+    this.load.spritesheet('lz_adam_run', charDir + 'Adam_run_16x16.png', {
+      frameWidth: 16,
+      frameHeight: 32
+    });
+    this.load.spritesheet('lz_amelia_idle', charDir + 'Amelia_idle_anim_16x16.png', {
+      frameWidth: 16,
+      frameHeight: 32
+    });
+    this.load.spritesheet('lz_alex_idle', charDir + 'Alex_idle_anim_16x16.png', {
+      frameWidth: 16,
+      frameHeight: 32
+    });
   }
 
   create() {
@@ -67,6 +87,9 @@ export default class BootScene extends Phaser.Scene {
     this.makeGlowRingTexture();     // 撤离门光环
     this.makeFootstepTexture();     // 脚印拖痕
     this.makeVignetteTexture();     // 屏幕暗角（周边压暗）
+
+    // —— 注册 LimeZu 角色动画（供 HubScene/对话使用）——
+    this.registerLZAnims();
 
     this.scene.start('TitleScene');
   }
@@ -1068,5 +1091,54 @@ export default class BootScene extends Phaser.Scene {
       ctx.fillRect(8, 9, 1, 1);
       ctx.fillRect(7, 10, 1, 1);
     });
+  }
+
+  // ——————————— LimeZu 角色动画注册 ———————————
+  // LimeZu Modern Interiors 标准帧布局：每条 24 帧，每方向 6 帧
+  //   方向顺序：down(0-5) / up(6-11) / right(12-17) / left(18-23)
+  // idle_anim 也是 24 帧，每方向 6 帧的呼吸
+  registerLZAnims() {
+    const dirs = [
+      { name: 'down',  base: 0 },
+      { name: 'up',    base: 6 },
+      { name: 'right', base: 12 },
+      { name: 'left',  base: 18 }
+    ];
+    const chars = ['adam', 'amelia', 'alex'];
+    for (const ch of chars) {
+      const idleKey = `lz_${ch}_idle`;
+      // 部分角色没加载 run，只 adam 有
+      const hasRun = this.textures.exists(`lz_${ch}_run`);
+      for (const d of dirs) {
+        // idle
+        const idleAnim = `${ch}_idle_${d.name}`;
+        if (!this.anims.exists(idleAnim)) {
+          this.anims.create({
+            key: idleAnim,
+            frames: this.anims.generateFrameNumbers(idleKey, {
+              start: d.base,
+              end: d.base + 5
+            }),
+            frameRate: 6,
+            repeat: -1
+          });
+        }
+        // run
+        if (hasRun) {
+          const runAnim = `${ch}_run_${d.name}`;
+          if (!this.anims.exists(runAnim)) {
+            this.anims.create({
+              key: runAnim,
+              frames: this.anims.generateFrameNumbers(`lz_${ch}_run`, {
+                start: d.base,
+                end: d.base + 5
+              }),
+              frameRate: 12,
+              repeat: -1
+            });
+          }
+        }
+      }
+    }
   }
 }
