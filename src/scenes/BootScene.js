@@ -37,6 +37,11 @@ export default class BootScene extends Phaser.Scene {
     this.makePlayerWalkTexture();    // 玩家行走第二帧（双腿换位）
     this.makeGuardTexture();
     this.makeGuardWalkTexture();     // 守卫行走第二帧
+    // 黑市打手 / 走私船船员
+    this.makeGuardThug();
+    this.makeGuardThugWalk();
+    this.makeGuardSailor();
+    this.makeGuardSailorWalk();
     this.makeExitTexture();
     this.makeWallTexture();
     this.makeWallTopTexture();   // 墙顶（带瓦片纹理）
@@ -49,6 +54,12 @@ export default class BootScene extends Phaser.Scene {
     this.makeBlackmarketFloor();
     this.makeBlackmarketFloorA();
     this.makeBlackmarketFloorB();
+    // 走私船 biome 专用贴图
+    this.makeShipWall();
+    this.makeShipWallTop();
+    this.makeShipFloor();
+    this.makeShipFloorA();
+    this.makeShipFloorB();
     this.makeCarpetTexture();    // 红地毯（撤离前导引）
     this.makeDisplayCaseTexture();
 
@@ -771,6 +782,317 @@ export default class BootScene extends Phaser.Scene {
       // 下水道中心点
       ctx.fillStyle = '#5a3070';
       ctx.fillRect(15, 15, 2, 2);
+    });
+  }
+
+  // ——————————— 走私船 biome ———————————
+
+  // 走私船墙：铆钉钢板 + 锈蚀
+  makeShipWall() {
+    this.makeCanvasTexture('tex_wall_sp', 32, 32, (ctx) => {
+      // 底色：海军灰
+      ctx.fillStyle = '#1a2a38';
+      ctx.fillRect(0, 0, 32, 32);
+      // 钢板拼接缝（横竖）
+      ctx.fillStyle = '#0a1420';
+      ctx.fillRect(0, 0, 32, 1);
+      ctx.fillRect(0, 16, 32, 1);
+      ctx.fillRect(0, 31, 32, 1);
+      ctx.fillRect(0, 0, 1, 32);
+      ctx.fillRect(31, 0, 1, 32);
+      // 铆钉（六颗）
+      ctx.fillStyle = '#6a8aa8';
+      ctx.fillRect(3, 3, 2, 2);
+      ctx.fillRect(27, 3, 2, 2);
+      ctx.fillRect(3, 19, 2, 2);
+      ctx.fillRect(27, 19, 2, 2);
+      ctx.fillRect(15, 11, 2, 2);
+      ctx.fillRect(15, 27, 2, 2);
+      // 铆钉高光
+      ctx.fillStyle = '#a8c8e8';
+      ctx.fillRect(3, 3, 1, 1);
+      ctx.fillRect(27, 3, 1, 1);
+      ctx.fillRect(3, 19, 1, 1);
+      ctx.fillRect(27, 19, 1, 1);
+      ctx.fillRect(15, 11, 1, 1);
+      ctx.fillRect(15, 27, 1, 1);
+      // 锈蚀斑
+      ctx.fillStyle = '#5a3018';
+      ctx.fillRect(9, 7, 3, 1);
+      ctx.fillRect(20, 22, 4, 1);
+      ctx.fillRect(11, 25, 2, 1);
+      // 顶部高光
+      ctx.fillStyle = '#2c4258';
+      ctx.fillRect(1, 1, 30, 1);
+      ctx.fillRect(1, 17, 30, 1);
+    });
+  }
+
+  // 走私船墙顶：钢板甲板 + 缆绳
+  makeShipWallTop() {
+    this.makeCanvasTexture('tex_wall_sp_top', 32, 32, (ctx) => {
+      // 顶部缆绳暗槽
+      ctx.fillStyle = '#0a1420';
+      ctx.fillRect(0, 0, 32, 5);
+      // 缆绳金属环
+      ctx.fillStyle = '#6a8aa8';
+      ctx.fillRect(2, 1, 2, 2);
+      ctx.fillRect(14, 1, 2, 2);
+      ctx.fillRect(28, 1, 2, 2);
+      // 缆绳本体（褐绳）
+      ctx.fillStyle = '#7a5a30';
+      ctx.fillRect(0, 3, 32, 1);
+      ctx.fillStyle = '#a88848';
+      ctx.fillRect(0, 2, 32, 1);
+      // 主体钢板
+      ctx.fillStyle = '#1a2a38';
+      ctx.fillRect(0, 5, 32, 27);
+      // 拼接缝
+      ctx.fillStyle = '#0a1420';
+      ctx.fillRect(0, 18, 32, 1);
+      ctx.fillRect(15, 5, 1, 13);
+      ctx.fillRect(0, 31, 32, 1);
+      // 高光
+      ctx.fillStyle = '#2c4258';
+      ctx.fillRect(1, 6, 14, 1);
+      ctx.fillRect(17, 6, 14, 1);
+      ctx.fillRect(1, 19, 30, 1);
+      // 锈斑
+      ctx.fillStyle = '#5a3018';
+      ctx.fillRect(8, 12, 2, 1);
+      ctx.fillRect(22, 24, 3, 1);
+    });
+  }
+
+  // 走私船地板：木甲板（深棕橫纹）
+  makeShipFloor() {
+    this.makeCanvasTexture('tex_floor_sp', 32, 32, (ctx) => {
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(0, 0, 32, 32);
+      // 三块横向甲板
+      ctx.fillStyle = '#1a1208';
+      ctx.fillRect(0, 10, 32, 1);
+      ctx.fillRect(0, 21, 32, 1);
+      // 木纹高光
+      ctx.fillStyle = '#5a4028';
+      ctx.fillRect(0, 0, 32, 1);
+      ctx.fillRect(0, 11, 32, 1);
+      ctx.fillRect(0, 22, 32, 1);
+      // 木板纹理（轻随机）
+      ctx.fillStyle = '#2a1c10';
+      ctx.fillRect(5, 4, 8, 1);
+      ctx.fillRect(18, 14, 10, 1);
+      ctx.fillRect(7, 26, 6, 1);
+      ctx.fillRect(20, 28, 8, 1);
+      // 钉子
+      ctx.fillStyle = '#6a8aa8';
+      ctx.fillRect(2, 1, 1, 1);
+      ctx.fillRect(29, 12, 1, 1);
+      ctx.fillRect(15, 23, 1, 1);
+    });
+  }
+
+  // 走私船地板变体A：水渍 + 海盐
+  makeShipFloorA() {
+    this.makeCanvasTexture('tex_floor_sp_a', 32, 32, (ctx) => {
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(0, 0, 32, 32);
+      ctx.fillStyle = '#1a1208';
+      ctx.fillRect(0, 10, 32, 1);
+      ctx.fillRect(0, 21, 32, 1);
+      ctx.fillStyle = '#5a4028';
+      ctx.fillRect(0, 0, 32, 1);
+      ctx.fillRect(0, 11, 32, 1);
+      // 大片水渍（深蓝）
+      ctx.fillStyle = '#1a384a';
+      ctx.fillRect(8, 13, 12, 6);
+      ctx.fillRect(10, 12, 8, 1);
+      ctx.fillRect(10, 19, 8, 1);
+      // 水面反光
+      ctx.fillStyle = '#5a8aa8';
+      ctx.fillRect(11, 14, 4, 1);
+      ctx.fillRect(13, 17, 5, 1);
+      // 海盐结晶（白点）
+      ctx.fillStyle = '#a8c8e8';
+      ctx.fillRect(3, 26, 1, 1);
+      ctx.fillRect(27, 5, 1, 1);
+      ctx.fillRect(22, 28, 1, 1);
+    });
+  }
+
+  // 走私船地板变体B：散落货箱钉 + 锁链
+  makeShipFloorB() {
+    this.makeCanvasTexture('tex_floor_sp_b', 32, 32, (ctx) => {
+      ctx.fillStyle = '#3a2818';
+      ctx.fillRect(0, 0, 32, 32);
+      ctx.fillStyle = '#1a1208';
+      ctx.fillRect(0, 10, 32, 1);
+      ctx.fillRect(0, 21, 32, 1);
+      ctx.fillStyle = '#5a4028';
+      ctx.fillRect(0, 0, 32, 1);
+      ctx.fillRect(0, 11, 32, 1);
+      // 锁链横穿（金属）
+      ctx.fillStyle = '#6a8aa8';
+      ctx.fillRect(6, 16, 2, 1);
+      ctx.fillRect(9, 16, 2, 1);
+      ctx.fillRect(12, 16, 2, 1);
+      ctx.fillRect(15, 16, 2, 1);
+      ctx.fillRect(18, 16, 2, 1);
+      ctx.fillRect(21, 16, 2, 1);
+      ctx.fillRect(24, 16, 2, 1);
+      // 锁链高光
+      ctx.fillStyle = '#a8c8e8';
+      ctx.fillRect(6, 16, 1, 1);
+      ctx.fillRect(12, 16, 1, 1);
+      ctx.fillRect(18, 16, 1, 1);
+      ctx.fillRect(24, 16, 1, 1);
+      // 散落钉子
+      ctx.fillStyle = '#3a3a3a';
+      ctx.fillRect(4, 5, 1, 2);
+      ctx.fillRect(26, 25, 1, 2);
+    });
+  }
+
+  // ——————————— 敌人样式（黑市打手 / 走私船船员）———————————
+
+  // 黑市打手：黑夹克 + 红头巾 + 凶相
+  makeGuardThug() {
+    this.makeCanvasTexture('tex_guard_thug', 16, 24, (ctx) => {
+      // 红头巾（飘带式）
+      ctx.fillStyle = '#a02020';
+      ctx.fillRect(4, 2, 8, 4);
+      ctx.fillStyle = '#d83838';
+      ctx.fillRect(4, 2, 8, 1);
+      ctx.fillRect(11, 5, 2, 3);   // 飘带
+      // 脸（偏黄）
+      ctx.fillStyle = '#c8a878';
+      ctx.fillRect(5, 5, 6, 3);
+      // 凶眼（细一点）
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(6, 6, 1, 1);
+      ctx.fillRect(9, 6, 1, 1);
+      // 黑夹克
+      ctx.fillStyle = '#181820';
+      ctx.fillRect(3, 8, 10, 10);
+      // 内衬白
+      ctx.fillStyle = '#a8a8b0';
+      ctx.fillRect(7, 8, 2, 3);
+      // 腰带（金扣）
+      ctx.fillStyle = '#3a3a3a';
+      ctx.fillRect(3, 14, 10, 1);
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(7, 14, 2, 1);
+      // 黑裤
+      ctx.fillStyle = '#0a0a14';
+      ctx.fillRect(4, 18, 3, 5);
+      ctx.fillRect(9, 18, 3, 5);
+      // 高光
+      ctx.fillStyle = '#3a3a48';
+      ctx.fillRect(3, 8, 1, 6);
+    });
+  }
+
+  makeGuardThugWalk() {
+    this.makeCanvasTexture('tex_guard_thug_walk', 16, 24, (ctx) => {
+      ctx.fillStyle = '#a02020';
+      ctx.fillRect(4, 1, 8, 4);
+      ctx.fillStyle = '#d83838';
+      ctx.fillRect(4, 1, 8, 1);
+      ctx.fillRect(11, 4, 2, 3);
+      ctx.fillStyle = '#c8a878';
+      ctx.fillRect(5, 4, 6, 3);
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(6, 5, 1, 1);
+      ctx.fillRect(9, 5, 1, 1);
+      ctx.fillStyle = '#181820';
+      ctx.fillRect(3, 7, 10, 10);
+      ctx.fillStyle = '#a8a8b0';
+      ctx.fillRect(7, 7, 2, 3);
+      ctx.fillStyle = '#3a3a3a';
+      ctx.fillRect(3, 13, 10, 1);
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(7, 13, 2, 1);
+      ctx.fillStyle = '#0a0a14';
+      ctx.fillRect(4, 17, 3, 6);
+      ctx.fillRect(9, 17, 3, 4);
+      ctx.fillStyle = '#3a3a48';
+      ctx.fillRect(3, 7, 1, 6);
+    });
+  }
+
+  // 走私船船员：海军蓝 + 水手帽 + 横纹衫
+  makeGuardSailor() {
+    this.makeCanvasTexture('tex_guard_sailor', 16, 24, (ctx) => {
+      // 水手帽（白边蓝顶）
+      ctx.fillStyle = '#1a3a6a';
+      ctx.fillRect(4, 1, 8, 4);
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(3, 4, 10, 1);   // 白色帽檐
+      ctx.fillStyle = '#3a5a8a';
+      ctx.fillRect(4, 1, 8, 1);    // 帽子高光
+      // 红色帽徽
+      ctx.fillStyle = '#d83838';
+      ctx.fillRect(7, 2, 2, 1);
+      // 脸（晒红）
+      ctx.fillStyle = '#d8a878';
+      ctx.fillRect(5, 5, 6, 3);
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(6, 6, 1, 1);
+      ctx.fillRect(9, 6, 1, 1);
+      // 横纹衫（白底蓝纹）
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(3, 8, 10, 10);
+      ctx.fillStyle = '#1a3a6a';
+      ctx.fillRect(3, 9, 10, 1);
+      ctx.fillRect(3, 12, 10, 1);
+      ctx.fillRect(3, 15, 10, 1);
+      // 衣领（V 字）
+      ctx.fillStyle = '#1a3a6a';
+      ctx.fillRect(7, 8, 2, 1);
+      // 腰带
+      ctx.fillStyle = '#3a2418';
+      ctx.fillRect(3, 17, 10, 1);
+      // 蓝裤
+      ctx.fillStyle = '#0a1a3a';
+      ctx.fillRect(4, 18, 3, 5);
+      ctx.fillRect(9, 18, 3, 5);
+      // 高光
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(3, 8, 1, 1);
+    });
+  }
+
+  makeGuardSailorWalk() {
+    this.makeCanvasTexture('tex_guard_sailor_walk', 16, 24, (ctx) => {
+      ctx.fillStyle = '#1a3a6a';
+      ctx.fillRect(4, 0, 8, 4);
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(3, 3, 10, 1);
+      ctx.fillStyle = '#3a5a8a';
+      ctx.fillRect(4, 0, 8, 1);
+      ctx.fillStyle = '#d83838';
+      ctx.fillRect(7, 1, 2, 1);
+      ctx.fillStyle = '#d8a878';
+      ctx.fillRect(5, 4, 6, 3);
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(6, 5, 1, 1);
+      ctx.fillRect(9, 5, 1, 1);
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillRect(3, 7, 10, 10);
+      ctx.fillStyle = '#1a3a6a';
+      ctx.fillRect(3, 8, 10, 1);
+      ctx.fillRect(3, 11, 10, 1);
+      ctx.fillRect(3, 14, 10, 1);
+      ctx.fillStyle = '#1a3a6a';
+      ctx.fillRect(7, 7, 2, 1);
+      ctx.fillStyle = '#3a2418';
+      ctx.fillRect(3, 16, 10, 1);
+      // 腿（反向）
+      ctx.fillStyle = '#0a1a3a';
+      ctx.fillRect(4, 17, 3, 6);
+      ctx.fillRect(9, 17, 3, 4);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(3, 7, 1, 1);
     });
   }
 

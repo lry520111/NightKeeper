@@ -33,10 +33,19 @@ export default class Guard {
   /**
    * @param {Phaser.Scene} scene
    * @param {{x:number,y:number}[]} waypoints  世界坐标
+   * @param {string} [style]  样式 id：'museum' | 'thug' | 'sailor'，决定贴图
    */
-  constructor(scene, waypoints) {
+  constructor(scene, waypoints, style = 'museum') {
     this.scene = scene;
     this.waypoints = waypoints;
+    this.style = style;
+    // 解析对应贴图组（museum 沿用旧 key，保持兼容）
+    this.texIdle = style === 'thug' ? 'tex_guard_thug'
+      : style === 'sailor' ? 'tex_guard_sailor'
+      : 'tex_guard';
+    this.texWalk = style === 'thug' ? 'tex_guard_thug_walk'
+      : style === 'sailor' ? 'tex_guard_sailor_walk'
+      : 'tex_guard_walk';
     this.wpIdx = 0;
     this.alert = 0;
     this.state = 'patrol'; // patrol | suspicious | chase
@@ -62,7 +71,7 @@ export default class Guard {
     this._lastY = 0;
 
     const start = waypoints[0];
-    this.sprite = scene.physics.add.sprite(start.x, start.y, 'tex_guard');
+    this.sprite = scene.physics.add.sprite(start.x, start.y, this.texIdle);
     this.sprite.setCollideWorldBounds(true);
     this.sprite.body.setSize(12, 18).setOffset(2, 4);
     this.sprite.setDepth(5);
@@ -207,13 +216,13 @@ export default class Guard {
       if (this._walkAccum >= stepTime) {
         this._walkAccum = 0;
         this._walkPhase = 1 - this._walkPhase;
-        this.sprite.setTexture(this._walkPhase ? 'tex_guard_walk' : 'tex_guard');
+      this.sprite.setTexture(this._walkPhase ? this.texWalk : this.texIdle);
       }
       this.sprite.setFlipX(Math.cos(this.facing) < 0);
     } else if (this._walkPhase !== 0) {
       this._walkPhase = 0;
       this._walkAccum = 0;
-      this.sprite.setTexture('tex_guard');
+      this.sprite.setTexture(this.texIdle);
     }
   }
 

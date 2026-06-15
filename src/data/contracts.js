@@ -66,6 +66,28 @@ const CONTRACT_TEMPLATES = [
     repReward: -1,
     failPenalty: -1,
     quote: '不挑，全要。'
+  },
+  // —— 黑面客：走私船任务（冷市场重金）——
+  {
+    patron: 'syndicate',
+    biome: 'ship',
+    title: '拦下「沉鲸号」',
+    requirement: { type: 'value', amount: 150 },
+    goldReward: 420,
+    repReward: -1,
+    failPenalty: -1,
+    quote: '那货船今夜在港口，错过就要远退三千里。'
+  },
+  // —— 学者：从走私船送回一件文物 ——
+  {
+    patron: 'scholar',
+    biome: 'ship',
+    title: '船舱下那一口青铜',
+    requirement: { type: 'rarity', rarity: 'epic', count: 1 },
+    goldReward: 260,
+    repReward: 3,
+    failPenalty: -1,
+    quote: '海风咸涩，别让它被运出领海。'
   }
 ];
 
@@ -86,13 +108,13 @@ function mulberry32(seed) {
   };
 }
 
-/** 根据"日期种子"生成今日委托池（3 份） */
-export function generateDailyContracts(daySeed) {
+/** 根据"日期种子"生成今日委托池（默认 4 份，以覆盖多种 biome） */
+export function generateDailyContracts(daySeed, count = 4) {
   const rand = mulberry32(daySeed * 9301 + 49297);
-  // 抽 3 个互不相同的模板
+  // 抽 count 个互不相同的模板
   const idxPool = CONTRACT_TEMPLATES.map((_, i) => i);
   const pick = [];
-  for (let i = 0; i < 3 && idxPool.length; i++) {
+  for (let i = 0; i < count && idxPool.length; i++) {
     const k = Math.floor(rand() * idxPool.length);
     pick.push(idxPool.splice(k, 1)[0]);
   }

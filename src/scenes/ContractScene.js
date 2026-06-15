@@ -89,45 +89,45 @@ export default class ContractScene extends Phaser.Scene {
 
   createCard(c, idx) {
     const x = 60;
-    const y = 100 + idx * 130;
+    const y = 90 + idx * 102;     // 4 张卡片紧凑布局
     const w = 360;
-    const h = 110;
+    const h = 92;
     const bg = this.add.rectangle(x, y, w, h, 0x1a1208).setOrigin(0, 0);
     bg.setStrokeStyle(1, 0x6b5824);
     bg.setInteractive({ useHandCursor: true });
 
     const av = this.add
-      .text(x + 20, y + h / 2, c.patron.avatar, { fontSize: '34px' })
+      .text(x + 20, y + h / 2, c.patron.avatar, { fontSize: '30px' })
       .setOrigin(0.5);
 
-    const title = this.add.text(x + 50, y + 14, c.title, {
+    const title = this.add.text(x + 50, y + 8, c.title, {
       fontFamily: '"PingFang SC", serif',
-      fontSize: '16px',
+      fontSize: '15px',
       color: '#e8d27a',
       fontStyle: 'bold',
       wordWrap: { width: w - 60 }
     });
 
-    const patron = this.add.text(x + 50, y + 42, `${c.patron.name} · ${c.patron.tag}`, {
+    const patron = this.add.text(x + 50, y + 32, `${c.patron.name} · ${c.patron.tag}`, {
       fontFamily: '"PingFang SC", serif',
-      fontSize: '12px',
+      fontSize: '11px',
       color: c.patron.color
     });
 
-    const req = this.add.text(x + 50, y + 60, describeRequirement(c.requirement), {
+    const req = this.add.text(x + 50, y + 48, describeRequirement(c.requirement), {
       fontFamily: '"PingFang SC", serif',
-      fontSize: '12px',
+      fontSize: '11px',
       color: '#a08434',
       wordWrap: { width: w - 60 }
     });
 
     const reward = this.add.text(
       x + 50,
-      y + 82,
+      y + 68,
       `¥${c.goldReward}  ·  声望 ${c.repReward >= 0 ? '+' : ''}${c.repReward}`,
       {
         fontFamily: 'Georgia, serif',
-        fontSize: '13px',
+        fontSize: '12px',
         color: '#d4af37'
       }
     );

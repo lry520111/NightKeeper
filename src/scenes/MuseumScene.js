@@ -289,7 +289,8 @@ export default class MuseumScene extends Phaser.Scene {
         x: p.x * TILE + TILE / 2,
         y: p.y * TILE + TILE / 2
       }));
-      const g = new Guard(this, worldPath);
+      const guardStyle = (this.biome && this.biome.guardStyle) || 'museum';
+      const g = new Guard(this, worldPath, guardStyle);
       g.onStateChange = (newSt, oldSt, guard) => this.onGuardStateChange(newSt, oldSt, guard);
       // 警觉拉满时通知附近同伴一起搜
       g.onAlarm = (caller, radius) => this.notifyNearbyGuards(caller, radius);
