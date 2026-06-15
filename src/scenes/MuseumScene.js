@@ -9,12 +9,13 @@ import Codex from '../systems/Codex.js';
 import Audio from '../systems/AudioFx.js';
 import AICompanion, { quipForPickup } from '../systems/AICompanion.js';
 import SaveData from '../systems/SaveData.js';
+import { getBiome } from '../data/biomes.js';
 
 const TILE = 32;
 const MAP_W = 30; // 30 * 32 = 960
 const MAP_H = 17; // 17 * 32 = 544
 
-// 光照层颜色（接近纯黑、略带紫调，像月夜）
+// 光照层颜色（近似纯黑、略带紫调，像月夜）
 const DARKNESS = 0x05060a;
 
 export default class MuseumScene extends Phaser.Scene {
@@ -23,8 +24,17 @@ export default class MuseumScene extends Phaser.Scene {
     this.totalRelicsOnMap = 0;
   }
 
-  create() {
-    this.cameras.main.fadeIn(500, 0, 0, 0);
+  init(data) {
+    // biome 优先从进入参数读；其次从当前委托读；否则默认 museum
+    let biomeId = (data && data.biome) || null;
+    if (!biomeId) {
+      const ac = SaveData.getActiveContract && SaveData.getActiveContract();
+      if (ac && ac.biome) biomeId = ac.biome;
+    }
+    this.biome = getBiome(biomeId || 'museum');
+  }
+
+  create() {    this.cameras.main.fadeIn(500, 0, 0, 0);
     this.inventory = new Inventory();
     this._ended = false;
 
@@ -33,14 +43,16 @@ export default class MuseumScene extends Phaser.Scene {
       width: MAP_W,
       height: MAP_H,
       seed: (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0,
-      relicCount: 7,
+      relicCount: this.biome.relicCount || 7,
       relicPoolSize: RELICS.length,
-      guardCount: 3
+      guardCount: this.biome.guardCount || 5
     });
     this._level = level;
 
-    // —— 1. 铺地板（伪噪声选择变体，避免重复感） ——
-    const floorKeys = ['tex_floor', 'tex_floor', 'tex_floor', 'tex_floor_a', 'tex_floor_b'];
+    // —— 1. 铺地板（biome 提供贴图序列，伪噪声选变体避免重复感）——
+    const floorKeys = (this.biome && this.biome.floorKeys && this.biome.floorKeys.length)
+      ? this.biome.floorKeys
+      : ['tex_floor', 'tex_floor', 'tex_floor', 'tex_floor_a', 'tex_floor_b'];
     for (let y = 0; y < MAP_H; y++) {
       for (let x = 0; x < MAP_W; x++) {
         // 用位运算生成伪随机索引，保证每个位置出现稳定贴图
@@ -50,12 +62,14 @@ export default class MuseumScene extends Phaser.Scene {
       }
     }
 
-    // —— 2. 墙体（由关卡生成器产出） ——
+    // —— 2. 墙体（由关卡生成器产出，biome 决定贴图套装）——
     this.walls = this.physics.add.staticGroup();
+    const wallTopKey = (this.biome && this.biome.wallTopKey) || 'tex_wall_top';
+    const wallKey = (this.biome && this.biome.wallKey) || 'tex_wall';
     for (const key of level.walls) {
       const [sx, sy] = key.split(',').map(Number);
       const isTop = sy === 0;
-      this.spawnWall(sx, sy, isTop ? 'tex_wall_top' : 'tex_wall');
+      this.spawnWall(sx, sy, isTop ? wallTopKey : wallKey);
     }
 
     // —— 3. 文物（带展柜底座 + 类型化贴图，位置随机） ——
@@ -170,12 +184,14 @@ export default class MuseumScene extends Phaser.Scene {
       J: Phaser.Input.Keyboard.KeyCodes.J,
       K: Phaser.Input.Keyboard.KeyCodes.K,
       TAB: Phaser.Input.Keyboard.KeyCodes.TAB,
-      ESC: Phaser.Input.Keyboard.KeyCodes.ESC
+      ESC: Phaser.Input.Keyboard.KeyCodes.ESC,
+      H: Phaser.Input.Keyboard.KeyCodes.H
     });
     // 防止 Tab/Ctrl 默认行为（页面焦点切换 / 浏览器快捷键）
     this.input.keyboard.addCapture('TAB');
     this.input.keyboard.addCapture('CTRL');
     this.keys.TAB.on('down', () => this.toggleInventoryPanel());
+    this.keys.H.on('down', () => this.useMedkit());
 
     // 鼠标左键 = 攻击（与 J 等价）
     this.input.on('pointerdown', (ptr) => {
@@ -275,9 +291,27 @@ export default class MuseumScene extends Phaser.Scene {
       }));
       const g = new Guard(this, worldPath);
       g.onStateChange = (newSt, oldSt, guard) => this.onGuardStateChange(newSt, oldSt, guard);
+      // 警觉拉满时通知附近同伴一起搜
+      g.onAlarm = (caller, radius) => this.notifyNearbyGuards(caller, radius);
       this.guards.push(g);
     }
   }
+
+  // ——————————————————————————————————————
+  //  守卫联动：当某个守卫警觉拉满，半径 radius 内的同伴一起进入警戒
+  // ——————————————————————————————————————
+  notifyNearbyGuards(caller, radius) {
+    if (!this.guards || !caller || !caller.sprite) return;
+    const r2 = radius * radius;
+    for (const other of this.guards) {
+      if (other === caller || other.dead || !other.sprite) continue;
+      const dx = other.sprite.x - caller.sprite.x;
+      const dy = other.sprite.y - caller.sprite.y;
+      if (dx * dx + dy * dy > r2) continue;
+      other.receiveAlarm(caller);
+    }
+  }
+
   spawnWall(tx, ty, key = 'tex_wall') {
     const w = this.walls.create(tx * TILE, ty * TILE, key).setOrigin(0, 0);
     w.refreshBody();
@@ -455,7 +489,7 @@ export default class MuseumScene extends Phaser.Scene {
 
     // 1. 重新填充黑暗（不透明，让 erase 形成清晰光斑）
     rt.clear();
-    rt.fill(DARKNESS, 1);
+    rt.fill(this.biome && this.biome.darkness ? this.biome.darkness : DARKNESS, 1);
 
     const px = this.player.x;
     const py = this.player.y;
@@ -562,6 +596,16 @@ export default class MuseumScene extends Phaser.Scene {
       strokeThickness: 3
     }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
 
+    // 消耗品 HUD：医疗包计数 + 按键提示
+    this.medkitHUD = this.add.text(bx + 170, by - 14, '', {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '12px',
+      color: '#7ae8e8',
+      stroke: '#000',
+      strokeThickness: 3
+    }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
+    this.updateConsumableHUD();
+
     // 时间
     this.timerText = this.add
       .text(20, 14, '03:00', {
@@ -583,6 +627,35 @@ export default class MuseumScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(101);
+
+    // —— 进入提示：地图场景名 + 副标题（淡入淡出） ——
+    if (this.biome) {
+      const titleColor = this.biome.id === 'blackmarket' ? '#c084fc' : '#d4af37';
+      const sceneTitle = this.add.text(480, 200, this.biome.name, {
+        fontFamily: '"PingFang SC", serif',
+        fontSize: '32px',
+        color: titleColor,
+        fontStyle: 'bold',
+        stroke: '#000',
+        strokeThickness: 5
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(120).setAlpha(0);
+      const sceneSub = this.add.text(480, 240, this.biome.subtitle || '', {
+        fontFamily: '"PingFang SC", serif',
+        fontSize: '14px',
+        color: '#e8d27a',
+        stroke: '#000',
+        strokeThickness: 3
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(120).setAlpha(0);
+      this.tweens.add({ targets: [sceneTitle, sceneSub], alpha: 1, duration: 600, yoyo: false });
+      this.time.delayedCall(2200, () => {
+        this.tweens.add({
+          targets: [sceneTitle, sceneSub],
+          alpha: 0,
+          duration: 700,
+          onComplete: () => { sceneTitle.destroy(); sceneSub.destroy(); }
+        });
+      });
+    }
 
     // 提示
     this.hintText = this.add
@@ -1327,16 +1400,10 @@ export default class MuseumScene extends Phaser.Scene {
       this._bonusGold = (this._bonusGold || 0) + amt;
       this._floatText(c.sprite.x, c.sprite.y - 18, `+ 碎片  (¥${amt})`, '#a08434');
     } else if (lootKind === 'medkit') {
-      // 直接补血一格
-      const ps = this.playerState;
-      if (ps && ps.hp < ps.hpMax) {
-        ps.hp = Math.min(ps.hpMax, ps.hp + 1);
-        this._floatText(c.sprite.x, c.sprite.y - 18, '+ 急救包  生命+1', '#7ae8e8');
-      } else {
-        const amt = 15;
-        this._bonusGold = (this._bonusGold || 0) + amt;
-        this._floatText(c.sprite.x, c.sprite.y - 18, `急救包  折现 ¥${amt}`, '#7ae8e8');
-      }
+      // 进入消耗品库存，玩家后续按 H 使用
+      const newCnt = SaveData.addConsumable('medkit', 1);
+      this._floatText(c.sprite.x, c.sprite.y - 18, `+ 回春丸  × 1  (库存 ${newCnt})`, '#7ae8e8');
+      this.updateConsumableHUD();
     } else if (lootKind === 'rep') {
       this._bonusRep = (this._bonusRep || 0) + 1;
       this._floatText(c.sprite.x, c.sprite.y - 18, '+ 声望', '#c084fc');
@@ -2038,5 +2105,36 @@ export default class MuseumScene extends Phaser.Scene {
       else if (ps.sprint) tags.push('〔疾跑〕');
       this.statusIcon.setText(tags.join(' '));
     }
+  }
+
+  /** 消耗品 HUD（医疗包库存显示） */
+  updateConsumableHUD() {
+    if (!this.medkitHUD) return;
+    const stock = (SaveData.getConsumables() || {}).medkit || 0;
+    if (stock > 0) {
+      this.medkitHUD.setText(`⚕ × ${stock}　H 使用`);
+    } else {
+      this.medkitHUD.setText('⚕ × 0');
+    }
+  }
+
+  /** 按 H 使用一枚医疗包：HP +1、库存 -1 */
+  useMedkit() {
+    if (this._ended) return;
+    const ps = this.playerState;
+    if (!ps) return;
+    if (ps.hp >= ps.hpMax) {
+      this._floatText(this.player.x, this.player.y - 22, '身体无恕，不需回春丸', '#a08434');
+      return;
+    }
+    if (!SaveData.consumeConsumable('medkit')) {
+      this._floatText(this.player.x, this.player.y - 22, '回春丸库存为空', '#a08434');
+      return;
+    }
+    ps.hp = Math.min(ps.hpMax, ps.hp + 1);
+    this._floatText(this.player.x, this.player.y - 22, '+1 HP', '#7ae8e8');
+    if (Audio && Audio.sfx && Audio.sfx.heal) Audio.sfx.heal();
+    this.updatePlayerHUD();
+    this.updateConsumableHUD();
   }
 }

@@ -11,7 +11,7 @@
 // 与 Codex 的关系：Codex 仍然负责"图鉴是否解锁 / 历史撤离统计"，
 // SaveData 负责"流程经济 + 配装 + 委托"。两者并存。
 
-import { TOOLS, getToolById } from '../data/tools.js';
+import { TOOLS, getToolById, CONSUMABLES, getConsumableById } from '../data/tools.js';
 
 const STORAGE_KEY = 'nightkeeper:save';
 
@@ -35,9 +35,13 @@ function emptyState() {
     activeContract: null,
     // 已完成委托 ID 列表
     completedContracts: [],
-    // 已刷新出来的可接委托池（用 daySeed 控制每"天"刷新一次）
+    // 已刷新出来的可接委托池（用局内游戏天数 gameDay 控制刷新）
     contractPool: null,
     contractPoolDay: -1,
+    // 局内游戏天数 — 每次出击后自动 +1，控制委托板自动刷新
+    gameDay: 1,
+    // 消耗品库存（可重复购买、关卡内使用）
+    consumables: { medkit: 0 },
     // 通用 flag 池（馆长是否见过、上次行动结果等剧情/UI 状态）
     flags: {}
   };
@@ -60,6 +64,9 @@ function safeParse(raw) {
       completedContracts: Array.isArray(obj.completedContracts) ? obj.completedContracts : [],
       contractPool: Array.isArray(obj.contractPool) ? obj.contractPool : null,
       contractPoolDay: typeof obj.contractPoolDay === 'number' ? obj.contractPoolDay : -1,
+      gameDay: typeof obj.gameDay === 'number' && obj.gameDay > 0 ? obj.gameDay : 1,
+      consumables: obj.consumables && typeof obj.consumables === 'object'
+        ? Object.assign({ medkit: 0 }, obj.consumables) : { medkit: 0 },
       flags: obj.flags && typeof obj.flags === 'object' ? obj.flags : {}
     };
   } catch {
@@ -204,7 +211,6 @@ export const SaveData = {
       pickSpeedMul: 1,        // 拾取耗时倍率
       extractCdMul: 1,        // 撤离冷却倍率
       hasDart: false,         // 是否带麻醉针
-      hasMedkit: false,       // 是否带急救包
       hasBeacon: false,
       tools: []
     };
@@ -220,7 +226,6 @@ export const SaveData = {
         if (tool.effects.pickSpeedMul) eff.pickSpeedMul *= tool.effects.pickSpeedMul;
         if (tool.effects.extractCdMul) eff.extractCdMul *= tool.effects.extractCdMul;
         if (tool.effects.hasDart) eff.hasDart = true;
-        if (tool.effects.hasMedkit) eff.hasMedkit = true;
         if (tool.effects.hasBeacon) eff.hasBeacon = true;
       }
     }
@@ -269,6 +274,68 @@ export const SaveData = {
     s.contractPoolDay = currentDay;
     s.contractPool = pool;
     save(s);
+  },
+
+  // —— 局内游戏天数：控制委托板刷新节奏 ——
+  getGameDay() { return load().gameDay || 1; },
+
+  /** 推进一天（一次行动结束后调用）。返回新的 gameDay。 */
+  bumpGameDay() {
+    const s = load();
+    s.gameDay = (s.gameDay || 1) + 1;
+    // 推进后上一天的委托池过期，下次进委托板会重生
+    save(s);
+    return s.gameDay;
+  },
+
+  /** 主动花金刷新委托池。返回是否成功。 */
+  rerollContractPool(cost = 50) {
+    const s = load();
+    if (s.gold < cost) return false;
+    s.gold -= cost;
+    s.contractPool = null;
+    s.contractPoolDay = -1;
+    save(s);
+    return true;
+  },
+
+  // —— 消耗品 ——
+  /** 返回一份消耗品库存副本（不包含未定义的） */
+  getConsumables() {
+    const s = load();
+    return Object.assign({ medkit: 0 }, s.consumables || {});
+  },
+
+  /** 为某种消耗品增加库存。返回新库存。 */
+  addConsumable(id, n = 1) {
+    const s = load();
+    s.consumables = s.consumables || { medkit: 0 };
+    s.consumables[id] = (s.consumables[id] || 0) + n;
+    save(s);
+    return s.consumables[id];
+  },
+
+  /** 消耗一个。库存 0 返回 false；否则减一返回 true。 */
+  consumeConsumable(id) {
+    const s = load();
+    s.consumables = s.consumables || { medkit: 0 };
+    if ((s.consumables[id] || 0) <= 0) return false;
+    s.consumables[id] -= 1;
+    save(s);
+    return true;
+  },
+
+  /** 购买消耗品一枚（可重复购买）。返回是否成功。 */
+  buyConsumable(id) {
+    const c = getConsumableById(id);
+    if (!c) return false;
+    const s = load();
+    if (s.gold < c.price) return false;
+    s.gold -= c.price;
+    s.consumables = s.consumables || { medkit: 0 };
+    s.consumables[id] = (s.consumables[id] || 0) + 1;
+    save(s);
+    return true;
   },
 
   // —— 局外结算 ——
@@ -341,5 +408,5 @@ function evaluateContract(contract, items) {
 }
 
 // 导出工具表方便外部直接 import
-export { TOOLS };
+export { TOOLS, CONSUMABLES };
 export default SaveData;

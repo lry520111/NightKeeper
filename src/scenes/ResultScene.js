@@ -48,6 +48,7 @@ export default class ResultScene extends Phaser.Scene {
     const activeContract = SaveData.getActiveContract();
 
     SaveData.commitRun({ success, items });
+    // \u884c\u52a8\u7ed3\u675f \u2192 \u63a8\u8fdb\u5c40\u5185\u4e00\u5929\uff08\u59d4\u6258\u677f\u4e0b\u6b21\u8fdb\u5165\u4f1a\u81ea\u52a8\u91cd\u751f\uff09\n    SaveData.bumpGameDay();
     let contractResult = null;
     if (success) {
       // 文物入仓库

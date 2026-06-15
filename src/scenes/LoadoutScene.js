@@ -6,7 +6,7 @@
 import Phaser from 'phaser';
 import SaveData from '../systems/SaveData.js';
 import Audio from '../systems/AudioFx.js';
-import { TOOLS, SLOT_NAME, getToolById, toolsBySlot } from '../data/tools.js';
+import { TOOLS, SLOT_NAME, getToolById, toolsBySlot, CONSUMABLES } from '../data/tools.js';
 
 const W = 960;
 const H = 540;
@@ -88,17 +88,30 @@ export default class LoadoutScene extends Phaser.Scene {
     }));
     const sellable = TOOLS.filter((t) => !owned.includes(t.id))
       .sort((a, b) => a.price - b.price);
+    let yCursor = 160;
     if (!sellable.length) {
-      this.shopGroup.add(this.add.text(540, 170, '所有器物均已购齐。', {
+      this.shopGroup.add(this.add.text(540, yCursor, '所有器物均已购齐。', {
         fontFamily: '"PingFang SC", serif', fontSize: '13px', color: '#6b5824'
       }));
+      yCursor += 30;
     } else {
-      sellable.forEach((t, i) => {
-        const x = 540;
-        const y = 160 + i * 65;
-        this.shopGroup.add(this.makeShopCard(t, x, y, gold));
+      sellable.forEach((t) => {
+        this.shopGroup.add(this.makeShopCard(t, 540, yCursor, gold));
+        yCursor += 65;
       });
     }
+
+    // —— 消耗品柜台：不占槽位，可重复购买，入库存 ——
+    yCursor += 8;
+    this.shopGroup.add(this.add.text(540, yCursor, '药囊柜台（消耗品）', {
+      fontFamily: '"PingFang SC", serif', fontSize: '14px', color: '#7ae8e8'
+    }));
+    yCursor += 26;
+    const consumables = SaveData.getConsumables();
+    CONSUMABLES.forEach((c) => {
+      this.shopGroup.add(this.makeConsumableCard(c, 540, yCursor, gold, consumables[c.id] || 0));
+      yCursor += 56;
+    });
 
     // —— 底部：安全箱（失败保底一件仓库文物）——
     this.drawSafeBox();
@@ -305,6 +318,46 @@ export default class LoadoutScene extends Phaser.Scene {
         Audio.sfx.click();
         if (SaveData.buyTool(t.id)) {
           this.toast(`购得「${t.name}」`);
+          this.refresh();
+        }
+      });
+    }
+    c.add(btn);
+    return c;
+  }
+
+  // 消耗品卡片：可重复购买，右侧显示当前库存
+  makeConsumableCard(item, x, y, gold, stock) {
+    const c = this.add.container(x, y);
+    const w = 380;
+    const h = 50;
+    const bg = this.add.rectangle(0, 0, w, h, 0x0e1e1e).setOrigin(0, 0);
+    bg.setStrokeStyle(1, 0x2c5a5a);
+    c.add(bg);
+
+    c.add(this.add.text(14, 6, `${item.icon}  ${item.name}　× ${stock}`, {
+      fontFamily: '"PingFang SC", serif', fontSize: '14px', color: '#a8e8e8', fontStyle: 'bold'
+    }));
+    c.add(this.add.text(14, 26, `${item.desc}　热键：${item.hotkey}`, {
+      fontFamily: '"PingFang SC", serif', fontSize: '11px', color: '#5fa8a8',
+      wordWrap: { width: 260 }
+    }));
+
+    const canBuy = gold >= item.price;
+    const btn = this.add.text(w - 14, h / 2, `¥${item.price}  +1`, {
+      fontFamily: '"PingFang SC", serif', fontSize: '13px',
+      color: canBuy ? '#fff3b8' : '#3a2814',
+      backgroundColor: canBuy ? '#1c4040' : '#1a1208',
+      padding: { x: 8, y: 4 }
+    }).setOrigin(1, 0.5);
+    if (canBuy) {
+      btn.setInteractive({ useHandCursor: true });
+      btn.on('pointerover', () => btn.setBackgroundColor('#286060'));
+      btn.on('pointerout', () => btn.setBackgroundColor('#1c4040'));
+      btn.on('pointerdown', () => {
+        Audio.sfx.click();
+        if (SaveData.buyConsumable(item.id)) {
+          this.toast(`购入「${item.name}」 × 1`);
           this.refresh();
         }
       });

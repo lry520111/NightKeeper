@@ -16,6 +16,7 @@ const CONTRACT_TEMPLATES = [
   // —— 私人藏家：要品级 ——
   {
     patron: 'collector',
+    biome: 'museum',
     title: '为我追回一件传世名物',
     requirement: { type: 'rarity', rarity: 'legendary', count: 1 },
     goldReward: 320,
@@ -25,6 +26,7 @@ const CONTRACT_TEMPLATES = [
   },
   {
     patron: 'collector',
+    biome: 'museum',
     title: '凑齐一对宋瓷',
     requirement: { type: 'rarity', rarity: 'epic', count: 2 },
     goldReward: 240,
@@ -35,6 +37,7 @@ const CONTRACT_TEMPLATES = [
   // —— 学者：要具体文物 ——
   {
     patron: 'scholar',
+    biome: 'museum',
     title: '论文急缺一手影像',
     requirementHint: '指定文物（每日不同）',
     isSpecificRelic: true, // 生成时随机挑一件
@@ -46,6 +49,7 @@ const CONTRACT_TEMPLATES = [
   // —— 黑面客：高赏金、损声望（黑市重购，有伦理争议） ——
   {
     patron: 'syndicate',
+    biome: 'blackmarket',
     title: '今晚只看价钱',
     requirement: { type: 'value', amount: 120 },
     goldReward: 380,
@@ -55,6 +59,7 @@ const CONTRACT_TEMPLATES = [
   },
   {
     patron: 'syndicate',
+    biome: 'blackmarket',
     title: '扫荡一柜货',
     requirement: { type: 'count', count: 3 },
     goldReward: 280,
@@ -106,6 +111,7 @@ export function generateDailyContracts(daySeed) {
       id: `c_${daySeed}_${i}`,
       title,
       patron,
+      biome: tpl.biome || 'museum',
       requirement: req,
       goldReward: tpl.goldReward,
       repReward: tpl.repReward,

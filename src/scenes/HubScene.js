@@ -515,16 +515,20 @@ export default class HubScene extends Phaser.Scene {
     }
 
     const target = this._near.target;
+    let sceneData = undefined;
     if (target === 'MuseumScene') {
-      if (!SaveData.getActiveContract()) {
+      const ac = SaveData.getActiveContract();
+      if (!ac) {
         this.flashWarn('没有委托，先去委托板接一份。');
         return;
       }
+      // 把委托上的 biome 传给关卡场景
+      sceneData = { biome: ac.biome || 'museum' };
     }
 
     this.cameras.main.fadeOut(350, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start(target);
+      this.scene.start(target, sceneData);
     });
   }
 

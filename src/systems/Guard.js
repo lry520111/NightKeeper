@@ -3,16 +3,18 @@
 import Phaser from 'phaser';
 
 // ——— 视野参数 ———
-const VIEW_RANGE = 150;          // 视野距离（像素）
-const VIEW_HALF_ANGLE = Math.PI / 6; // 视野半角（30° → 总60°）
-const TURN_SPEED = 3.2;          // 朝向转动速度（弧度/秒）
-const PATROL_SPEED = 50;         // 巡逻速度
-const CHASE_SPEED = 110;         // 追击速度
-const WAIT_AT_WAYPOINT_MS = 900; // 路径点停顿
-const ALERT_FILL_RATE = 65;      // 每秒警觉值（满 100）
-const ALERT_DECAY_RATE = 25;     // 每秒衰减
+const VIEW_RANGE = 190;          // 视野距离（像素）— 看得更远
+const VIEW_HALF_ANGLE = Math.PI / 5.2; // 视野半角（约 35° → 总 70°）— 视野更宽
+const TURN_SPEED = 3.6;          // 朝向转动速度（弧度/秒）— 转头更快
+const PATROL_SPEED = 70;         // 巡逻速度 — 加快巡逻
+const CHASE_SPEED = 145;         // 追击速度 — 玩家很难直线甩开
+const WAIT_AT_WAYPOINT_MS = 700; // 路径点停顿 — 停得更短
+const ALERT_FILL_RATE = 105;     // 每秒警觉值（满 100）— 入锥心 ~1 秒满
+const ALERT_DECAY_RATE = 11;     // 每秒衰减 — 一旦警觉，很难躲回
 const ALERT_FULL = 100;
 const ALERT_SUSPICIOUS = 1;      // 大于 0 即视为可疑（>0 显示黄锥）
+const ALARM_RADIUS = 220;        // 警觉满后通知半径（像素）
+const ALARM_ALERT_BUMP = 70;     // 联动友军被推到的警觉值（直接进入怀疑/追击）
 
 // 颜色（视野锥）
 const COLOR_GREEN = 0x6bcf6b;
@@ -20,12 +22,12 @@ const COLOR_YELLOW = 0xf2c14e;
 const COLOR_RED = 0xe54b4b;
 
 // ——— 战斗参数 ———
-const GUARD_MAX_HP = 2;          // 普通近战需 2 刀
-const GUARD_STAGGER_MS = 380;    // 被打中硬直
-const ATTACK_RANGE = 26;         // 守卫攻击距离
-const ATTACK_WINDUP_MS = 700;    // 蓄力时间
+const GUARD_MAX_HP = 3;          // 普通近战需 3 刀（从 2 提到 3）
+const GUARD_STAGGER_MS = 320;    // 被打中硬直 — 略缩短，避免无限连
+const ATTACK_RANGE = 28;         // 守卫攻击距离
+const ATTACK_WINDUP_MS = 560;    // 蓄力时间 — 出招更快
 const ATTACK_HIT_HALF_ANGLE = Math.PI / 5; // 守卫挥刀扇形半角 36°
-const ATTACK_COOLDOWN_MS = 1100; // 出招后冷却
+const ATTACK_COOLDOWN_MS = 850;  // 出招后冷却 — 攻击更频繁
 
 export default class Guard {
   /**
@@ -148,7 +150,11 @@ export default class Guard {
     const oldState = this.state;
     if (this.alert >= ALERT_FULL) {
       this.state = 'chase';
-      this.chaseUntil = this.scene.time.now + 4000; // 进入追击 4 秒
+      this.chaseUntil = this.scene.time.now + 6000; // 进入追击 6 秒
+      // 警觉拉满 → 通知附近守卫一起搜（同伴联动）
+      if (oldState !== 'chase' && typeof this.onAlarm === 'function') {
+        this.onAlarm(this, ALARM_RADIUS);
+      }
     } else if (this.alert > ALERT_SUSPICIOUS) {
       // 看不到时按追击逻辑保留惯性，看到则进入怀疑
       if (seePlayer) this.state = 'suspicious';
@@ -436,5 +442,17 @@ export default class Guard {
   // —— 给 HUD 显示警觉条用 ——
   getAlertRatio() {
     return this.alert / ALERT_FULL;
+  }
+
+  // —— 被同伴叫醒：直接拉到怀疑级（不立即满，给玩家蹲点机会）——
+  receiveAlarm(fromGuard) {
+    if (this.dead) return;
+    if (this.state === 'chase') return;
+    this.alert = Math.max(this.alert, ALARM_ALERT_BUMP);
+    // 朝向警源，转过去看看
+    if (fromGuard && fromGuard.sprite) {
+      const ang = Math.atan2(fromGuard.sprite.y - this.sprite.y, fromGuard.sprite.x - this.sprite.x);
+      this.facing = ang;
+    }
   }
 }

@@ -7,9 +7,9 @@ import SaveData from '../systems/SaveData.js';
 import Audio from '../systems/AudioFx.js';
 import {
   generateDailyContracts,
-  describeRequirement,
-  todayKey
+  describeRequirement
 } from '../data/contracts.js';
+import { getBiome } from '../data/biomes.js';
 
 const W = 960;
 const H = 540;
@@ -33,8 +33,8 @@ export default class ContractScene extends Phaser.Scene {
       .setOrigin(0.5);
     this.add.rectangle(W / 2, 56, 200, 1, 0xd4af37);
 
-    // 取（或刷新）今日委托池
-    const day = todayKey();
+    // 取（或刷新）今日委托池（用局内 gameDay）
+    const day = SaveData.getGameDay();
     let pool = SaveData.getContractPool(day);
     if (!pool) {
       pool = generateDailyContracts(day);
@@ -50,6 +50,24 @@ export default class ContractScene extends Phaser.Scene {
 
     // 右侧详情区（默认空）
     this.detailGroup = this.add.container(0, 0);
+
+    // 顶部右边：刷新按钮 + 当前资金
+    this.refreshLabel = this.add.text(W - 24, 28, '', {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '14px',
+      color: '#d4af37'
+    }).setOrigin(1, 0.5);
+    this.rerollBtn = this.add.text(W - 24, 56, '〔  刷新委托板  ¥50  〕', {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '14px',
+      color: '#fff3b8',
+      backgroundColor: '#3a2814',
+      padding: { x: 10, y: 5 }
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    this.rerollBtn.on('pointerover', () => this.rerollBtn.setColor('#ffe28a'));
+    this.rerollBtn.on('pointerout', () => this.rerollBtn.setColor('#fff3b8'));
+    this.rerollBtn.on('pointerdown', () => this.tryReroll());
+    this.refreshGoldLabel();
 
     // 选中第一张作为默认
     if (pool.length) this.selectContract(pool[0], 0);
@@ -203,9 +221,27 @@ export default class ContractScene extends Phaser.Scene {
       })
     );
 
+    // 行动地点（biome）
+    const bio = getBiome(c.biome || 'museum');
+    const bioColor = bio.id === 'blackmarket' ? '#c084fc' : '#d4af37';
+    this.detailGroup.add(
+      this.add.text(dx + 24, dy + 246, '地点：', {
+        fontFamily: '"PingFang SC", serif',
+        fontSize: '13px',
+        color: '#6b5824'
+      })
+    );
+    this.detailGroup.add(
+      this.add.text(dx + 70, dy + 246, `${bio.name}　·　${bio.subtitle || ''}`, {
+        fontFamily: '"PingFang SC", serif',
+        fontSize: '13px',
+        color: bioColor
+      })
+    );
+
     // 奖励
     this.detailGroup.add(
-      this.add.text(dx + 24, dy + 250, '酬劳：', {
+      this.add.text(dx + 24, dy + 276, '酬劳：', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '13px',
         color: '#6b5824'
@@ -214,7 +250,7 @@ export default class ContractScene extends Phaser.Scene {
     this.detailGroup.add(
       this.add.text(
         dx + 70,
-        dy + 250,
+        dy + 276,
         `¥${c.goldReward}    声望 ${c.repReward >= 0 ? '+' : ''}${c.repReward}    失败：声望 ${c.failPenalty}`,
         {
           fontFamily: 'Georgia, serif',
@@ -279,6 +315,37 @@ export default class ContractScene extends Phaser.Scene {
       delay: 1000,
       onComplete: () => this._toast && this._toast.destroy()
     });
+  }
+
+  refreshGoldLabel() {
+    if (this.refreshLabel) {
+      this.refreshLabel.setText(`资金 ¥${SaveData.getGold()}   ·   第 ${SaveData.getGameDay()} 天`);
+    }
+  }
+
+  tryReroll() {
+    const ok = SaveData.rerollContractPool(50);
+    if (!ok) {
+      Audio.sfx.click();
+      this.toast('资金不足，刷新需 ¥50');
+      return;
+    }
+    Audio.sfx.click();
+    // 重生委托池
+    const day = SaveData.getGameDay();
+    const newPool = generateDailyContracts((day * 31 + Date.now()) >>> 0);
+    SaveData.setContractPool(day, newPool);
+    this.pool = newPool;
+    // 重建左侧卡片
+    for (const card of this.cards) {
+      card.bg.destroy(); card.av.destroy(); card.title.destroy();
+      card.patron.destroy(); card.req.destroy(); card.reward.destroy();
+    }
+    this.cards = [];
+    newPool.forEach((c, i) => this.cards.push(this.createCard(c, i)));
+    if (newPool.length) this.selectContract(newPool[0], 0);
+    this.refreshGoldLabel();
+    this.toast('委托板已刷新');
   }
 
   back() {

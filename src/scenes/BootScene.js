@@ -43,6 +43,12 @@ export default class BootScene extends Phaser.Scene {
     this.makeFloorTexture();
     this.makeFloorVarA();        // 地板变体A（带龟裂）
     this.makeFloorVarB();        // 地板变体B（带回纹砖）
+    // 黑市 biome 专用贴图
+    this.makeBlackmarketWall();
+    this.makeBlackmarketWallTop();
+    this.makeBlackmarketFloor();
+    this.makeBlackmarketFloorA();
+    this.makeBlackmarketFloorB();
     this.makeCarpetTexture();    // 红地毯（撤离前导引）
     this.makeDisplayCaseTexture();
 
@@ -626,6 +632,145 @@ export default class BootScene extends Phaser.Scene {
       // 中心方点
       ctx.fillStyle = '#d4af37';
       ctx.fillRect(15, 16, 2, 2);
+    });
+  }
+
+  // 黑市：铁皮绣蚀墙
+  makeBlackmarketWall() {
+    this.makeCanvasTexture('tex_wall_bm', 32, 32, (ctx) => {
+      // 底色：冷灰铁
+      ctx.fillStyle = '#1a1620';
+      ctx.fillRect(0, 0, 32, 32);
+      // 铁皮拼接缝
+      ctx.fillStyle = '#0a0810';
+      ctx.fillRect(0, 0, 32, 1);
+      ctx.fillRect(0, 16, 32, 1);
+      ctx.fillRect(0, 31, 32, 1);
+      ctx.fillRect(0, 0, 1, 32);
+      ctx.fillRect(31, 0, 1, 32);
+      // 铆钉点（四个角）
+      ctx.fillStyle = '#3a3450';
+      ctx.fillRect(2, 2, 2, 2);
+      ctx.fillRect(28, 2, 2, 2);
+      ctx.fillRect(2, 28, 2, 2);
+      ctx.fillRect(28, 28, 2, 2);
+      ctx.fillRect(2, 18, 2, 2);
+      ctx.fillRect(28, 18, 2, 2);
+      // 绣蚀班驳
+      ctx.fillStyle = '#3a2218';
+      ctx.fillRect(8, 6, 3, 1);
+      ctx.fillRect(20, 9, 4, 1);
+      ctx.fillRect(12, 22, 5, 1);
+      ctx.fillRect(24, 25, 3, 1);
+      // 高光
+      ctx.fillStyle = '#2c2638';
+      ctx.fillRect(1, 1, 30, 1);
+      ctx.fillRect(1, 17, 30, 1);
+    });
+  }
+
+  // 黑市墙顶：铁皮护栏 + 霉苔底
+  makeBlackmarketWallTop() {
+    this.makeCanvasTexture('tex_wall_bm_top', 32, 32, (ctx) => {
+      // 顶部护栏底
+      ctx.fillStyle = '#0a0810';
+      ctx.fillRect(0, 0, 32, 5);
+      // 护栏金属光
+      ctx.fillStyle = '#3a3450';
+      ctx.fillRect(0, 1, 32, 1);
+      ctx.fillRect(0, 4, 32, 1);
+      // 护栏竹节划分
+      ctx.fillStyle = '#0a0810';
+      for (let i = 0; i < 32; i += 4) ctx.fillRect(i, 0, 1, 5);
+      // 下方铁皮主体
+      ctx.fillStyle = '#1a1620';
+      ctx.fillRect(0, 5, 32, 27);
+      // 拼接缝
+      ctx.fillStyle = '#0a0810';
+      ctx.fillRect(0, 18, 32, 1);
+      ctx.fillRect(15, 5, 1, 13);
+      ctx.fillRect(0, 31, 32, 1);
+      // 高光
+      ctx.fillStyle = '#2c2638';
+      ctx.fillRect(1, 6, 14, 1);
+      ctx.fillRect(17, 6, 14, 1);
+      ctx.fillRect(1, 19, 30, 1);
+      // 零星霉苔（纪徵性）
+      ctx.fillStyle = '#2a3a18';
+      ctx.fillRect(7, 12, 2, 1);
+      ctx.fillRect(22, 25, 2, 1);
+    });
+  }
+
+  // 黑市地面：阳沟水泥
+  makeBlackmarketFloor() {
+    this.makeCanvasTexture('tex_floor_bm', 32, 32, (ctx) => {
+      ctx.fillStyle = '#181420';
+      ctx.fillRect(0, 0, 32, 32);
+      // 水泥拼缝
+      ctx.fillStyle = '#0a0712';
+      ctx.fillRect(0, 16, 32, 1);
+      ctx.fillRect(16, 0, 1, 32);
+      // 斑驳ストーン
+      ctx.fillStyle = '#22182c';
+      ctx.fillRect(4, 4, 2, 1);
+      ctx.fillRect(20, 6, 3, 1);
+      ctx.fillRect(8, 22, 2, 1);
+      ctx.fillRect(24, 24, 2, 1);
+      ctx.fillRect(11, 11, 1, 1);
+      ctx.fillRect(25, 13, 1, 1);
+      // 极薄震茶光
+      ctx.fillStyle = '#241a30';
+      ctx.fillRect(2, 13, 4, 1);
+      ctx.fillRect(20, 28, 6, 1);
+    });
+  }
+
+  // 黑市地面变体A：震肤裂纹 + 血迹点
+  makeBlackmarketFloorA() {
+    this.makeCanvasTexture('tex_floor_bm_a', 32, 32, (ctx) => {
+      ctx.fillStyle = '#181420';
+      ctx.fillRect(0, 0, 32, 32);
+      // 主裂纹
+      ctx.fillStyle = '#0a0712';
+      ctx.fillRect(6, 5, 1, 7);
+      ctx.fillRect(6, 12, 6, 1);
+      ctx.fillRect(11, 12, 1, 5);
+      ctx.fillRect(20, 18, 1, 9);
+      ctx.fillRect(15, 22, 6, 1);
+      // 零散点点
+      ctx.fillStyle = '#22182c';
+      ctx.fillRect(2, 26, 2, 1);
+      ctx.fillRect(28, 4, 2, 1);
+      // 血迹（暗红）
+      ctx.fillStyle = '#3a0a14';
+      ctx.fillRect(13, 8, 2, 1);
+      ctx.fillRect(15, 9, 1, 1);
+    });
+  }
+
+  // 黑市地面变体B：下水道格栅
+  makeBlackmarketFloorB() {
+    this.makeCanvasTexture('tex_floor_bm_b', 32, 32, (ctx) => {
+      ctx.fillStyle = '#181420';
+      ctx.fillRect(0, 0, 32, 32);
+      // 中心格栅
+      ctx.fillStyle = '#0a0712';
+      ctx.fillRect(8, 8, 16, 16);
+      // 格栅条
+      ctx.fillStyle = '#241a30';
+      for (let i = 0; i < 4; i++) {
+        ctx.fillRect(8, 10 + i * 4, 16, 1);
+      }
+      // 边框冷光
+      ctx.fillStyle = '#3a2050';
+      ctx.fillRect(8, 8, 16, 1);
+      ctx.fillRect(8, 23, 16, 1);
+      ctx.fillRect(8, 8, 1, 16);
+      ctx.fillRect(23, 8, 1, 16);
+      // 下水道中心点
+      ctx.fillStyle = '#5a3070';
+      ctx.fillRect(15, 15, 2, 2);
     });
   }
 

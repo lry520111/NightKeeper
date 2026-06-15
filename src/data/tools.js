@@ -2,13 +2,14 @@
 // 每件工具占用一个槽位（head / feet / tool / sub）
 // 一次出击玩家最多装备 4 件
 //
+// 消耗品（不占槽位，为可重复购买的数量型道具）在 CONSUMABLES 中维护
+//
 // effects 各字段含义（被 SaveData.resolveEffects 聚合）：
 //   stealthBonus    警觉增长抑制（0.3 表示警觉 -30%）
 //   visionBonus     视野亮度提升（0.3 表示亮度 +30%）
 //   pickSpeedMul    拾取耗时倍率（<1 即更快）
 //   extractCdMul    撤离倒计时倍率（<1 即更快）
 //   hasDart         携带麻醉针消耗品
-//   hasMedkit       携带急救包消耗品
 //   hasBeacon       携带撤离信标（撤离冷却减半，叠加 extractCdMul）
 
 export const TOOLS = [
@@ -49,15 +50,6 @@ export const TOOLS = [
     effects: { hasDart: true }
   },
   {
-    id: 'medkit',
-    name: '回春丸',
-    slot: 'sub',
-    price: 60,
-    icon: '⚕',
-    desc: '小巧药囊，险中求生时可回血一次。',
-    effects: { hasMedkit: true }
-  },
-  {
     id: 'extract_beacon',
     name: '青鸾哨',
     slot: 'tool',
@@ -84,3 +76,20 @@ export function toolsBySlot(slot) {
 }
 
 export default TOOLS;
+
+// ———— 消耗品（可重复购买、入库存、关卡内热键使用）————
+export const CONSUMABLES = [
+  {
+    id: 'medkit',
+    name: '回春丸',
+    icon: '⚕',
+    price: 60,
+    hotkey: 'H',
+    effect: { type: 'heal', amount: 1 },
+    desc: '身负一枚，险中求生。按 H 回 1 HP。'
+  }
+];
+
+export function getConsumableById(id) {
+  return CONSUMABLES.find((c) => c.id === id) || null;
+}
