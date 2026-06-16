@@ -19,12 +19,17 @@ const config = {
   type: Phaser.AUTO,
   parent: 'game-root',
   backgroundColor: '#0a0a0a',
-  // 渲染分辨率：默认 1，高 DPI 屏幕（Retina/4K）按设备像素比提升 → 文字与 UI 清晰
-  // 像素美术（角色/瓦片）通过单独 setScale + texture filter 控制，不依赖全局 pixelArt
+  // 像素美术保护：
+  //   · pixelArt: false  → 文字 / UI 仍走 LINEAR（不锯齿）
+  //   · antialias: false → 全局采样默认 NEAREST（像素图锐利）
+  //   · BootScene 中所有 tex_* / lz_* 纹理都已显式 setFilter(NEAREST)
+  //   · roundPixels: true → 角色不会落在半像素，避免毛边
   pixelArt: false,
-  antialias: true,
-  antialiasGL: true,
+  antialias: false,
+  antialiasGL: false,
   roundPixels: true,
+  // 高 DPI 屏（Retina/4K）按设备像素比提升渲染分辨率 → Canvas 实际像素 ×2
+  // （本身不改逻辑画布尺寸，只让 GPU 以更高采样率画同一个 960×540 表面）
   resolution: (typeof window !== 'undefined' && window.devicePixelRatio) ? Math.min(window.devicePixelRatio, 2) : 1,
   scale: {
     mode: Phaser.Scale.FIT,

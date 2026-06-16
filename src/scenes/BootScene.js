@@ -29,6 +29,19 @@ export default class BootScene extends Phaser.Scene {
       frameWidth: 16,
       frameHeight: 32
     });
+
+    // —— TX 像素艺术贴图集（用于 HubScene 大厅地面/墙体的真实贴图替换） ——
+    // 仅作为切图来源，运行时不直接当作图像使用
+    const tilesDir = 'assets/tiles/Texture/';
+    this.load.image('tx_src_wall', tilesDir + 'TX Tileset Wall.png');
+    this.load.image('tx_src_ground', tilesDir + 'TX Tileset Stone Ground.png');
+    this.load.image('tx_src_props', tilesDir + 'TX Props.png');
+    this.load.image('tx_src_struct', tilesDir + 'TX Struct.png');
+    this.load.image('tx_src_plant', tilesDir + 'TX Plant.png');
+
+    // —— Hub 大厅整张背景图（pre-rendered scene）——
+    // 高质量预渲染场景图，覆盖整个画布；碰撞与交互锚点在 hubLayout.js 中定义
+    this.load.image('hub_cover', 'assets/hub/hub_cover.png');
   }
 
   create() {
@@ -48,6 +61,8 @@ export default class BootScene extends Phaser.Scene {
     this.makeFloorTexture();
     this.makeFloorVarA();        // 地板变体A（带龟裂）
     this.makeFloorVarB();        // 地板变体B（带回纹砖）
+    // —— Hub 大厅专用：从 TX 图集裁剪真实像素艺术贴图 ——
+    this.makeHubTilesFromTX();
     // 黑市 biome 专用贴图
     this.makeBlackmarketWall();
     this.makeBlackmarketWallTop();
@@ -146,6 +161,68 @@ export default class BootScene extends Phaser.Scene {
     g.strokeRect(0, 0, w, h);
     g.generateTexture(key, w, h);
     g.destroy();
+  }
+
+  /**
+   * 从 TX 像素艺术图集中裁剪 32x32 瓷砖，注册为 Hub 大厅专用 key
+   *  · tex_hub_floor_a / tex_hub_floor_b ← TX Tileset Stone Ground
+   *  · tex_hub_wall / tex_hub_wall_top  ← TX Tileset Wall
+   *  · tex_hub_arch / tex_hub_armor / tex_hub_weapon_rack / tex_hub_throne
+   *    tex_hub_bush / tex_hub_pot / tex_hub_chest / tex_hub_pillar ← TX Props/Struct/Plant
+   * 若源图未加载（兜底安全），则回退用浅灰色块占位。
+   */
+  makeHubTilesFromTX() {
+    const sliceTo = (dstKey, srcKey, sx, sy, sw, sh, dw = sw, dh = sh) => {
+      // 兜底：若源未就绪，画占位
+      if (!this.textures.exists(srcKey)) {
+        this.makeCanvasTexture(dstKey, dw, dh, (ctx) => {
+          ctx.fillStyle = '#5a5044';
+          ctx.fillRect(0, 0, dw, dh);
+          ctx.strokeStyle = '#332b22';
+          ctx.strokeRect(0, 0, dw, dh);
+        });
+        return;
+      }
+      const srcImg = this.textures.get(srcKey).getSourceImage();
+      const tex = this.textures.createCanvas(dstKey, dw, dh);
+      const ctx = tex.getContext();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(srcImg, sx, sy, sw, sh, 0, 0, dw, dh);
+      tex.refresh();
+    };
+
+    // ===== 地面（来源 256x256，每基础块约 32x32） =====
+    sliceTo('tex_hub_floor_a', 'tx_src_ground', 0, 0, 32, 32);
+    sliceTo('tex_hub_floor_b', 'tx_src_ground', 32, 0, 32, 32);
+
+    // ===== 墙体（来源 512x512） =====
+    sliceTo('tex_hub_wall', 'tx_src_wall', 32, 224, 32, 32);
+    sliceTo('tex_hub_wall_top', 'tx_src_wall', 64, 32, 32, 32);
+
+    // ===== 家具/装饰（来源 TX Props.png 512x512） =====
+    // 大致按图集肉眼网格估算坐标，若有偏移可调整下列数字
+    // 王座（馆长椅）：左侧带高靠背的石椅，约 32x64
+    sliceTo('tex_hub_throne', 'tx_src_props', 192, 192, 32, 64);
+    // 盔甲架（人形）：约 32x96
+    sliceTo('tex_hub_armor', 'tx_src_props', 288, 32, 32, 96);
+    // 武器架（带剑、长矛）：约 32x96
+    sliceTo('tex_hub_weapon_rack', 'tx_src_props', 320, 128, 32, 96);
+    // 陶罐（中等）：约 32x32
+    sliceTo('tex_hub_pot', 'tx_src_props', 64, 224, 32, 32);
+    // 木箱：约 32x32
+    sliceTo('tex_hub_chest', 'tx_src_props', 32, 0, 32, 32);
+    // 大石坛（大厅中央装饰，可选）：约 96x64
+    sliceTo('tex_hub_altar', 'tx_src_props', 320, 320, 96, 64);
+    // 立式石碑：约 32x64
+    sliceTo('tex_hub_pillar', 'tx_src_props', 96, 0, 32, 64);
+
+    // ===== 拱门（来源 TX Struct.png 512x512） =====
+    // 大石拱门（任务门用）：约 96x96
+    sliceTo('tex_hub_arch', 'tx_src_struct', 384, 0, 96, 96);
+
+    // ===== 植物（来源 TX Plant.png 512x512） =====
+    // 灌木丛：约 32x32
+    sliceTo('tex_hub_bush', 'tx_src_plant', 32, 192, 32, 32);
   }
 
   // ——————————— 光晕（径向渐变） ———————————
