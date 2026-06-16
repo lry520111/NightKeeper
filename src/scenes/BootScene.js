@@ -8,10 +8,10 @@ export default class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // —— LimeZu Modern Interiors 角色 sprite sheet ——
-    // idle_anim：每方向 4 帧，4 方向横向排列 → 16 帧 × 16x16
-    // run：每方向 6 帧，4 方向横向排列 → 24 帧 × 16x16
-    // 朝向顺序（LimeZu 标准）：下 0-?, 上, 右, 左
+    // —— LimeZu Modern Interiors 角色 sprite sheet（原版 16×32 像素风）——
+    //   每张 384×32，单帧 16×32 → 24 帧 × 1 行
+    //   方向顺序（实测）：right(0-5) / up(6-11) / left(12-17) / down(18-23)
+    //   每方向 6 帧 walk 循环；idle_anim 与 run 都按此布局
     const charDir = 'assets/characters/Characters_free/';
     this.load.spritesheet('lz_adam_idle', charDir + 'Adam_idle_anim_16x16.png', {
       frameWidth: 16,
@@ -21,11 +21,18 @@ export default class BootScene extends Phaser.Scene {
       frameWidth: 16,
       frameHeight: 32
     });
+    // amelia → 守卫
     this.load.spritesheet('lz_amelia_idle', charDir + 'Amelia_idle_anim_16x16.png', {
       frameWidth: 16,
       frameHeight: 32
     });
+    // alex → 水手
     this.load.spritesheet('lz_alex_idle', charDir + 'Alex_idle_anim_16x16.png', {
+      frameWidth: 16,
+      frameHeight: 32
+    });
+    // bob → 打手
+    this.load.spritesheet('lz_bob_idle', charDir + 'Bob_idle_anim_16x16.png', {
       frameWidth: 16,
       frameHeight: 32
     });
@@ -42,6 +49,14 @@ export default class BootScene extends Phaser.Scene {
     // —— Hub 大厅整张背景图（pre-rendered scene）——
     // 高质量预渲染场景图，覆盖整个画布；碰撞与交互锚点在 hubLayout.js 中定义
     this.load.image('hub_cover', 'assets/hub/hub_02.jpg');
+
+    // —— 任务关卡（博物馆）8 张高质量房间贴图 ——
+    // 与 hub_02 同画风（深色砖墙 + 暗红/暗金中式纹饰），运行时按 roomTemplates 拼接
+    // 室内尺寸、门洞坐标、墙体碰撞均在 src/data/roomTemplates.js 中以世界像素为单位标注
+    for (let i = 1; i <= 8; i++) {
+      const id = i.toString().padStart(2, '0');
+      this.load.image(`room_${id}`, `assets/rooms/${id}.png`);
+    }
   }
 
   create() {
@@ -96,12 +111,12 @@ export default class BootScene extends Phaser.Scene {
     this.makeRectTexture('tex_relic', 12, 12, 0xd4af37, 0xfff3b8);
 
     // —— 光照系统贴图 ——
-    this.makeLightTexture('tex_light_lg', 220);  // 玩家手电筒大光圈
-    this.makeLightTexture('tex_light_sm', 110);  // 玩家潜行小光圈
-    this.makeLightTexture('tex_light_xs', 60);   // 文物/小物件微光
-    this.makeLightTexture('tex_light_guard', 90); // 守卫提灯光晕
-    this.makeLightTexture('tex_light_lantern', 70); // 灯笼光晕
-    this.makeLightWarmTexture('tex_light_warm', 80); // 暖红色光晕（灯笼用）
+    this.makeLightTexture('tex_light_lg', 320);  // 玩家手电筒大光圈（增大）
+    this.makeLightTexture('tex_light_sm', 180);  // 玩家潜行小光圈（增大）
+    this.makeLightTexture('tex_light_xs', 90);   // 文物/小物件微光（增大）
+    this.makeLightTexture('tex_light_guard', 110); // 守卫提灯光晕
+    this.makeLightTexture('tex_light_lantern', 90); // 灯笼光晕
+    this.makeLightWarmTexture('tex_light_warm', 110); // 暖红色光晕（灯笼用）
 
     // —— 战斗 / HUD 贴图 ——
     this.makeBladeSlashTexture();   // 玩家挥刀刀光（扇形白光）
@@ -125,6 +140,7 @@ export default class BootScene extends Phaser.Scene {
 
     // —— 像素美术保护：所有像素纹理（tex_* / lz_*）强制 NEAREST 过滤 ——
     // 全局 pixelArt 已关（让 UI 文字高清），像素纹理需要在此单独设置，否则会被 LINEAR 模糊
+    // 注意：room_* 与 hub_cover 是高分辨率场景图，不能 NEAREST，否则缩放后呈锯齿
     const Filter = Phaser.Textures.FilterMode || { NEAREST: 0 };
     const NEAREST = (Filter.NEAREST !== undefined) ? Filter.NEAREST : 0;
     Object.keys(this.textures.list).forEach((key) => {
@@ -1649,46 +1665,60 @@ export default class BootScene extends Phaser.Scene {
   }
 
   // ——————————— LimeZu 角色动画注册 ———————————
-  // LimeZu Modern Interiors 标准帧布局：每条 24 帧，每方向 6 帧
-  //   方向顺序：down(0-5) / up(6-11) / right(12-17) / left(18-23)
-  // idle_anim 也是 24 帧，每方向 6 帧的呼吸
+  // LimeZu Modern Interiors v2.2 标准 sheet：384×32（24 帧 × 1 行）
+  //   实测方向顺序：right(0-5) / up(6-11) / left(12-17) / down(18-23)
+  //   每方向 6 帧；idle 与 run sheet 共用此布局
   registerLZAnims() {
+    // 实测精灵表行序（base 是该方向首帧索引）
     const dirs = [
-      { name: 'down',  base: 0 },
+      { name: 'right', base: 0 },
       { name: 'up',    base: 6 },
-      { name: 'right', base: 12 },
-      { name: 'left',  base: 18 }
+      { name: 'left',  base: 12 },
+      { name: 'down',  base: 18 }
     ];
-    const chars = ['adam', 'amelia', 'alex'];
-    for (const ch of chars) {
+    // 所有角色一致：每方向 6 帧
+    const charSpec = {
+      adam:   { hasRun: true  },
+      amelia: { hasRun: false },
+      alex:   { hasRun: false },
+      bob:    { hasRun: false }
+    };
+    for (const ch of Object.keys(charSpec)) {
+      const spec = charSpec[ch];
       const idleKey = `lz_${ch}_idle`;
-      // 部分角色没加载 run，只 adam 有
-      const hasRun = this.textures.exists(`lz_${ch}_run`);
+      if (!this.textures.exists(idleKey)) continue;
       for (const d of dirs) {
-        // idle
+        const base = d.base;
+        const end  = base + 5; // 每方向 6 帧
+        // idle 动画
         const idleAnim = `${ch}_idle_${d.name}`;
         if (!this.anims.exists(idleAnim)) {
           this.anims.create({
             key: idleAnim,
-            frames: this.anims.generateFrameNumbers(idleKey, {
-              start: d.base,
-              end: d.base + 5
-            }),
+            frames: this.anims.generateFrameNumbers(idleKey, { start: base, end }),
             frameRate: 6,
             repeat: -1
           });
         }
-        // run
-        if (hasRun) {
+        // run 动画
+        if (spec.hasRun && this.textures.exists(`lz_${ch}_run`)) {
           const runAnim = `${ch}_run_${d.name}`;
           if (!this.anims.exists(runAnim)) {
             this.anims.create({
               key: runAnim,
-              frames: this.anims.generateFrameNumbers(`lz_${ch}_run`, {
-                start: d.base,
-                end: d.base + 5
-              }),
+              frames: this.anims.generateFrameNumbers(`lz_${ch}_run`, { start: base, end }),
               frameRate: 12,
+              repeat: -1
+            });
+          }
+        } else {
+          // NPC 没有专门的 run 表：将 run 别名指向 idle
+          const runAlias = `${ch}_run_${d.name}`;
+          if (!this.anims.exists(runAlias)) {
+            this.anims.create({
+              key: runAlias,
+              frames: this.anims.generateFrameNumbers(idleKey, { start: base, end }),
+              frameRate: 9,
               repeat: -1
             });
           }

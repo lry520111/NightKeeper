@@ -73,23 +73,33 @@ export function generateLevel(opts) {
   // 横向主隔墙位置（中央偏移随机）
   const midRow = Math.floor((innerTop + innerBottom) / 2) + (Math.floor(rng() * 3) - 1);
 
-  // 竖向隔墙数量（2~3 道）
+  // 竖向隔墙数量（2~3 道）—— 用于把上下两层各自切成多个房间
+  // 注：内部墙在 MuseumScene.spawnWall 中以缩小碰撞盒方式呈现，不会影响玩家走位
+  const INTERIOR_WALLS = true;
   const vCount = 2 + (rng() < 0.5 ? 0 : 1);
   const vCols = pickDistinctCols(rng, vCount, innerLeft + 4, innerRight - 4, 5);
-
-  // 上层水平段：在 (innerTop+1, midRow-1) 之间画竖墙
-  for (const col of vCols) {
-    for (let y = innerTop; y < midRow; y++) walls.add(k(col, y));
-  }
-  // 下层水平段
-  // 用不同的列分割，使布局不对称
   const vColsBottom = pickDistinctCols(rng, vCount, innerLeft + 4, innerRight - 4, 5);
-  for (const col of vColsBottom) {
-    for (let y = midRow + 1; y <= innerBottom; y++) walls.add(k(col, y));
+
+  if (INTERIOR_WALLS) {
+    // 上层水平段：在 (innerTop+1, midRow-1) 之间画竖墙
+    for (const col of vCols) {
+      for (let y = innerTop; y < midRow; y++) walls.add(k(col, y));
+    }
+    // 下层水平段（用不同的列分割，使布局不对称）
+    for (const col of vColsBottom) {
+      for (let y = midRow + 1; y <= innerBottom; y++) walls.add(k(col, y));
+    }
   }
 
-  // 中间那行水平隔墙
+  // 中间那行水平隔墙（"大走廊"的墙，保留以保留地图层次感）
   for (let x = innerLeft; x <= innerRight; x++) walls.add(k(x, midRow));
+
+  // —— 额外结构：在大走廊上下各加一段"短伸墙 / 门框柱"，丰富空间层次 ——
+  // 上层：在每个上层房间里随机加一段从顶墙下垂的短墙（长度 2~3，距顶 1 格留呼吸）
+  if (INTERIOR_WALLS) {
+    addStubWalls(walls, rng, innerLeft, innerTop, innerRight, midRow - 1, vCols, 'top');
+    addStubWalls(walls, rng, innerLeft, midRow + 1, innerRight, innerBottom, vColsBottom, 'bottom');
+  }
 
   // 3. 在每段隔墙上随机开门（去掉一格）
   // 上层每条竖隔墙开 1~2 扇门
@@ -235,6 +245,63 @@ export function generateLevel(opts) {
 // ——————————————————————————————————————
 //  辅助函数
 // ——————————————————————————————————————
+
+/**
+ * 在房间内部撒一些"短伸墙 / 门框柱"，丰富空间层次但保证不阻断主通道。
+ * 形式：从房间外边缘（顶/底）向内延伸长度 2~3 的短墙，居中位置避开竖隔墙列。
+ * @param {Set<string>} walls 当前墙体集合（会被修改）
+ * @param {() => number} rng
+ * @param {number} left 房间区段左边界
+ * @param {number} top  房间区段上边界
+ * @param {number} right 房间区段右边界
+ * @param {number} bottom 房间区段下边界
+ * @param {number[]} divCols 该层的竖隔墙列（避开）
+ * @param {'top'|'bottom'} side 决定从哪一侧伸出
+ */
+function addStubWalls(walls, rng, left, top, right, bottom, divCols, side) {
+  if (top > bottom || left >= right) return;
+  const blockedCols = new Set(divCols);
+  // 把每段连续可用列拆成"段"，每段挑 0~1 个位置加短墙
+  let runStart = -1;
+  const segments = [];
+  for (let x = left + 2; x <= right - 1; x++) {
+    if (blockedCols.has(x)) {
+      if (runStart >= 0) segments.push([runStart, x - 1]);
+      runStart = -1;
+    } else {
+      if (runStart < 0) runStart = x;
+    }
+  }
+  if (runStart >= 0) segments.push([runStart, right - 1]);
+
+  for (const [s, e] of segments) {
+    const segLen = e - s + 1;
+    if (segLen < 4) continue; // 段太短就不放
+    // 该段最多 1 个短墙位
+    if (rng() > 0.7) continue; // 30% 概率放
+    // 选一个居中偏随机的列
+    const col = s + 2 + Math.floor(rng() * Math.max(1, segLen - 4));
+    // 长度 2~3，避免到正中（中间是大走廊通道）
+    const len = 2 + (rng() < 0.5 ? 0 : 1);
+    if (side === 'top') {
+      // 从 top 行向下伸 len 格（top 行本身已是外墙的下沿位置，这里跳过外墙再向下）
+      for (let i = 0; i < len; i++) {
+        const yy = top + i;
+        // 距离中央走廊（bottom 行 = midRow-1）至少留 2 格通道
+        if (yy >= bottom - 1) break;
+        walls.add(k(col, yy));
+      }
+    } else {
+      // 从 bottom 行向上伸 len 格
+      for (let i = 0; i < len; i++) {
+        const yy = bottom - i;
+        if (yy <= top + 1) break;
+        walls.add(k(col, yy));
+      }
+    }
+  }
+}
+
 function pickDistinctCols(rng, count, lo, hi, minGap) {
   const picks = [];
   let tries = 0;

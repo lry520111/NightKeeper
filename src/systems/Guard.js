@@ -3,19 +3,19 @@
 import Phaser from 'phaser';
 
 // ——— 视野参数 ———
-const VIEW_RANGE = 190;          // 视野距离（像素）— 看得更远
+const VIEW_RANGE = 210;          // 视野距离（像素）— 看得更远
 const VIEW_HALF_ANGLE = Math.PI / 5.2; // 视野半角（约 35° → 总 70°）— 视野更宽
 const TURN_SPEED = 3.6;          // 朝向转动速度（弧度/秒）— 转头更快
 const PATROL_SPEED = 70;         // 巡逻速度 — 加快巡逻
 const CHASE_SPEED = 145;         // 追击速度 — 玩家很难直线甩开
 const WAIT_AT_WAYPOINT_MS = 700; // 路径点停顿 — 停得更短
-const ALERT_FILL_RATE = 105;     // 每秒警觉值（满 100）— 入锥心 ~1 秒满
-const ALERT_DECAY_RATE = 11;     // 每秒衰减 — 一旦警觉，很难躲回
+// ★ 警惕性增强：被探照灯照到后 ~0.4秒 触发 “被发现了”
+const ALERT_FILL_RATE = 240;     // 每秒警觉值（满 100）— 锈心 ~0.42 秒满
+const ALERT_DECAY_RATE = 18;     // 每秒衰减 — 一旦警觉，很难躲回
 const ALERT_FULL = 100;
-const ALERT_SUSPICIOUS = 1;      // 大于 0 即视为可疑（>0 显示黄锥）
+const ALERT_SUSPICIOUS = 1;      // 大于 0 即视为可疑（>0 显示黄锈）
 const ALARM_RADIUS = 220;        // 警觉满后通知半径（像素）
 const ALARM_ALERT_BUMP = 70;     // 联动友军被推到的警觉值（直接进入怀疑/追击）
-
 // 颜色（视野锥）
 const COLOR_GREEN = 0x6bcf6b;
 const COLOR_YELLOW = 0xf2c14e;
@@ -46,6 +46,17 @@ export default class Guard {
     this.texWalk = style === 'thug' ? 'tex_guard_thug_walk'
       : style === 'sailor' ? 'tex_guard_sailor_walk'
       : 'tex_guard_walk';
+    // —— LimeZu 精美贴图配置（按风格分配不同 LimeZu 角色） ——
+    //   thug   → Bob   （粗犷打手）
+    //   sailor → Alex  （海军风）
+    //   default→ Amelia（女守卫）
+    this.lzKey = style === 'thug' ? 'lz_bob_idle'
+      : style === 'sailor' ? 'lz_alex_idle'
+      : 'lz_amelia_idle';
+    this.lzAnimPrefix = style === 'thug' ? 'bob'
+      : style === 'sailor' ? 'alex'
+      : 'amelia';
+    this.useLZ = scene.textures && scene.textures.exists(this.lzKey);
     this.wpIdx = 0;
     this.alert = 0;
     this.state = 'patrol'; // patrol | suspicious | chase
@@ -53,6 +64,9 @@ export default class Guard {
     this.waitUntil = 0;
     this.chaseUntil = 0;
     this.onStateChange = null; // (newState, oldState, guard) => void
+    // ★ 巡逻硬约束（世界像素矩形）：守卫不能走出该区域，迫近边界会被拉回
+    //   由 setPatrolBounds() 设置；为 null 时不限制（单房间模式保留原状）
+    this.patrolBounds = null;
 
     // —— 战斗状态 ——
     this.hp = GUARD_MAX_HP;
@@ -75,10 +89,23 @@ export default class Guard {
     const startIdx = waypoints.length >= 2 ? Math.floor(waypoints.length / 2) : 0;
     const startPos = waypoints[startIdx];
     this.wpIdx = (startIdx + 1) % waypoints.length;
-    this.sprite = scene.physics.add.sprite(startPos.x, startPos.y, this.texIdle);
+    this.sprite = scene.physics.add.sprite(startPos.x, startPos.y, this.useLZ ? this.lzKey : this.texIdle, this.useLZ ? 18 : 0);
     this.sprite.setCollideWorldBounds(true);
-    this.sprite.body.setSize(12, 18).setOffset(2, 4);
+    if (this.useLZ) {
+      // LimeZu 16×32 像素帧：脚部 body 居中（与玩家一致）
+      this.sprite.body.setSize(10, 12).setOffset(3, 18);
+    } else {
+      this.sprite.body.setSize(12, 18).setOffset(2, 4);
+    }
     this.sprite.setDepth(5);
+    // LimeZu 像素帧放大 1.5 倍 → 视觉高度 ~48px，比玩家略矮一点
+    this.sprite.setScale(this.useLZ ? 1.5 : 1.7);
+    // 当前 4 方向（LimeZu 模式使用）
+    this._dir4 = 'down';
+    if (this.useLZ) {
+      const animKey = `${this.lzAnimPrefix}_idle_down`;
+      if (scene.anims.exists(animKey)) this.sprite.play(animKey);
+    }
 
     // 朝向（弧度）：初始指向下一个路径点
     const next = waypoints[this.wpIdx] || { x: startPos.x + 1, y: startPos.y };
@@ -105,6 +132,49 @@ export default class Guard {
     this.coneGfx.destroy();
     if (this.windupGfx) this.windupGfx.destroy();
     if (this.hpBarGfx) this.hpBarGfx.destroy();
+  }
+
+  // ★ 设置守卫的活动范围（世界像素矩形）★
+  // 守卫不会走出此矩形：每帧检查，若已在边界外则强制拉回 + 反向速度
+  // 这是相比 patrol waypoints 之外的"硬约束"——即使在 chase / suspicious 状态也生效
+  setPatrolBounds(rect) {
+    if (!rect) {
+      this.patrolBounds = null;
+      return;
+    }
+    // 内缩半个 body 宽度，避免 sprite 中心贴到边界时身体部分越界
+    const margin = 8;
+    this.patrolBounds = {
+      x: rect.x + margin,
+      y: rect.y + margin,
+      x2: rect.x + rect.w - margin,
+      y2: rect.y + rect.h - margin
+    };
+  }
+
+  // 把守卫位置/速度限制在 patrolBounds 内
+  enforceBounds() {
+    const b = this.patrolBounds;
+    if (!b || !this.sprite || !this.sprite.body) return;
+    let { x, y } = this.sprite;
+    let vx = this.sprite.body.velocity.x;
+    let vy = this.sprite.body.velocity.y;
+    let clamped = false;
+    if (x < b.x)  { x = b.x;  if (vx < 0) vx = 0; clamped = true; }
+    if (x > b.x2) { x = b.x2; if (vx > 0) vx = 0; clamped = true; }
+    if (y < b.y)  { y = b.y;  if (vy < 0) vy = 0; clamped = true; }
+    if (y > b.y2) { y = b.y2; if (vy > 0) vy = 0; clamped = true; }
+    if (clamped) {
+      this.sprite.x = x;
+      this.sprite.y = y;
+      this.sprite.body.setVelocity(vx, vy);
+      // 在 patrol/suspicious 状态下被边界拉住时，让朝向反转回房间中心，避免"贴墙原地踏步"
+      if (this.state !== 'chase') {
+        const cx = (b.x + b.x2) / 2;
+        const cy = (b.y + b.y2) / 2;
+        this.facing = Math.atan2(cy - y, cx - x);
+      }
+    }
   }
 
   // —— 玩家攻击造成伤害 ——
@@ -217,24 +287,62 @@ export default class Guard {
     // —— 行走帧切换（依据实际位移） ——
     this.updateWalkFrame(dt);
 
+    // —— 硬约束：守卫不能走出自己房间的矩形范围 ——
+    this.enforceBounds();
+
     // 接触致死保留：贴脸即抓
     return this.touchPlayer(player);
   }
 
   updateWalkFrame(dt) {
     if (this.dead) return;
-    const moved = Math.hypot(this.sprite.x - this._lastX, this.sprite.y - this._lastY);
+    const dx = this.sprite.x - this._lastX;
+    const dy = this.sprite.y - this._lastY;
+    const moved = Math.hypot(dx, dy);
     this._lastX = this.sprite.x;
     this._lastY = this.sprite.y;
+
+    if (this.useLZ) {
+      // —— LimeZu 4方向动画 ——
+      // 优先按运动方向决定朝向；若静止则保持当前 _dir4（结合 facing 修正一次）
+      let dir = this._dir4 || 'down';
+      if (moved > 0.4) {
+        if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? 'right' : 'left';
+        else dir = dy > 0 ? 'down' : 'up';
+      } else if (typeof this.facing === 'number') {
+        const fx = Math.cos(this.facing);
+        const fy = Math.sin(this.facing);
+        if (Math.abs(fx) > Math.abs(fy)) dir = fx > 0 ? 'right' : 'left';
+        else dir = fy > 0 ? 'down' : 'up';
+      }
+      this._dir4 = dir;
+      const moving = moved > 0.4;
+      const animKey = moving
+        ? `${this.lzAnimPrefix}_run_${dir}`
+        : `${this.lzAnimPrefix}_idle_${dir}`;
+      const fallback = `${this.lzAnimPrefix}_idle_${dir}`;
+      const target = this.scene.anims.exists(animKey) ? animKey : fallback;
+      if (this.scene.anims.exists(target)) {
+        const cur = this.sprite.anims.currentAnim;
+        if (!cur || cur.key !== target) this.sprite.play(target);
+      }
+      this.sprite.setFlipX(false);
+      return;
+    }
+
+    // —— 旧贴图模式 ——
     if (moved > 0.4) {
       this._walkAccum += dt;
       const stepTime = this.state === 'chase' ? 0.10 : 0.22;
       if (this._walkAccum >= stepTime) {
         this._walkAccum = 0;
         this._walkPhase = 1 - this._walkPhase;
-      this.sprite.setTexture(this._walkPhase ? this.texWalk : this.texIdle);
+        this.sprite.setTexture(this._walkPhase ? this.texWalk : this.texIdle);
       }
-      this.sprite.setFlipX(Math.cos(this.facing) < 0);
+      // 顶视角下：只按本帧水平移动分量决定翻转
+      if (Math.abs(dx) > 0.05) {
+        this.sprite.setFlipX(dx < 0);
+      }
     } else if (this._walkPhase !== 0) {
       this._walkPhase = 0;
       this._walkAccum = 0;

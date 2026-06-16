@@ -10,6 +10,8 @@ import Audio from '../systems/AudioFx.js';
 import AICompanion, { quipForPickup } from '../systems/AICompanion.js';
 import SaveData from '../systems/SaveData.js';
 import { getBiome } from '../data/biomes.js';
+import { getRoomTemplate } from '../data/roomTemplates.js';
+import { composeMuseumMap } from '../systems/composeMuseumMap.js';
 
 const TILE = 32;
 const MAP_W = 30; // 30 * 32 = 960
@@ -32,50 +34,240 @@ export default class MuseumScene extends Phaser.Scene {
       if (ac && ac.biome) biomeId = ac.biome;
     }
     this.biome = getBiome(biomeId || 'museum');
+
+    // —— 场景渲染模式选择 ——
+    // composed 模式：使用 composeMuseumMap 拼接的多房间复合地图（推荐，地图复杂度高）
+    // template 模式：使用 src/data/roomTemplates.js 中预定义的单张房间贴图（验证 / 调试用）
+    // procedural 模式：走原有 generateLevel + 像素贴图拼接逻辑（最早期实现，回退备用）
+    //
+    // 默认 composed 模式，调用方可显式 useComposed:false + template:'room_xx' 单房间调试
+    this.useComposed = (data && data.useComposed !== undefined)
+      ? !!data.useComposed
+      : (!data || data.template === undefined); // 没显式传 template 时默认走复合
+    this.useTemplate = !this.useComposed
+      && ((data && data.useTemplate !== undefined) ? !!data.useTemplate : true);
+
+    if (this.useComposed && this.biome && this.biome.id === 'museum') {
+      // 复合模式：把 composeMuseumMap 的输出当作"超级模板"喂给下游
+      try {
+        this._template = composeMuseumMap();
+        this.templateId = this._template.id;
+      } catch (err) {
+        console.warn('[MuseumScene] composeMuseumMap failed, fallback to single room:', err);
+        this.useComposed = false;
+        this.useTemplate = true;
+      }
+    }
+
+    if (!this.useComposed) {
+      this.templateId = (data && data.template) || (this.biome && this.biome.id === 'museum' ? 'room_01' : null);
+      if (this.templateId) {
+        const tpl = getRoomTemplate(this.templateId);
+        if (!tpl) {
+          // 安全回退到程序化生成
+          this.useTemplate = false;
+          this.templateId = null;
+        } else {
+          this._template = tpl;
+        }
+      } else {
+        this.useTemplate = false;
+      }
+    }
   }
 
   create() {
-    // —— 视口适配：将 960×540 的关卡世界居中绘制到 1280×720 画布中央，
-    //   上下各留 90px、左右各留 160px 黑边，保留原有地图/HUD/警报/对话坐标不变。
-    this.cameras.main.setViewport(160, 90, 960, 540);
+    // —— 视口：与 HubScene 保持一致，使用 1280×720 全画布，避免任务房出现大黑边。
+    //   HUD/遮罩/线索面板等屏幕固定元素，统一以 SCREEN_W/SCREEN_H 为锚点。
+    this.cameras.main.setViewport(0, 0, 1280, 720);
     this.cameras.main.fadeIn(500, 0, 0, 0);
     this.inventory = new Inventory();
     this._ended = false;
     // 局内统计（上送给 ResultScene 计入 SaveData.stats，用于多结局判定）
     this._runStats = { kills: 0, alerts: 0 };
 
-    // —— 0. 程序化生成关卡布局（每局不同） ——
-    const level = generateLevel({
-      width: MAP_W,
-      height: MAP_H,
-      seed: (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0,
-      relicCount: this.biome.relicCount || 7,
-      relicPoolSize: RELICS.length,
-      guardCount: this.biome.guardCount || 5
-    });
+    // —— 0. 生成关卡布局 ——
+    // template 模式：从房间贴图模板构造 level；procedural 模式：原程序化生成
+    let level;
+    let mapW = MAP_W;
+    let mapH = MAP_H;
+    if ((this.useTemplate || this.useComposed) && this._template) {
+      level = this._buildLevelFromTemplate(this._template);
+      mapW = this._template.tilesW;
+      mapH = this._template.tilesH;
+    } else {
+      level = generateLevel({
+        width: MAP_W,
+        height: MAP_H,
+        seed: (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0,
+        relicCount: this.biome.relicCount || 7,
+        relicPoolSize: RELICS.length,
+        guardCount: this.biome.guardCount || 5
+      });
+    }
     this._level = level;
+    this._mapW = mapW;
+    this._mapH = mapH;
 
-    // —— 1. 铺地板（biome 提供贴图序列，伪噪声选变体避免重复感）——
-    const floorKeys = (this.biome && this.biome.floorKeys && this.biome.floorKeys.length)
-      ? this.biome.floorKeys
-      : ['tex_floor', 'tex_floor', 'tex_floor', 'tex_floor_a', 'tex_floor_b'];
-    for (let y = 0; y < MAP_H; y++) {
-      for (let x = 0; x < MAP_W; x++) {
-        // 用位运算生成伪随机索引，保证每个位置出现稳定贴图
-        const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
-        const idx = h % floorKeys.length;
-        this.add.image(x * TILE, y * TILE, floorKeys[idx]).setOrigin(0, 0).setDepth(0);
+    // —— 物理世界与相机适配模板尺寸（房间不是 30×17 时需要居中并缩放视口） ——
+    const worldW = mapW * TILE;
+    const worldH = mapH * TILE;
+    this.physics.world.setBounds(0, 0, worldW, worldH);
+    if (this.useTemplate || this.useComposed) {
+      // 视口 1280×720：分轴判断是否需要跟随
+      //   · 某轴 worldSize > viewport → 该轴需要跟随玩家（大地图）
+      //   · 某轴 worldSize ≤ viewport → 该轴居中显示（不跟随，否则相机贴边出现单侧黑边）
+      const viewW = 1280;
+      const viewH = 720;
+      const followX = worldW > viewW;
+      const followY = worldH > viewH;
+      const needFollow = followX || followY;
+
+      if (!needFollow) {
+        // 两轴都比视口小 → 整图居中
+        this.cameras.main.centerOn(worldW / 2, worldH / 2);
+      }
+      this._cameraNeedFollow = needFollow;
+      this._cameraFollowX = followX;
+      this._cameraFollowY = followY;
+      // 用于不跟随轴上的"相机居中偏移"（让窄世界水平/垂直居中显示在 1280×720 视口里）
+      this._cameraFixedScrollX = followX ? null : (worldW - viewW) / 2;
+      this._cameraFixedScrollY = followY ? null : (worldH - viewH) / 2;
+
+      if (needFollow) {
+        // ★ 关键：bounds 至少覆盖 viewport，避免 worldSize<viewport 的轴被 Phaser 强制 clamp 到 0 → 单侧黑边
+        const bx = followX ? 0 : (worldW - viewW) / 2;
+        const by = followY ? 0 : (worldH - viewH) / 2;
+        const bw = followX ? worldW : viewW;
+        const bh = followY ? worldH : viewH;
+        this.cameras.main.setBounds(bx, by, bw, bh);
       }
     }
 
-    // —— 2. 墙体（由关卡生成器产出，biome 决定贴图套装）——
-    this.walls = this.physics.add.staticGroup();
-    const wallTopKey = (this.biome && this.biome.wallTopKey) || 'tex_wall_top';
-    const wallKey = (this.biome && this.biome.wallKey) || 'tex_wall';
-    for (const key of level.walls) {
-      const [sx, sy] = key.split(',').map(Number);
-      const isTop = sy === 0;
-      this.spawnWall(sx, sy, isTop ? wallTopKey : wallKey);
+    if ((this.useTemplate || this.useComposed) && this._template) {
+      // —— 1T. 房间贴图：单房间整张铺底；复合地图按 children 分别铺 ——
+      this._roomBgs = [];
+      const tpl = this._template;
+      if (tpl.children && tpl.children.length) {
+        // 复合模式：先铺走廊地板色，再铺各房间贴图
+        // 走廊地板：暗红地砖色调，与博物馆整体一致
+        if (tpl.corridors && tpl.corridors.length) {
+          for (const c of tpl.corridors) {
+            const corridorBg = this.add.rectangle(
+              c.x * TILE,
+              c.y * TILE,
+              c.w * TILE,
+              c.h * TILE,
+              0x2a1a14 // 暗红木地板
+            ).setOrigin(0, 0).setDepth(0);
+            // 走廊纹理：叠一层略亮的格栅条
+            const stripe = this.add.rectangle(
+              c.x * TILE + TILE,
+              c.y * TILE + TILE,
+              c.w * TILE - TILE * 2,
+              c.h * TILE - TILE * 2,
+              0x3a2a20
+            ).setOrigin(0, 0).setDepth(0.05).setAlpha(0.6);
+            this._roomBgs.push(corridorBg, stripe);
+          }
+        }
+        // 各房间贴图
+        for (const child of tpl.children) {
+          const cw = child.tilesW * TILE;
+          const ch = child.tilesH * TILE;
+          const cx = child.origin.x * TILE;
+          const cy = child.origin.y * TILE;
+          const bg = this.add.image(cx, cy, child.id)
+            .setOrigin(0, 0)
+            .setDepth(0.1);
+          // 把贴图缩放到房间逻辑尺寸
+          if (bg.width > 0 && bg.height > 0) {
+            bg.setScale(cw / bg.width, ch / bg.height);
+          }
+          this._roomBgs.push(bg);
+        }
+      } else {
+        // 单房间模式：保留原行为
+        const texKey = tpl.id;
+        const bg = this.add.image(0, 0, texKey)
+          .setOrigin(0, 0)
+          .setDepth(0);
+        const srcW = bg.width;
+        const srcH = bg.height;
+        if (srcW > 0 && srcH > 0) {
+          bg.setScale(worldW / srcW, worldH / srcH);
+        }
+        this._roomBgs.push(bg);
+        this._roomBg = bg; // 兼容旧引用
+      }
+
+      // —— 2T. 墙体 / 障碍物：用不可见的矩形静态物体作为碰撞 ——
+      //
+      // 阶段一改造：消除"空气墙"
+      //   规则一：墙体（外圈承重墙）保持完整厚度，但每段两端各缩 1 像素，
+      //          消除外墙四角的"卡角"问题（玩家贴墙拐弯时容易卡）
+      //   规则二：障碍物（家具/展柜）统一内缩 PAD 像素，让玩家可以擦边
+      //   规则三：1×1 / 1×2 / 2×1 的瘦小装饰（立柱、盆景、单凳）直接跳过碰撞
+      //          这类装饰视觉很小，挡住走位会非常恼人
+      this.walls = this.physics.add.staticGroup();
+
+      // —— 墙体：内缩 1 像素（消除外角卡顿） ——
+      const WALL_INSET = 1;
+      const addWall = (rx, ry, rw, rh) => {
+        const W = rw * TILE - WALL_INSET * 2;
+        const H = rh * TILE - WALL_INSET * 2;
+        if (W <= 0 || H <= 0) return;
+        const cx = rx * TILE + (rw * TILE) / 2;
+        const cy = ry * TILE + (rh * TILE) / 2;
+        const rect = this.add.rectangle(cx, cy, W, H, 0xff0000, 0);
+        this.physics.add.existing(rect, true);
+        rect.body.updateFromGameObject();
+        rect._dbgTag = 'wall';
+        this.walls.add(rect);
+      };
+      for (const r of (this._template.walls || [])) addWall(r.x, r.y, r.w || 1, r.h || 1);
+
+      // —— 障碍物：过滤小装饰 + 整体内缩 PAD ——
+      // 玩家 body 已经是 10×12 像素小盒，PAD=12 后墙厚仍剩 ~8 像素足以阻挡
+      const OBS_PAD = 12;
+      for (const r of (this._template.obstacles || [])) {
+        const rw = r.w || 1;
+        const rh = r.h || 1;
+        // 过滤瘦小装饰：面积≤3 (1×1, 1×2, 2×1, 1×3, 3×1) 全跳过
+        // 这些通常是立柱、单凳、香炉、小盆景，挡走位极不友好
+        if (rw * rh <= 3) continue;
+        const w = Math.max(8, rw * TILE - OBS_PAD * 2);
+        const h = Math.max(8, rh * TILE - OBS_PAD * 2);
+        const cx = r.x * TILE + (rw * TILE) / 2;
+        const cy = r.y * TILE + (rh * TILE) / 2;
+        const rect = this.add.rectangle(cx, cy, w, h, 0xff0000, 0);
+        this.physics.add.existing(rect, true);
+        rect.body.updateFromGameObject();
+        rect._dbgTag = 'obstacle';
+        this.walls.add(rect);
+      }
+    } else {
+      // —— 1. 铺地板（biome 提供贴图序列，伪噪声选变体避免重复感）——
+      const floorKeys = (this.biome && this.biome.floorKeys && this.biome.floorKeys.length)
+        ? this.biome.floorKeys
+        : ['tex_floor', 'tex_floor', 'tex_floor', 'tex_floor_a', 'tex_floor_b'];
+      for (let y = 0; y < MAP_H; y++) {
+        for (let x = 0; x < MAP_W; x++) {
+          const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+          const idx = h % floorKeys.length;
+          this.add.image(x * TILE, y * TILE, floorKeys[idx]).setOrigin(0, 0).setDepth(0);
+        }
+      }
+
+      // —— 2. 墙体（由关卡生成器产出，biome 决定贴图套装）——
+      this.walls = this.physics.add.staticGroup();
+      const wallTopKey = (this.biome && this.biome.wallTopKey) || 'tex_wall_top';
+      const wallKey = (this.biome && this.biome.wallKey) || 'tex_wall';
+      for (const key of level.walls) {
+        const [sx, sy] = key.split(',').map(Number);
+        const isTop = sy === 0;
+        this.spawnWall(sx, sy, isTop ? wallTopKey : wallKey);
+      }
     }
 
     // —— 3. 文物（带展柜底座 + 类型化贴图，位置随机） ——
@@ -136,21 +328,44 @@ export default class MuseumScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(2);
 
-    // —— 4.5 装饰物（灯笼 / 牌匾 / 屏风 / 香炉） ——
-    this.decorLights = this.placeDecorations();
-
-    // —— 5. 玩家（出生点由生成器提供） ——
+    // —— 4.5 装饰物（灯笼 / 牌区 / 屏风 / 香炉）——
+    // 模板 / 复合模式下房间贴图自带装饰，跳过程序化装饰以避免与贴图重叠
+    if (!this.useTemplate && !this.useComposed) {
+      this.decorLights = this.placeDecorations();
+    } else {
+      this.decorLights = [];
+      this.lanterns = [];
+    }    // —— 5. 玩家（出生点由生成器提供） ——
+    // 使用新版精美角色精灵表（93x137 / 6 列 × 4 方向；行序：left/up/right/down）
+    const useLZPlayer = this.textures.exists('lz_adam_idle');
     this.player = this.physics.add.sprite(
       level.spawn.x * TILE + TILE / 2,
       level.spawn.y * TILE + TILE / 2,
-      'tex_player'
+      useLZPlayer ? 'lz_adam_idle' : 'tex_player',
+      useLZPlayer ? 18 : 0  // 18 = LimeZu down 行首帧（right=0/up=6/left=12/down=18）
     );
     this.player.setCollideWorldBounds(true);
-    this.player.body.setSize(12, 18).setOffset(2, 4);
+    if (useLZPlayer) {
+      // LimeZu 16×32 像素帧：脚部 body 居中
+      this.player.body.setSize(10, 12).setOffset(3, 18);
+    } else {
+      this.player.body.setSize(12, 18).setOffset(2, 4);
+    }
     this.player.setDepth(5);
+    // LimeZu 像素角色放大 1.7 倍，视觉高度 ~54px，与房间贴图比例协调
+    this.player.setScale(1.7);
+    // 标记：后续切换动画时用
+    this._useLZPlayer = useLZPlayer;
+    if (useLZPlayer && this.anims.exists('adam_idle_down')) {
+      this.player.play('adam_idle_down');
+    }
     // 玩家朝向（弧度），鼠标方向决定光锥朝向
     this.player.setData('aim', 0);
-    // 行走帧切换计时（每 0.18 秒翻一帧）
+    // 贴图水平朝向：1=面向右，-1=面向左（兼容旧贴图）
+    this._playerFacingX = 1;
+    // 当前播放的方向（LimeZu 模式下使用）
+    this._playerDir4 = 'down';
+    // 行走帧切换计时（旧贴图模式仍使用）
     this._playerWalkPhase = 0;
     this._playerWalkAccum = 0;
 
@@ -160,7 +375,11 @@ export default class MuseumScene extends Phaser.Scene {
       this.physics.add.collider(this.player, this.containerGroup);
     }
 
-    // —— 玩家战斗 / 状态属性 ——
+    // —— 相机跟随（模板 / 复合模式下房间可能大于视口）——
+    if ((this.useTemplate || this.useComposed) && this._cameraNeedFollow) {
+      this.cameras.main.startFollow(this.player, true, 0.18, 0.18);
+      this.cameras.main.setDeadzone(120, 80);
+    }    // —— 玩家战斗 / 状态属性 ——
     // 装备的武器（在 effects 里读取，默认 starter）
     const equippedWeapon = (this._loadoutEff && this._loadoutEff.weapon) || null;
     // 初始弹药：远程武器才有
@@ -205,19 +424,27 @@ export default class MuseumScene extends Phaser.Scene {
       ESC: Phaser.Input.Keyboard.KeyCodes.ESC,
       H: Phaser.Input.Keyboard.KeyCodes.H,
       G: Phaser.Input.Keyboard.KeyCodes.G,
-      V: Phaser.Input.Keyboard.KeyCodes.V
+      V: Phaser.Input.Keyboard.KeyCodes.V,
+      F2: Phaser.Input.Keyboard.KeyCodes.F2
     });
     // 防止 Tab/Ctrl 默认行为（页面焦点切换 / 浏览器快捷键）
     this.input.keyboard.addCapture('TAB');
     this.input.keyboard.addCapture('CTRL');
+    this.input.keyboard.addCapture('F2');
     this.keys.TAB.on('down', () => this.toggleInventoryPanel());
     this.keys.H.on('down', () => this.useMedkit());
     this.keys.G.on('down', () => this.useSmokeBomb());
     this.keys.V.on('down', () => this.useQinggong());
+    this.keys.F2.on('down', () => this.toggleDebugColliders());
 
     // 鼠标左键 = 近战攻击（与 J 等价）；鼠标右键 = 远程攻击（装备远程武器时）
     this.input.on('pointerdown', (ptr) => {
       if (this._ended) return;
+      // 即时刷新 aim：避免使用上一帧的过期方向，导致"点左边却往右打"
+      if (this.player && this.player.active) {
+        const aimNow = Math.atan2(ptr.worldY - this.player.y, ptr.worldX - this.player.x);
+        this.player.setData('aim', aimNow);
+      }
       if (ptr.leftButtonDown()) {
         this.tryPlayerAttack();
       } else if (ptr.rightButtonDown && ptr.rightButtonDown()) {
@@ -279,8 +506,8 @@ export default class MuseumScene extends Phaser.Scene {
     this._stepAccum = 0;
 
     // —— 14. 屏幕暗角（受击 / 心跳闪动） ——
-    this.vignette = this.add.image(480, 270, 'tex_vignette')
-      .setDisplaySize(960, 540)
+    this.vignette = this.add.image(640, 360, 'tex_vignette')
+      .setDisplaySize(1280, 720)
       .setScrollFactor(0)
       .setDepth(120)
       .setAlpha(0);
@@ -307,12 +534,213 @@ export default class MuseumScene extends Phaser.Scene {
   }
 
   // ————————————————————————————————————————
+  //  从房间模板构造一个与 generateLevel(...) 输出兼容的 level 对象
+  //  关键字段：walls(Set"x,y") / floors(Array{x,y}) / spawn / exit / rooms / relicSpawns / containers / guardPaths
+  // ————————————————————————————————————————
+  _buildLevelFromTemplate(tpl) {
+    const W = tpl.tilesW;
+    const H = tpl.tilesH;
+
+    // 1) 展开墙体 + 障碍物 → 瓦片占用集合
+    const walls = new Set();
+    const k = (x, y) => `${x},${y}`;
+    const fillRect = (r) => {
+      for (let yy = r.y; yy < r.y + (r.h || 1); yy++) {
+        for (let xx = r.x; xx < r.x + (r.w || 1); xx++) walls.add(k(xx, yy));
+      }
+    };
+    for (const r of (tpl.walls || [])) fillRect(r);
+    for (const r of (tpl.obstacles || [])) fillRect(r);
+
+    // 2) 计算 floors（所有非墙非障碍且在房间内的格子）
+    const floors = [];
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (!walls.has(k(x, y))) floors.push({ x, y });
+      }
+    }
+
+    // 3) 出生点 / 撤离点
+    const spawn = (tpl.special && tpl.special.playerSpawn) || { x: Math.floor(W / 2), y: H - 2 };
+    const exit  = (tpl.special && tpl.special.exit)        || { x: Math.floor(W / 2), y: 1 };
+
+    // 4) 文物刷新：从 placeable 列表中随机抽 N 个，加上保险箱（若有）
+    const relicCount = (this.biome && this.biome.relicCount) || 5;
+    const placeable = (tpl.placeable || []).slice();
+    // 过滤掉与出生/撤离重叠的格子
+    const occupied = new Set([k(spawn.x, spawn.y), k(exit.x, exit.y)]);
+    for (let i = placeable.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [placeable[i], placeable[j]] = [placeable[j], placeable[i]];
+    }
+    const relicSpawns = [];
+    const usedRelicIdx = new Set();
+    for (const cell of placeable) {
+      if (relicSpawns.length >= relicCount) break;
+      if (occupied.has(k(cell.x, cell.y))) continue;
+      // 随机不重复文物
+      let idx, tries = 0;
+      do { idx = Math.floor(Math.random() * RELICS.length); tries++; }
+      while (usedRelicIdx.has(idx) && tries < 12 && usedRelicIdx.size < RELICS.length);
+      usedRelicIdx.add(idx);
+      relicSpawns.push({ x: cell.x, y: cell.y, relicIdx: idx });
+      occupied.add(k(cell.x, cell.y));
+    }
+
+    // 5) 容器：保险箱（07 号专用）+ 其他普通木箱（从未被使用的 placeable 中再挑 1~2 个）
+    const containers = [];
+    if (tpl.special && tpl.special.safe) {
+      const s = tpl.special.safe;
+      // 保险箱固定刷一件高价值文物
+      let safeRelicIdx = 0;
+      let bestVal = -1;
+      RELICS.forEach((r, i) => { if ((r.value || 0) > bestVal && !usedRelicIdx.has(i)) { bestVal = r.value || 0; safeRelicIdx = i; } });
+      usedRelicIdx.add(safeRelicIdx);
+      containers.push({ x: s.x, y: s.y, kind: 'safe', relicIdx: safeRelicIdx });
+      occupied.add(k(s.x, s.y));
+    }
+    for (const cell of placeable) {
+      if (containers.length >= 2 + (tpl.special && tpl.special.safe ? 1 : 0)) break;
+      if (occupied.has(k(cell.x, cell.y))) continue;
+      // 30% 概率放普通木箱（含补给）
+      if (Math.random() < 0.3) {
+        containers.push({ x: cell.x, y: cell.y, kind: 'plain', lootKind: 'medkit' });
+        occupied.add(k(cell.x, cell.y));
+      }
+    }
+
+    // 6) 守卫巡逻路径：★ 按 roomId 分组，每个守卫只在自己的房间内巡逻，不会跑到走廊或别的房间 ★
+    const guardCount = (this.biome && this.biome.guardCount) || 2;
+    const guardPaths = [];
+    const guardBounds = []; // 与 guardPaths 同序，每条路径对应一个 room 矩形约束
+    const allPlaceable = (tpl.placeable || []);
+
+    // 按 roomId 分桶（走廊点 '__corridor__' 不参与守卫巡逻）
+    const buckets = new Map();
+    for (const pt of allPlaceable) {
+      const rid = pt.roomId;
+      if (!rid || rid === '__corridor__') continue;
+      if (!buckets.has(rid)) buckets.set(rid, []);
+      buckets.get(rid).push(pt);
+    }
+
+    // 复合地图带 roomBounds；单房间模式 fallback 到整个房间边界
+    const roomBoundsMap = (tpl.roomBounds) || {};
+    const fallbackBounds = { x: 1, y: 1, w: W - 2, h: H - 2 };
+
+    if (buckets.size > 0) {
+      // 复合地图：每个有 placeable 的房间分配一个守卫（最多 guardCount 个）
+      const roomIds = Array.from(buckets.keys());
+      const pickCount = Math.min(guardCount, roomIds.length);
+      for (let i = 0; i < pickCount; i++) {
+        const rid = roomIds[i];
+        const corners = buckets.get(rid);
+        if (corners.length < 2) continue;
+        // 在该房间内取 4 个角形成环路（不够 4 个就重复填充）
+        const n = corners.length;
+        const path = [];
+        for (let k = 0; k < 4; k++) {
+          path.push(corners[Math.floor(k * n / 4) % n]);
+        }
+        guardPaths.push(path.map((p) => ({ x: p.x, y: p.y })));
+        guardBounds.push(roomBoundsMap[rid] || fallbackBounds);
+      }
+    } else {
+      // 单房间模式 fallback：原逻辑（4 角环路）
+      const corners = allPlaceable.slice();
+      if (corners.length >= 4) {
+        const n = corners.length;
+        for (let i = 0; i < guardCount; i++) {
+          const offset = Math.floor(i * (n / Math.max(guardCount, 1)));
+          const path = [
+            corners[(offset) % n],
+            corners[(offset + Math.floor(n / 4)) % n],
+            corners[(offset + Math.floor(n / 2)) % n],
+            corners[(offset + Math.floor((3 * n) / 4)) % n]
+          ];
+          guardPaths.push(path.map((p) => ({ x: p.x, y: p.y })));
+          guardBounds.push(fallbackBounds);
+        }
+      }
+    }
+
+    // 7) rooms 字段（用于装饰回避，模板模式下基本不会再调用）：把整个房间内部当成一个 room
+    const rooms = [{ x: 1, y: 1, w: W - 2, h: H - 2 }];
+
+    return {
+      walls,
+      floors,
+      relicSpawns,
+      containers,
+      exit,
+      spawn,
+      rooms,
+      guardPaths,
+      guardBounds
+    };
+  }
+
+  // ————————————————————————————————————————
+  //  调试模式：F2 切换碰撞箱可视化（红色半透明矩形 + 关键锚点）
+  // ————————————————————————————————————————
+  toggleDebugColliders() {
+    if (!this._dbgGfx) {
+      this._dbgGfx = this.add.graphics().setDepth(200);
+    }
+    this._dbgVisible = !this._dbgVisible;
+    const g = this._dbgGfx;
+    g.clear();
+    if (!this._dbgVisible) {
+      if (this._dbgTexts) { this._dbgTexts.forEach((t) => t.destroy()); this._dbgTexts = []; }
+      return;
+    }
+    // 画所有 wall 静态体（红色半透明）
+    if (this.walls) {
+      g.fillStyle(0xff3030, 0.35);
+      g.lineStyle(1, 0xff8080, 0.9);
+      this.walls.getChildren().forEach((w) => {
+        const b = w.body;
+        if (!b) return;
+        g.fillRect(b.x, b.y, b.width, b.height);
+        g.strokeRect(b.x, b.y, b.width, b.height);
+      });
+    }
+    // 画守卫巡逻点
+    if (this.guards) {
+      g.fillStyle(0x30c0ff, 0.7);
+      for (const gd of this.guards) {
+        for (const p of (gd.waypoints || [])) g.fillCircle(p.x, p.y, 4);
+      }
+    }
+    // 画文物刷新点
+    if (this.relicGroup) {
+      g.fillStyle(0xffd060, 0.9);
+      this.relicGroup.getChildren().forEach((r) => g.fillCircle(r.x, r.y, 3));
+    }
+    // 画出生与撤离锚点
+    if (this._level) {
+      g.fillStyle(0x60ff60, 1);
+      g.fillRect(this._level.spawn.x * TILE + 8, this._level.spawn.y * TILE + 8, 16, 16);
+      g.fillStyle(0x60ffff, 1);
+      g.fillRect(this._level.exit.x * TILE + 8, this._level.exit.y * TILE + 8, 16, 16);
+    }
+    // 提示
+    this._dbgTexts = this._dbgTexts || [];
+    const tip = this.add.text(8, 8, 'DEBUG · F2 关闭 · 红:墙体  蓝点:巡逻  金点:文物  绿块:出生  青块:撤离',
+      { fontFamily: '"PingFang SC"', fontSize: '11px', color: '#ffeeaa', backgroundColor: '#000000aa', padding: { x: 4, y: 2 } })
+      .setScrollFactor(0).setDepth(201);
+    this._dbgTexts.push(tip);
+  }
+
+  // ————————————————————————————————————————
   //  守卫部署：使用生成器产出的巡逻路径点（瓦片坐标转为世界坐标）
   // ————————————————————————————————————————
   spawnGuards() {
     this.guards = [];
     const paths = (this._level && this._level.guardPaths) || [];
-    for (const tilePath of paths) {
+    const bounds = (this._level && this._level.guardBounds) || [];
+    for (let i = 0; i < paths.length; i++) {
+      const tilePath = paths[i];
       if (!tilePath || tilePath.length < 2) continue;
       const worldPath = tilePath.map((p) => ({
         x: p.x * TILE + TILE / 2,
@@ -320,6 +748,16 @@ export default class MuseumScene extends Phaser.Scene {
       }));
       const guardStyle = (this.biome && this.biome.guardStyle) || 'museum';
       const g = new Guard(this, worldPath, guardStyle);
+      // ★ 给守卫硬约束：只能在自己房间的世界像素矩形内活动 ★
+      const bnd = bounds[i];
+      if (bnd) {
+        g.setPatrolBounds({
+          x: bnd.x * TILE,
+          y: bnd.y * TILE,
+          w: bnd.w * TILE,
+          h: bnd.h * TILE
+        });
+      }
       g.onStateChange = (newSt, oldSt, guard) => this.onGuardStateChange(newSt, oldSt, guard);
       // 警觉拉满时通知附近同伴一起搜
       g.onAlarm = (caller, radius) => this.notifyNearbyGuards(caller, radius);
@@ -345,6 +783,15 @@ export default class MuseumScene extends Phaser.Scene {
   spawnWall(tx, ty, key = 'tex_wall') {
     const w = this.walls.create(tx * TILE, ty * TILE, key).setOrigin(0, 0);
     w.refreshBody();
+    // —— 区分外圈墙 / 内部墙的碰撞盒 ——
+    // 外圈墙（地图边界）保持完整 32x32 阻挡，防止玩家越界
+    // 内部墙体（房间分隔、装饰短墙等）缩小碰撞盒到中心 16x16，玩家可贴边擦过
+    // —— 中央水平大走廊那一整行内部墙也被识别为"内墙"，走廊穿行更顺滑
+    const isOuter = tx === 0 || ty === 0 || tx === MAP_W - 1 || ty === MAP_H - 1;
+    if (!isOuter) {
+      w.body.setSize(16, 16);
+      w.body.setOffset(8, 8);
+    }
     w.setDepth(3);
     return w;
   }
@@ -464,10 +911,10 @@ export default class MuseumScene extends Phaser.Scene {
   //  光照系统：黑色 RenderTexture + ERASE 模式挖光斑
   // ——————————————————————————————————————
   createLightSystem(relicSpawns) {
-    // 关卡相机视口锁定为 960×540（在 create() 中由 setViewport 设置），
-    // 这里直接用世界尺寸，避免读取 this.scale 拿到画布逻辑尺寸（1280×720）造成蒙版越界。
-    const W = 960;
-    const H = 540;
+    // 关卡相机视口现在是 1280×720 全画布（由 create() 中 setViewport 设置）。
+    // 黑暗蒙版同样取全画布尺寸，erase 时把世界坐标转为屏幕坐标（蒙版 setScrollFactor(0)）。
+    const W = 1280;
+    const H = 720;
 
     // 暗色蒙版（覆盖全场景）
     this.darkness = this.add.renderTexture(0, 0, W, H);
@@ -528,8 +975,10 @@ export default class MuseumScene extends Phaser.Scene {
     const aim = this.player.getData('aim') || 0;
     const isSneak = this.keys.SHIFT.isDown;
 
-    // 2. 玩家近身环境光（小圆，始终亮）
+    // 2. 玩家近身环境光（小圆，始终亮）—— 叠加两次擦除，让玩家四周更明亮，避免摸黑感
     this.eraseAt(rt, 'tex_light_sm', px, py);
+    this.eraseAt(rt, 'tex_light_sm', px, py);
+    this.eraseAt(rt, 'tex_light_xs', px, py);
 
     // 2.5 夜视镜：在玩家中心叠加一圈较大的光，整体提亮
     if (this._loadoutEff && this._loadoutEff.visionBonus > 0) {
@@ -582,6 +1031,8 @@ export default class MuseumScene extends Phaser.Scene {
 
   /**
    * 以中心坐标在 RT 上擦除一张光晕贴图
+   * darkness RT 设了 setScrollFactor(0)（屏幕坐标固定），
+   * 因此传入的世界坐标需要减去相机 scrollX/Y 才能正确投影到屏幕。
    */
   eraseAt(rt, key, x, y) {
     const tex = this.textures.get(key);
@@ -589,18 +1040,21 @@ export default class MuseumScene extends Phaser.Scene {
     const src = tex.getSourceImage();
     const w = src.width;
     const h = src.height;
-    rt.erase(key, x - w / 2, y - h / 2);
+    const cam = this.cameras.main;
+    const sx = x - cam.scrollX;
+    const sy = y - cam.scrollY;
+    rt.erase(key, sx - w / 2, sy - h / 2);
   }
 
   createHUD() {
     // 顶部状态条背景
-    this.add.rectangle(0, 0, 960, 28, 0x000000, 0.85).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
+    this.add.rectangle(0, 0, 1280, 28, 0x000000, 0.85).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
     // 顶部金线
-    this.add.rectangle(0, 28, 960, 1, 0xd4af37, 0.6).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
+    this.add.rectangle(0, 28, 1280, 1, 0xd4af37, 0.6).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
 
     // —— 左下：血条 + 体力条 + 状态图标 ——
     const bx = 20;
-    const by = 510;
+    const by = 690;
     this.add.text(bx, by - 14, '气', {
       fontFamily: '"PingFang SC", serif', fontSize: '11px', color: '#ff8a8a'
     }).setScrollFactor(0).setDepth(101);
@@ -655,7 +1109,7 @@ export default class MuseumScene extends Phaser.Scene {
     }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
 
     // 武器 HUD：右下角显示当前兵刃 + 弹药
-    this.weaponHUD = this.add.text(960 - 14, 540 - 14, '', {
+    this.weaponHUD = this.add.text(1280 - 14, 720 - 14, '', {
       fontFamily: '"PingFang SC", serif',
       fontSize: '12px',
       color: '#fff3b8',
@@ -678,7 +1132,7 @@ export default class MuseumScene extends Phaser.Scene {
 
     // 收集进度
     this.relicCountText = this.add
-      .text(480, 14, '已得文物：0 / 0', {
+      .text(640, 14, '已得文物：0 / 0', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '14px',
         color: '#e8d27a'
@@ -690,7 +1144,7 @@ export default class MuseumScene extends Phaser.Scene {
     // —— 进入提示：地图场景名 + 副标题（淡入淡出） ——
     if (this.biome) {
       const titleColor = this.biome.id === 'blackmarket' ? '#c084fc' : '#d4af37';
-      const sceneTitle = this.add.text(480, 200, this.biome.name, {
+      const sceneTitle = this.add.text(640, 280, this.biome.name, {
         fontFamily: '"PingFang SC", serif',
         fontSize: '32px',
         color: titleColor,
@@ -698,7 +1152,7 @@ export default class MuseumScene extends Phaser.Scene {
         stroke: '#000',
         strokeThickness: 5
       }).setOrigin(0.5).setScrollFactor(0).setDepth(120).setAlpha(0);
-      const sceneSub = this.add.text(480, 240, this.biome.subtitle || '', {
+      const sceneSub = this.add.text(640, 320, this.biome.subtitle || '', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '14px',
         color: '#e8d27a',
@@ -741,7 +1195,7 @@ export default class MuseumScene extends Phaser.Scene {
 
     // 剧情碎片阅读提示（屏幕下部居中）
     this.cluePromptText = this.add
-      .text(480, 500, '', {
+      .text(640, 660, '', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '13px',
         color: '#d4af37',
@@ -788,7 +1242,7 @@ export default class MuseumScene extends Phaser.Scene {
     const padding = 14;
     const panelW = INV_COLS * cell + padding * 2;
     const panelH = INV_ROWS * cell + padding * 2 + 26; // 顶部留标题
-    const px = 960 - panelW - 16;
+    const px = 1280 - panelW - 16;
     const py = 56;
 
     this.invPanel = this.add.container(px, py).setDepth(150).setScrollFactor(0);
@@ -933,7 +1387,7 @@ export default class MuseumScene extends Phaser.Scene {
       if (this._playerWalkPhase !== 0) {
         this._playerWalkPhase = 0;
         this._playerWalkAccum = 0;
-        this.player.setTexture('tex_player');
+        if (!this._useLZPlayer) this.player.setTexture('tex_player');
       }
       // 僵直期间仍要驱动其他逻辑（攻击结算、守卫 update 等），所以这里不 return
     } else {
@@ -951,28 +1405,79 @@ export default class MuseumScene extends Phaser.Scene {
 
     } // —— 僵直分支结束 ——
 
-    // —— 玩家行走帧切换 ——
-    const moving = (this.player.body && Math.hypot(this.player.body.velocity.x, this.player.body.velocity.y) > 8) && now >= ps.staggerUntil;
-    if (moving) {
-      this._playerWalkAccum += dtSec;
-      const stepTime = ps.sprint ? 0.10 : ps.stealth ? 0.30 : 0.18;
-      if (this._playerWalkAccum >= stepTime) {
+    // —— 鼠标 aim：仅用于攻击 / 光锥 / 远程瞄准，不再驱动贴图朝向 ——
+    const ptr = this.input.activePointer;
+    const aim = Math.atan2(ptr.worldY - this.player.y, ptr.worldX - this.player.x);
+    this.player.setData('aim', aim);
+
+    // —— 玩家行走帧切换 / LimeZu 四方向动画 ——
+    const bodyVx = (this.player.body && this.player.body.velocity.x) || 0;
+    const bodyVy = (this.player.body && this.player.body.velocity.y) || 0;
+    const moving = Math.hypot(bodyVx, bodyVy) > 8 && now >= ps.staggerUntil;
+
+    // —— 朝向：WASD 决定 4 方向贴图朝向，静止时保持上一次朝向 ——
+    // 优先用键盘输入（更跟手），其次回退到 body 速度，最后保持原朝向
+    let facingDir = this._playerDir4 || 'down';
+    if (vx !== 0 || vy !== 0) {
+      if (Math.abs(vx) >= Math.abs(vy)) facingDir = vx > 0 ? 'right' : 'left';
+      else facingDir = vy > 0 ? 'down' : 'up';
+    } else if (moving) {
+      // 受击僵直被动滑行也算移动，按速度向量决定
+      if (Math.abs(bodyVx) >= Math.abs(bodyVy)) facingDir = bodyVx > 0 ? 'right' : 'left';
+      else facingDir = bodyVy > 0 ? 'down' : 'up';
+    }
+    this._playerDir4 = facingDir;
+    // 暴露给攻击系统使用（_resolveMeleeAimAssist 回退方向）
+    this._playerFacingAngle = ({ right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 })[facingDir];
+
+    if (this._useLZPlayer) {
+      // —— LimeZu 模式：使用 WASD 朝向选 4 方向动画 ——
+      const dir = facingDir;
+      const wantAnim = moving ? `adam_run_${dir}` : `adam_idle_${dir}`;
+      if (this.anims.exists(wantAnim)) {
+        const cur = this.player.anims.currentAnim;
+        if (!cur || cur.key !== wantAnim) {
+          this.player.play(wantAnim);
+        }
+      }
+      // 脚步音：移动时按节奏触发
+      if (moving) {
+        this._playerWalkAccum += dtSec;
+        const stepTime = ps.sprint ? 0.20 : ps.stealth ? 0.45 : 0.30;
+        if (this._playerWalkAccum >= stepTime) {
+          this._playerWalkAccum = 0;
+          const mode = ps.sprint ? 'sprint' : ps.stealth ? 'stealth' : 'walk';
+          Audio.sfx.footstep(mode);
+        }
+      } else {
         this._playerWalkAccum = 0;
-        this._playerWalkPhase = 1 - this._playerWalkPhase;
-        this.player.setTexture(this._playerWalkPhase ? 'tex_player_walk' : 'tex_player');
-        // 脚步音：随帧切换同步发出
-        const mode = ps.sprint ? 'sprint' : ps.stealth ? 'stealth' : 'walk';
-        Audio.sfx.footstep(mode);
       }
-      // 朝向反转（鼠标在左 → 翻转贴图）
-      const aimNow = this.player.getData('aim') || 0;
-      this.player.setFlipX(Math.cos(aimNow) < 0);
+      // LimeZu 模式不使用 flipX
+      this.player.setFlipX(false);
     } else {
-      this._playerWalkAccum = 0;
-      if (this._playerWalkPhase !== 0) {
-        this._playerWalkPhase = 0;
-        this.player.setTexture('tex_player');
+      // —— 兼容旧贴图模式 ——
+      if (moving) {
+        this._playerWalkAccum += dtSec;
+        const stepTime = ps.sprint ? 0.10 : ps.stealth ? 0.30 : 0.18;
+        if (this._playerWalkAccum >= stepTime) {
+          this._playerWalkAccum = 0;
+          this._playerWalkPhase = 1 - this._playerWalkPhase;
+          this.player.setTexture(this._playerWalkPhase ? 'tex_player_walk' : 'tex_player');
+          const mode = ps.sprint ? 'sprint' : ps.stealth ? 'stealth' : 'walk';
+          Audio.sfx.footstep(mode);
+        }
+      } else {
+        this._playerWalkAccum = 0;
+        if (this._playerWalkPhase !== 0) {
+          this._playerWalkPhase = 0;
+          this.player.setTexture('tex_player');
+        }
       }
+      // 旧贴图：用 WASD 朝向决定水平翻转（左/右）
+      if (facingDir === 'left') this._playerFacingX = -1;
+      else if (facingDir === 'right') this._playerFacingX = 1;
+      // up/down 时保留上一帧水平朝向，避免突变
+      this.player.setFlipX(this._playerFacingX < 0);
     }
 
     // —— 体力（疾跑消耗、格挡消耗、其余恢复） ——
@@ -985,11 +1490,6 @@ export default class MuseumScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.J)) {
       this.tryPlayerAttack();
     }
-
-    // —— 朝向：鼠标方向 ——
-    const ptr = this.input.activePointer;
-    const aim = Math.atan2(ptr.worldY - this.player.y, ptr.worldX - this.player.x);
-    this.player.setData('aim', aim);
 
     // —— 检测附近可拾取文物 ——
     const nearestRelic = this.findNearest(this.relicGroup.getChildren(), 28);
@@ -1199,8 +1699,8 @@ export default class MuseumScene extends Phaser.Scene {
   showLoreCard(relic, lore) {
     const W = 300;
     const H = 78;
-    const x = 960 - W - 16;
-    const yEnd = 540 - H - 60;       // 最终位置
+    const x = 1280 - W - 16;
+    const yEnd = 720 - H - 60;       // 最终位置
     const yStart = yEnd + 30;        // 从下方升起
 
     const layer = this.add.container(x, yStart).setScrollFactor(0).setDepth(140).setAlpha(0);
@@ -1546,7 +2046,7 @@ export default class MuseumScene extends Phaser.Scene {
       }
     }
     // 屏幕红闪
-    const flash = this.add.rectangle(0, 0, 960, 540, 0xff0000, 0.35).setOrigin(0, 0).setScrollFactor(0).setDepth(180);
+    const flash = this.add.rectangle(0, 0, 1280, 720, 0xff0000, 0.35).setOrigin(0, 0).setScrollFactor(0).setDepth(180);
     this.tweens.add({
       targets: flash,
       alpha: 0,
@@ -1564,14 +2064,13 @@ export default class MuseumScene extends Phaser.Scene {
     const code = c.data.code || '0000';
     const W = 360;
     const H = 220;
-    const x = 480 - W / 2;
-    const y = 270 - H / 2;
+    const x = 640 - W / 2;
+    const y = 360 - H / 2;
 
     const layer = this.add.container(0, 0).setDepth(220).setScrollFactor(0);
 
     // 半透明遮罩（也阻断点击穿透）
-    const mask = this.add.rectangle(0, 0, 960, 540, 0x000000, 0.55).setOrigin(0, 0).setScrollFactor(0);
-    mask.setInteractive();
+    const mask = this.add.rectangle(0, 0, 1280, 720, 0x000000, 0.55).setOrigin(0, 0).setScrollFactor(0);    mask.setInteractive();
     layer.add(mask);
 
     // 面板背景
@@ -1582,12 +2081,12 @@ export default class MuseumScene extends Phaser.Scene {
     bg.strokeRoundedRect(x, y, W, H, 8);
     layer.add(bg);
 
-    layer.add(this.add.text(480, y + 18, '· 密  码  锁 ·', {
+    layer.add(this.add.text(640, y + 18, '· 密  码  锁 ·', {
       fontFamily: '"PingFang SC", serif',
       fontSize: '16px',
       color: '#c084fc'
     }).setOrigin(0.5));
-    layer.add(this.add.text(480, y + 40, '↑↓ 调整数字   ←→ 切换位   Enter 确认   ESC 放弃', {
+    layer.add(this.add.text(640, y + 40, '↑↓ 调整数字   ←→ 切换位   Enter 确认   ESC 放弃', {
       fontFamily: '"PingFang SC", serif',
       fontSize: '11px',
       color: '#7a6228'
@@ -1597,7 +2096,7 @@ export default class MuseumScene extends Phaser.Scene {
     const digits = [0, 0, 0, 0];
     let cursor = 0;
     const digitTxts = [];
-    const startX = 480 - 60;
+    const startX = 640 - 60;
     for (let i = 0; i < 4; i++) {
       const dt = this.add.text(startX + i * 40, y + 100, '0', {
         fontFamily: 'Georgia, serif',
@@ -1610,7 +2109,7 @@ export default class MuseumScene extends Phaser.Scene {
       layer.add(dt);
     }
 
-    const hint = this.add.text(480, y + H - 32, '提示：本箱密码为 4 位数字', {
+    const hint = this.add.text(640, y + H - 32, '提示：本箱密码为 4 位数字', {
       fontFamily: '"PingFang SC", serif',
       fontSize: '12px',
       color: '#a08434'
@@ -1902,10 +2401,10 @@ export default class MuseumScene extends Phaser.Scene {
 
 
     const layer = this.add.container(0, 0).setDepth(190).setScrollFactor(0);
-    const mask = this.add.rectangle(0, 0, 960, 540, 0x000000, 0.78).setOrigin(0, 0);
-    const panel = this.add.rectangle(480, 270, 480, 280, 0x1a1410, 0.96).setStrokeStyle(2, 0xa08434);
+    const mask = this.add.rectangle(0, 0, 1280, 720, 0x000000, 0.78).setOrigin(0, 0);
+    const panel = this.add.rectangle(640, 360, 480, 280, 0x1a1410, 0.96).setStrokeStyle(2, 0xa08434);
     const title = this.add
-      .text(480, 160, clue.title, {
+      .text(640, 250, clue.title, {
         fontFamily: '"PingFang SC", serif',
         fontSize: '22px',
         color: '#d4af37',
@@ -1913,7 +2412,7 @@ export default class MuseumScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const body = this.add
-      .text(480, 270, clue.body, {
+      .text(640, 360, clue.body, {
         fontFamily: '"PingFang SC", serif',
         fontSize: '14px',
         color: '#fff3b8',
@@ -1923,7 +2422,7 @@ export default class MuseumScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const tip = this.add
-      .text(480, 380, '按  F  /  ESC  收起', {
+      .text(640, 470, '按  F  /  ESC  收起', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '12px',
         color: '#a08434'
@@ -1982,12 +2481,14 @@ export default class MuseumScene extends Phaser.Scene {
     if (ps.stam < cost) return;
 
     ps.stam = Math.max(0, ps.stam - cost);
-    ps.attackDir = this.player.getData('aim') || 0;
+    const baseAim = this.player.getData('aim') || 0;
+    ps.attackRange = (wp && wp.range) || 32;
+    ps.attackArc   = (wp && wp.arc)   || (Math.PI / 3);
+    // —— 近身肉搏自动索敌：若 1.6 倍攻击距离内存在活守卫，则将攻击方向锁定到最近者 ——
+    ps.attackDir = this._resolveMeleeAimAssist(baseAim, ps.attackRange);
     ps.attackUntil = now + 220;     // 判定窗口
     ps.attackCooldownUntil = now + ((wp && wp.cooldownMs) || 360);
     ps.attackHitDone = false;
-    ps.attackRange = (wp && wp.range) || 32;
-    ps.attackArc   = (wp && wp.arc)   || (Math.PI / 3);
 
     // 视觉：玩家前方扇形刀光
     this.spawnSlashGfx(ps.attackDir, ps.attackRange, ps.attackArc);
@@ -2154,15 +2655,18 @@ export default class MuseumScene extends Phaser.Scene {
     const knockMul = (wp && wp.knockMul) || 1;
 
     let hitAny = false;
+    // 容差：守卫体积约 6px、贴图缩放后更大；范围 / 扇形稍微放宽
+    const RANGE_PAD = 6;
+    const ARC_PAD = Math.PI / 12; // +15° 容差
     for (const g of this.guards) {
       if (g.dead) continue;
       const dx = g.sprite.x - px;
       const dy = g.sprite.y - py;
       const dist = Math.hypot(dx, dy);
-      if (dist > HIT_RANGE) continue;
+      if (dist > HIT_RANGE + RANGE_PAD) continue;
       const ang = Math.atan2(dy, dx);
       const diff = Math.abs(Phaser.Math.Angle.Wrap(ang - aim));
-      if (diff > HIT_HALF) continue;
+      if (diff > HIT_HALF + ARC_PAD) continue;
 
       // 背刺：玩家从守卫背后命中（玩家相对守卫的位置在守卫背向 90° 内）→ 一击必杀
       const isBackstab = g.isPlayerBehind(this.player);
@@ -2196,6 +2700,50 @@ export default class MuseumScene extends Phaser.Scene {
 
     // 没打到也消耗了 attack 状态（不重复结算）
     if (!hitAny) ps.attackHitDone = true;
+  }
+
+  /** 近身肉搏自动索敌：在 ~1.6 倍攻击距离内寻找最近活守卫并锁定方向。
+   *  优先级：鼠标方向夹角内最近 > 任意方向最近；若都无，则维持原始 baseAim。 */
+  _resolveMeleeAimAssist(baseAim, range) {
+    // 没敌人则使用「贴图朝向」作为攻击方向，避免鼠标乱晃乱挥
+    const fallback = (typeof this._playerFacingAngle === 'number') ? this._playerFacingAngle : baseAim;
+    if (!this.guards || this.guards.length === 0) return fallback;
+    const px = this.player.x, py = this.player.y;
+    const R = (range || 32) * 1.7;          // 略放宽索敌距离
+    const R2 = R * R;
+    const CONE_HALF = Math.PI / 2.4;         // 75° 视为玩家"意图所指"（更宽容）
+
+    let bestInCone = null;     let bestInConeDist = Infinity;
+    let bestAny    = null;     let bestAnyDist    = Infinity;
+    // 同时计算"贴图朝向"内最近，作为次优先目标
+    let bestInFace = null;     let bestInFaceDist = Infinity;
+    const FACE_HALF = Math.PI / 2;           // 90° 算"面前"
+
+    for (const g of this.guards) {
+      // 修复：Guard 用 this.dead 标记死亡，没有 alive 字段
+      if (!g || g.dead || !g.sprite || !g.sprite.active) continue;
+      const dx = g.sprite.x - px;
+      const dy = g.sprite.y - py;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > R2) continue;
+      // 任意方向最近
+      if (d2 < bestAnyDist) { bestAnyDist = d2; bestAny = g; }
+      const ang = Math.atan2(dy, dx);
+      // 鼠标方向夹角内最近（最高优先）
+      const diffMouse = Math.abs(Phaser.Math.Angle.Wrap(ang - baseAim));
+      if (diffMouse <= CONE_HALF && d2 < bestInConeDist) {
+        bestInConeDist = d2; bestInCone = g;
+      }
+      // 贴图朝向夹角内最近（次优先）
+      const diffFace = Math.abs(Phaser.Math.Angle.Wrap(ang - fallback));
+      if (diffFace <= FACE_HALF && d2 < bestInFaceDist) {
+        bestInFaceDist = d2; bestInFace = g;
+      }
+    }
+    // 优先级：鼠标方向锁敌 > 角色面向锁敌 > 范围内最近 > 贴图朝向
+    const target = bestInCone || bestInFace || bestAny;
+    if (!target) return fallback;
+    return Math.atan2(target.sprite.y - py, target.sprite.x - px);
   }
 
   /** 玩家挥刀视觉特效 */

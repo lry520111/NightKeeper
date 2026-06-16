@@ -32,6 +32,7 @@ export default class DialogScene extends Phaser.Scene {
     this.speaker = data.speaker || '';
     this.portraitKey = data.portraitKey || null;
     this.portraitFrame = typeof data.portraitFrame === 'number' ? data.portraitFrame : 0;
+    this.portraitTint = (typeof data.portraitTint === 'number') ? data.portraitTint : null;
     this.returnTo = data.returnTo || null; // 关闭时如果指定，会 resume
     this.onComplete = typeof data.onComplete === 'function' ? data.onComplete : null;
 
@@ -76,13 +77,19 @@ export default class DialogScene extends Phaser.Scene {
       .setStrokeStyle(1, 0xd4af37, 0.6);
 
     if (this.portraitKey && this.textures.exists(this.portraitKey)) {
-      // 16x32 像素角色，放大 4 倍 = 64x128 → 取上半身 64x64 居中
+      // 自适应缩放：根据帧实际宽高计算，让角色完整在 96x96 内可见
       const portrait = this.add
         .sprite(portraitX + portraitSize / 2, portraitY + portraitSize / 2 + 8, this.portraitKey, this.portraitFrame)
         .setDepth(4);
-      portrait.setScale(4);
-      // 让角色头部出现在框中（向下偏移）
-      portrait.y = portraitY + portraitSize / 2 + 16;
+      const fw = portrait.frame.width;
+      const fh = portrait.frame.height;
+      // 高清帧 (≈93x137 / 76x140)：按高适配㆒ ~80px；旧 16x32 帧：放大 4 倍
+      const targetH = 80;
+      const scale = (fh > 64) ? Math.min(targetH / fh, portraitSize / fw) : 4;
+      portrait.setScale(scale);
+      // 使人物头部靠上、身体处于框中偏下位置
+      portrait.y = portraitY + portraitSize / 2 + (fh > 64 ? 6 : 16);
+      if (this.portraitTint !== null) portrait.setTint(this.portraitTint);
       // idle 动画
       const idleAnimKey = this.portraitKey.replace('lz_', '').replace('_idle', '_idle_down');
       if (this.anims.exists(idleAnimKey)) {

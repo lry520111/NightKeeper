@@ -34,7 +34,7 @@ const STATIONS = [
 ];
 
 // 馆长 NPC
-const CURATOR = { ...HUB_ANCHORS.curator, name: '林默 · 馆长', sub: '总部负责人', portraitKey: 'lz_amelia_idle' };
+const CURATOR = { ...HUB_ANCHORS.curator, name: '林默 · 馆长', sub: '总部负责人', portraitKey: 'lz_adam_idle', portraitFrame: 18, portraitTint: 0xc8a26a };
 
 export default class HubScene extends Phaser.Scene {
   constructor() {
@@ -85,11 +85,10 @@ export default class HubScene extends Phaser.Scene {
     // —— 5. 馆长 NPC ——
     this.curator = this.createCurator(CURATOR);
 
-    // —— 6. 玩家（LimeZu Adam，16x32 像素 ×3 缩放 → 48×96，整数倍避免模糊）——
-    this.player = this.physics.add.sprite(HUB_ANCHORS.player.x, HUB_ANCHORS.player.y, 'lz_adam_idle', 0);
-    this.player.setScale(3);
-    this.player.setSize(12, 16);
-    this.player.setOffset(2, 16);
+    // —— 6. 玩家（高清精灵表 93×137，scale 0.75 → 视觉约 70×103）——
+    this.player = this.physics.add.sprite(HUB_ANCHORS.player.x, HUB_ANCHORS.player.y, 'lz_adam_idle', 18);
+    this.player.setScale(1.6);
+    this.player.body.setSize(10, 12).setOffset(3, 18);
     this.player.setDepth(10);
 
     // 物理边界
@@ -236,14 +235,16 @@ export default class HubScene extends Phaser.Scene {
 
   // ——————————— 馆长 NPC ———————————
   createCurator(cur) {
-    const sprite = this.physics.add.sprite(cur.x, cur.y, 'lz_amelia_idle', 0);
-    sprite.setScale(3);
+    // 复用主角精灵表（LimeZu 16×32，down 起始帧 = 18）
+    // 通过暖金色 tint 与主角及守卫做视觉区分（资深 / 西装感）
+    const sprite = this.physics.add.sprite(cur.x, cur.y, 'lz_adam_idle', 18);
+    sprite.setScale(1.6);
     sprite.setDepth(9);
-    sprite.body.setSize(12, 16);
-    sprite.body.setOffset(2, 16);
+    sprite.body.setSize(10, 12).setOffset(3, 18);
     sprite.body.setImmovable(true);
     sprite.body.moves = false;
-    if (this.anims.exists('amelia_idle_down')) sprite.play('amelia_idle_down');
+    sprite.setTint(0xc8a26a); // 暖金棕：长者气质，与主角的冷白和守卫绿军装区分
+    if (this.anims.exists('adam_idle_down')) sprite.play('adam_idle_down');
 
     // 玩家不能穿过馆长
     this.physics.add.collider(this.player ?? sprite, sprite);
@@ -430,7 +431,8 @@ export default class HubScene extends Phaser.Scene {
       pages: dlg.pages,
       speaker: dlg.speaker || '林默 · 馆长',
       portraitKey: CURATOR.portraitKey,
-      portraitFrame: 0,
+      portraitFrame: CURATOR.portraitFrame || 0,
+      portraitTint: CURATOR.portraitTint || null,
       returnTo: 'HubScene',
       onComplete: () => {
         this._dialogOpen = false;
