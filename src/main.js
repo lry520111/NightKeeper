@@ -34,8 +34,13 @@ const config = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 960,
-    height: 540
+    // 逻辑画布 1280×720（720p）
+    // UI 场景（标题/委托/仓库/装备/结算/片头/片尾）按 1280×720 全画布布局，文字与描边更锐利。
+    // 玩法场景（HubScene / MuseumScene）保持内部 960×540 世界尺寸不变，
+    // 由各自场景在 create() 中调用 cameras.main.setViewport(160, 90, 960, 540) 居中显示，
+    // 上下各留 90px、左右各留 160px 黑边——既保留原有锚点/碰撞/关卡数据，又能享受更高分辨率的 UI 层。
+    width: 1280,
+    height: 720
   },
   physics: {
     default: 'arcade',

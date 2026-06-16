@@ -10,8 +10,8 @@ import Phaser from 'phaser';
 import Audio from '../systems/AudioFx.js';
 import SaveSlots from '../systems/SaveSlots.js';
 
-const W = 960;
-const H = 540;
+const W = 1280;
+const H = 720;
 
 // 6 段叙事文字 + 对应分镜图键名
 const SCRIPT = [

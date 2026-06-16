@@ -21,8 +21,8 @@ import {
   gatherStatsForEnding
 } from '../systems/Endings.js';
 
-const W = 960;
-const H = 540;
+const W = 1280;
+const H = 720;
 
 export default class EndingScene extends Phaser.Scene {
   constructor() { super('EndingScene'); }

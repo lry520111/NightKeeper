@@ -34,7 +34,11 @@ export default class MuseumScene extends Phaser.Scene {
     this.biome = getBiome(biomeId || 'museum');
   }
 
-  create() {    this.cameras.main.fadeIn(500, 0, 0, 0);
+  create() {
+    // —— 视口适配：将 960×540 的关卡世界居中绘制到 1280×720 画布中央，
+    //   上下各留 90px、左右各留 160px 黑边，保留原有地图/HUD/警报/对话坐标不变。
+    this.cameras.main.setViewport(160, 90, 960, 540);
+    this.cameras.main.fadeIn(500, 0, 0, 0);
     this.inventory = new Inventory();
     this._ended = false;
     // 局内统计（上送给 ResultScene 计入 SaveData.stats，用于多结局判定）
@@ -157,6 +161,12 @@ export default class MuseumScene extends Phaser.Scene {
     }
 
     // —— 玩家战斗 / 状态属性 ——
+    // 装备的武器（在 effects 里读取，默认 starter）
+    const equippedWeapon = (this._loadoutEff && this._loadoutEff.weapon) || null;
+    // 初始弹药：远程武器才有
+    const initialAmmo = (equippedWeapon && equippedWeapon.kind === 'ranged')
+      ? (equippedWeapon.ammoMax || 0) : 0;
+
     this.playerState = {
       hpMax: 3,
       hp: 3,
@@ -169,7 +179,13 @@ export default class MuseumScene extends Phaser.Scene {
       attackHitDone: false,  // 本次挥刀是否已结算
       attackDir: 0,          // 本次攻击方向（弧度）
       attackCooldownUntil: 0,// 出招冷却结束
-      invulnUntil: 0         // 受击无敌帧
+      invulnUntil: 0,        // 受击无敌帧
+      staggerUntil: 0,       // 受击僵直结束（期间禁止键盘控制 velocity）
+      attackRange: (equippedWeapon && equippedWeapon.range) || 32,   // 本次挥刀范围（近战）
+      attackArc:   (equippedWeapon && equippedWeapon.arc) || (Math.PI / 3),
+      ammo: initialAmmo,     // 远程弹药剩余
+      qinggongUntil: 0,      // 轻功符效果结束时间
+      qinggongMul: 1         // 轻功期间的速度倍率
     };
 
     // —— 6. 输入 ——
@@ -187,18 +203,29 @@ export default class MuseumScene extends Phaser.Scene {
       K: Phaser.Input.Keyboard.KeyCodes.K,
       TAB: Phaser.Input.Keyboard.KeyCodes.TAB,
       ESC: Phaser.Input.Keyboard.KeyCodes.ESC,
-      H: Phaser.Input.Keyboard.KeyCodes.H
+      H: Phaser.Input.Keyboard.KeyCodes.H,
+      G: Phaser.Input.Keyboard.KeyCodes.G,
+      V: Phaser.Input.Keyboard.KeyCodes.V
     });
     // 防止 Tab/Ctrl 默认行为（页面焦点切换 / 浏览器快捷键）
     this.input.keyboard.addCapture('TAB');
     this.input.keyboard.addCapture('CTRL');
     this.keys.TAB.on('down', () => this.toggleInventoryPanel());
     this.keys.H.on('down', () => this.useMedkit());
+    this.keys.G.on('down', () => this.useSmokeBomb());
+    this.keys.V.on('down', () => this.useQinggong());
 
-    // 鼠标左键 = 攻击（与 J 等价）
+    // 鼠标左键 = 近战攻击（与 J 等价）；鼠标右键 = 远程攻击（装备远程武器时）
     this.input.on('pointerdown', (ptr) => {
-      if (ptr.leftButtonDown && !this._ended) this.tryPlayerAttack();
+      if (this._ended) return;
+      if (ptr.leftButtonDown()) {
+        this.tryPlayerAttack();
+      } else if (ptr.rightButtonDown && ptr.rightButtonDown()) {
+        this.tryPlayerRangedAttack();
+      }
     });
+    // 禁用鼠标右键默认弹出菜单
+    this.input.mouse.disableContextMenu();
 
     // —— 7. 守卫 AI（在光照系统之前创建，便于把守卫提灯加入静态光源） ——
     this.spawnGuards();
@@ -437,8 +464,10 @@ export default class MuseumScene extends Phaser.Scene {
   //  光照系统：黑色 RenderTexture + ERASE 模式挖光斑
   // ——————————————————————————————————————
   createLightSystem(relicSpawns) {
-    const W = this.scale.width;
-    const H = this.scale.height;
+    // 关卡相机视口锁定为 960×540（在 create() 中由 setViewport 设置），
+    // 这里直接用世界尺寸，避免读取 this.scale 拿到画布逻辑尺寸（1280×720）造成蒙版越界。
+    const W = 960;
+    const H = 540;
 
     // 暗色蒙版（覆盖全场景）
     this.darkness = this.add.renderTexture(0, 0, W, H);
@@ -608,6 +637,33 @@ export default class MuseumScene extends Phaser.Scene {
       strokeThickness: 3
     }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
     this.updateConsumableHUD();
+
+    // 烟雾弹 / 轻功符 HUD（二行，紧接医疗包）
+    this.smokeHUD = this.add.text(bx + 170, by - 28, '', {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '11px',
+      color: '#cdb98a',
+      stroke: '#000',
+      strokeThickness: 3
+    }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
+    this.qinggongHUD = this.add.text(bx + 170, by - 42, '', {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '11px',
+      color: '#a0e8a8',
+      stroke: '#000',
+      strokeThickness: 3
+    }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
+
+    // 武器 HUD：右下角显示当前兵刃 + 弹药
+    this.weaponHUD = this.add.text(960 - 14, 540 - 14, '', {
+      fontFamily: '"PingFang SC", serif',
+      fontSize: '12px',
+      color: '#fff3b8',
+      stroke: '#000',
+      strokeThickness: 3,
+      align: 'right'
+    }).setOrigin(1, 1).setScrollFactor(0).setDepth(102);
+    this.updateWeaponHUD();
 
     // 时间
     this.timerText = this.add
@@ -862,22 +918,41 @@ export default class MuseumScene extends Phaser.Scene {
     if (ps.blocking) speed = 60;
     // 攻击挥刀瞬间略减速
     if (now < ps.attackUntil) speed *= 0.45;
+    // 轻功符：期间统一乘以 qinggongMul（覆盖静步压低、同时与疾跑叠加）
+    if (now < ps.qinggongUntil) speed = Math.max(speed, 230) * (ps.qinggongMul || 1.7);
 
+    // —— 受击僵直：保留击退速度，禁止键盘接管，逐帧衰减 ——
     let vx = 0;
     let vy = 0;
-    if (this.cursors.left.isDown || this.keys.A.isDown) vx = -1;
-    if (this.cursors.right.isDown || this.keys.D.isDown) vx = 1;
-    if (this.cursors.up.isDown || this.keys.W.isDown) vy = -1;
-    if (this.cursors.down.isDown || this.keys.S.isDown) vy = 1;
+    if (now < ps.staggerUntil) {
+      const body = this.player.body;
+      if (body) {
+        this.player.setVelocity(body.velocity.x * 0.86, body.velocity.y * 0.86);
+      }
+      // 行走帧停在站立态
+      if (this._playerWalkPhase !== 0) {
+        this._playerWalkPhase = 0;
+        this._playerWalkAccum = 0;
+        this.player.setTexture('tex_player');
+      }
+      // 僵直期间仍要驱动其他逻辑（攻击结算、守卫 update 等），所以这里不 return
+    } else {
 
-    if (vx !== 0 && vy !== 0) {
-      vx *= 0.707;
-      vy *= 0.707;
-    }
-    this.player.setVelocity(vx * speed, vy * speed);
+      if (this.cursors.left.isDown || this.keys.A.isDown) vx = -1;
+      if (this.cursors.right.isDown || this.keys.D.isDown) vx = 1;
+      if (this.cursors.up.isDown || this.keys.W.isDown) vy = -1;
+      if (this.cursors.down.isDown || this.keys.S.isDown) vy = 1;
+
+      if (vx !== 0 && vy !== 0) {
+        vx *= 0.707;
+        vy *= 0.707;
+      }
+      this.player.setVelocity(vx * speed, vy * speed);
+
+    } // —— 僵直分支结束 ——
 
     // —— 玩家行走帧切换 ——
-    const moving = vx !== 0 || vy !== 0;
+    const moving = (this.player.body && Math.hypot(this.player.body.velocity.x, this.player.body.velocity.y) > 8) && now >= ps.staggerUntil;
     if (moving) {
       this._playerWalkAccum += dtSec;
       const stepTime = ps.sprint ? 0.10 : ps.stealth ? 0.30 : 0.18;
@@ -992,8 +1067,13 @@ export default class MuseumScene extends Phaser.Scene {
     // —— 玩家攻击判定结算（命中守卫） ——
     this.resolvePlayerAttack();
 
+    // —— 推进远程投射物 ——
+    this.updateProjectiles(dtSec);
+
     // —— HUD：血条 / 体力 / 状态图标 ——
     this.updatePlayerHUD();
+    // —— 消耗品 / 武器 HUD（轻功倒计需要逐帧刷） ——
+    this.updateConsumableHUD();
 
     // —— 剧情碎片交互 ——
     this.updateClueInteraction();
@@ -1889,17 +1969,172 @@ export default class MuseumScene extends Phaser.Scene {
     const now = this.time.now;
     if (now < ps.attackCooldownUntil) return;
     if (ps.blocking) return;        // 格挡中不能出刀
-    if (ps.stam < 12) return;       // 体力不足
 
-    ps.stam = Math.max(0, ps.stam - 14);
+    // 装备的武器决定伤害 / 范围 / 冷却 / 耗体力
+    const wp = (this._loadoutEff && this._loadoutEff.weapon) || null;
+    const isMelee = !wp || wp.kind === 'melee';
+    if (!isMelee) {
+      // 左键 也能远程攻击（装备了远程武器时以远程为准）
+      this.tryPlayerRangedAttack();
+      return;
+    }
+    const cost = (wp && wp.staminaCost) || 14;
+    if (ps.stam < cost) return;
+
+    ps.stam = Math.max(0, ps.stam - cost);
     ps.attackDir = this.player.getData('aim') || 0;
     ps.attackUntil = now + 220;     // 判定窗口
-    ps.attackCooldownUntil = now + 360;
+    ps.attackCooldownUntil = now + ((wp && wp.cooldownMs) || 360);
     ps.attackHitDone = false;
+    ps.attackRange = (wp && wp.range) || 32;
+    ps.attackArc   = (wp && wp.arc)   || (Math.PI / 3);
 
     // 视觉：玩家前方扇形刀光
-    this.spawnSlashGfx(ps.attackDir);
-    Audio.sfx.slash();
+    this.spawnSlashGfx(ps.attackDir, ps.attackRange, ps.attackArc);
+    if (Audio && Audio.sfx && Audio.sfx.slash) Audio.sfx.slash();
+  }
+
+  /** 远程攻击：装备远程武器时可用（鼠标右键 或 左键/J） */
+  tryPlayerRangedAttack() {
+    if (this._ended) return;
+    const ps = this.playerState;
+    const now = this.time.now;
+    if (now < ps.attackCooldownUntil) return;
+    if (ps.blocking) return;
+    const wp = (this._loadoutEff && this._loadoutEff.weapon) || null;
+    if (!wp || wp.kind !== 'ranged') {
+      // 装备的不是远程武器，提示一下
+      this._floatText(this.player.x, this.player.y - 22, '未装备远程兵刃', '#a08434');
+      return;
+    }
+    if ((ps.ammo || 0) <= 0) {
+      this._floatText(this.player.x, this.player.y - 22, '弹药耗尽', '#ff8c42');
+      if (Audio && Audio.sfx && Audio.sfx.bad) Audio.sfx.bad();
+      return;
+    }
+    const cost = (wp.staminaCost || 12);
+    if (ps.stam < cost) return;
+
+    ps.stam = Math.max(0, ps.stam - cost);
+    ps.ammo -= 1;
+    ps.attackDir = this.player.getData('aim') || 0;
+    ps.attackCooldownUntil = now + (wp.cooldownMs || 300);
+
+    this.spawnProjectile(wp, ps.attackDir);
+    if (wp.noisy && Audio && Audio.sfx && Audio.sfx.slash) Audio.sfx.slash();
+    this.updateWeaponHUD();
+  }
+
+  /** 生成一个玩家远程投射物。默认在 update() 里推进。 */
+  spawnProjectile(weapon, aim) {
+    if (!this._projectiles) this._projectiles = [];
+    const px = this.player.x + Math.cos(aim) * 10;
+    const py = this.player.y + Math.sin(aim) * 10;
+    const isArrow = weapon.projectile === 'arrow';
+    const color = isArrow ? 0xfff3b8 : 0xb8b8b8;
+    const size = isArrow ? 6 : 4;
+    // 用 graphics 画一个小当量体（避免依赖额外贴图）
+    const g = this.add.graphics().setDepth(7);
+    if (isArrow) {
+      g.fillStyle(color, 1).fillRect(-size, -1, size * 2, 2);
+      g.fillStyle(0x6b3a1c, 1).fillRect(size - 2, -1.5, 2, 3);
+    } else {
+      g.fillStyle(color, 1).fillCircle(0, 0, size);
+      g.lineStyle(1, 0x4a4a4a, 1).strokeCircle(0, 0, size);
+    }
+    g.x = px;
+    g.y = py;
+    g.rotation = aim;
+
+    this._projectiles.push({
+      gfx: g,
+      x: px,
+      y: py,
+      vx: Math.cos(aim) * weapon.speed,
+      vy: Math.sin(aim) * weapon.speed,
+      damage: weapon.damage || 1,
+      range: weapon.range || 200,
+      traveled: 0,
+      knockMul: weapon.knockMul || 1,
+      isArrow,
+      noisy: !!weapon.noisy
+    });
+  }
+
+  /** 逐帧推进玩家投射物与守卫、墙体的命中判定 */
+  updateProjectiles(dtSec) {
+    if (!this._projectiles || !this._projectiles.length) return;
+    const next = [];
+    for (const p of this._projectiles) {
+      const dx = p.vx * dtSec;
+      const dy = p.vy * dtSec;
+      p.x += dx;
+      p.y += dy;
+      p.traveled += Math.hypot(dx, dy);
+      p.gfx.x = p.x;
+      p.gfx.y = p.y;
+
+      // 超出射程或超出世界
+      const bounds = this.physics.world.bounds;
+      if (
+        p.traveled > p.range ||
+        p.x < bounds.x || p.x > bounds.x + bounds.width ||
+        p.y < bounds.y || p.y > bounds.y + bounds.height
+      ) {
+        p.gfx.destroy();
+        continue;
+      }
+
+      // 墙体拦截（用 walls group 的子体做点包含检测）
+      let blocked = false;
+      if (this.walls && this.walls.children) {
+        const arr = this.walls.children.getArray();
+        for (let i = 0; i < arr.length; i++) {
+          const w = arr[i];
+          if (!w.body) continue;
+          const b = w.body;
+          if (
+            p.x >= b.x && p.x <= b.x + b.width &&
+            p.y >= b.y && p.y <= b.y + b.height
+          ) { blocked = true; break; }
+        }
+      }
+      if (blocked) {
+        // 火星作为撞壁反馈
+        this.spawnHitSparks(p.x, p.y, false);
+        p.gfx.destroy();
+        continue;
+      }
+
+      // 守卫命中判定
+      let hit = false;
+      if (this.guards) {
+        for (const g of this.guards) {
+          if (g.dead) continue;
+          const ddx = g.sprite.x - p.x;
+          const ddy = g.sprite.y - p.y;
+          if (Math.hypot(ddx, ddy) < 12) {
+            const len = Math.max(1, Math.hypot(p.vx, p.vy));
+            const dead = g.takeDamage(p.damage, (p.vx / len) * (p.knockMul || 1), (p.vy / len) * (p.knockMul || 1));
+            if (dead) this._runStats.kills += 1;
+            this.cameras.main.shake(60, 0.0025);
+            this._spawnImpactRing(g.sprite.x, g.sprite.y, p.damage >= 3);
+            this.spawnHitSparks(g.sprite.x, g.sprite.y, p.damage >= 3);
+            this.showBubble(g.sprite, dead ? '竟!' : `-${p.damage}`,
+              { color: dead ? '#ff8a8a' : '#ffe680', fontSize: '15px', duration: 600, dy: -20 });
+            hit = true;
+            break;
+          }
+        }
+      }
+      if (hit) {
+        p.gfx.destroy();
+        continue;
+      }
+
+      next.push(p);
+    }
+    this._projectiles = next;
   }
 
   /** 每帧调用：攻击窗口内若命中则结算 */
@@ -1909,11 +2144,14 @@ export default class MuseumScene extends Phaser.Scene {
     if (now > ps.attackUntil || ps.attackHitDone) return;
     if (!this.guards) return;
 
-    const HIT_RANGE = 32;
-    const HIT_HALF = Math.PI / 3; // 60° 总
+    const HIT_RANGE = ps.attackRange || 32;
+    const HIT_HALF = ps.attackArc || (Math.PI / 3); // 总角的一半
     const px = this.player.x;
     const py = this.player.y;
     const aim = ps.attackDir;
+    const wp = (this._loadoutEff && this._loadoutEff.weapon) || null;
+    const baseDmg = (wp && wp.damage) || 1;
+    const knockMul = (wp && wp.knockMul) || 1;
 
     let hitAny = false;
     for (const g of this.guards) {
@@ -1928,15 +2166,25 @@ export default class MuseumScene extends Phaser.Scene {
 
       // 背刺：玩家从守卫背后命中（玩家相对守卫的位置在守卫背向 90° 内）→ 一击必杀
       const isBackstab = g.isPlayerBehind(this.player);
-      const dmg = isBackstab ? 99 : 1;
-      const dead = g.takeDamage(dmg, dx / Math.max(1, dist), dy / Math.max(1, dist));
+      const dmg = isBackstab ? 99 : baseDmg;
+      const kx = (dx / Math.max(1, dist)) * knockMul;
+      const ky = (dy / Math.max(1, dist)) * knockMul;
+      const dead = g.takeDamage(dmg, kx, ky);
       if (dead) this._runStats.kills += 1;
 
+      // —— 命中 hitstop：瞭在这一下击中感 ——
+      this._applyHitstop(isBackstab ? 90 : 55);
+
       // 反馈
-      this.cameras.main.shake(80, 0.003);
-      this.showBubble(g.sprite, isBackstab ? '！' : (dead ? '×' : '!'),
-        { color: isBackstab ? '#ff5050' : '#fff3b8', fontSize: '18px', duration: 700, dy: -20 });
+      this.cameras.main.shake(isBackstab ? 140 : 90, isBackstab ? 0.006 : 0.0035);
+      const hitText = isBackstab ? '击杀！' : (dead ? '杀！' : `-${dmg}`);
+      const hitColor = isBackstab ? '#ff5050' : (dead ? '#ff8a8a' : '#ffe680');
+      this.showBubble(g.sprite, hitText,
+        { color: hitColor, fontSize: isBackstab ? '20px' : '16px', duration: 700, dy: -22 });
       if (isBackstab) this.showPlayerQuip('一击毙之，了无声息。', '#ff8a8a');
+
+      // 冲击环：玩家事件明确能看到
+      this._spawnImpactRing(g.sprite.x, g.sprite.y, isBackstab);
 
       // 火星粒子
       this.spawnHitSparks(g.sprite.x, g.sprite.y, isBackstab);
@@ -1951,9 +2199,9 @@ export default class MuseumScene extends Phaser.Scene {
   }
 
   /** 玩家挥刀视觉特效 */
-  spawnSlashGfx(aim) {
-    const HIT_RANGE = 32;
-    const HIT_HALF = Math.PI / 3;
+  spawnSlashGfx(aim, range, arc) {
+    const HIT_RANGE = range || 32;
+    const HIT_HALF = arc || (Math.PI / 3);
     const g = this.add.graphics().setDepth(7);
     const px = this.player.x;
     const py = this.player.y;
@@ -2020,8 +2268,9 @@ export default class MuseumScene extends Phaser.Scene {
     if (now < ps.invulnUntil) return;
     ps.hp = Math.max(0, ps.hp - amount);
     ps.invulnUntil = now + 700;
+    ps.staggerUntil = now + 380;   // 受击僵直 380ms：期间不受控，击退额外由 setVelocity 驱动
     // 受击反馈
-    this.cameras.main.shake(120, 0.005);
+    this.cameras.main.shake(180, 0.008);
     this.cameras.main.flash(140, 200, 0, 0);
     Audio.sfx.hurt();
     // 血粒子
@@ -2036,17 +2285,46 @@ export default class MuseumScene extends Phaser.Scene {
       this.time.delayedCall(180, () => {
         if (this.player && this.player.active) this.player.clearTint();
       });
-      // 击退
+      // 击退（加大力度，配合 staggerUntil 期间不被覆盖）
       if (source && source.sprite) {
         const dx = this.player.x - source.sprite.x;
         const dy = this.player.y - source.sprite.y;
         const len = Math.max(1, Math.hypot(dx, dy));
-        this.player.setVelocity((dx / len) * 200, (dy / len) * 200);
+        this.player.setVelocity((dx / len) * 320, (dy / len) * 320);
       }
     }
     if (ps.hp <= 0) {
       this.endRun(false, reasonHint || '伤重不支，倒在博物馆中……');
     }
+  }
+
+  /** 命中时停（hitstop）：让 tween 短时近乎冻结，配合震屏制造打击瞬间凝滞感
+   *  不暂停物理，避免击退/僵直被中断；持续 ms 毫秒后恢复。
+   */
+  _applyHitstop(ms = 60) {
+    if (this._hitstopActive) return;
+    this._hitstopActive = true;
+    const old = this.tweens.timeScale;
+    this.tweens.timeScale = 0.08;
+    this.time.delayedCall(ms, () => {
+      this.tweens.timeScale = old;
+      this._hitstopActive = false;
+    });
+  }
+
+  /** 冲击波环：命中位置弹出一个白圈，强化"打中"反馈 */
+  _spawnImpactRing(x, y, big = false) {
+    const ring = this.add.circle(x, y, big ? 12 : 8, 0xffffff, 0)
+      .setStrokeStyle(big ? 3 : 2, big ? 0xff6060 : 0xfff3b8, 0.95)
+      .setDepth(8);
+    this.tweens.add({
+      targets: ring,
+      scale: big ? 3.6 : 2.8,
+      alpha: { from: 1, to: 0 },
+      duration: big ? 280 : 220,
+      ease: 'Cubic.out',
+      onComplete: () => ring.destroy()
+    });
   }
 
   /** 火星粒子（攻击命中 / 格挡） */
@@ -2114,14 +2392,42 @@ export default class MuseumScene extends Phaser.Scene {
     }
   }
 
-  /** 消耗品 HUD（医疗包库存显示） */
+  /** 消耗品 HUD（医疗包 / 烟雾弹 / 轻功符 库存显示） */
   updateConsumableHUD() {
-    if (!this.medkitHUD) return;
-    const stock = (SaveData.getConsumables() || {}).medkit || 0;
-    if (stock > 0) {
-      this.medkitHUD.setText(`⚕ × ${stock}　H 使用`);
+    const stocks = SaveData.getConsumables() || {};
+    if (this.medkitHUD) {
+      const n = stocks.medkit || 0;
+      this.medkitHUD.setText(n > 0 ? `⚕ × ${n}　H 使用` : '⚕ × 0');
+    }
+    if (this.smokeHUD) {
+      const n = stocks.smoke_bomb || 0;
+      this.smokeHUD.setText(n > 0 ? `💨 × ${n}　G 投放` : '');
+    }
+    if (this.qinggongHUD) {
+      const n = stocks.qinggong_talisman || 0;
+      const ps = this.playerState;
+      const remain = ps && ps.qinggongUntil > this.time.now
+        ? Math.ceil((ps.qinggongUntil - this.time.now) / 1000) : 0;
+      if (remain > 0) {
+        this.qinggongHUD.setText(`🍃 轻功 · ${remain}s`);
+      } else if (n > 0) {
+        this.qinggongHUD.setText(`🍃 × ${n}　V 启用`);
+      } else {
+        this.qinggongHUD.setText('');
+      }
+    }
+  }
+
+  /** 武器 HUD：名称 + （远程）弹药 · 冷却 */
+  updateWeaponHUD() {
+    if (!this.weaponHUD) return;
+    const wp = (this._loadoutEff && this._loadoutEff.weapon) || null;
+    if (!wp) { this.weaponHUD.setText(''); return; }
+    if (wp.kind === 'ranged') {
+      const ps = this.playerState || {};
+      this.weaponHUD.setText(`${wp.icon || ''} ${wp.name}　弹 ${ps.ammo || 0}/${wp.ammoMax}　右键 发射`);
     } else {
-      this.medkitHUD.setText('⚕ × 0');
+      this.weaponHUD.setText(`${wp.icon || ''} ${wp.name}　左键/J 挥刀`);
     }
   }
 
@@ -2142,6 +2448,93 @@ export default class MuseumScene extends Phaser.Scene {
     this._floatText(this.player.x, this.player.y - 22, '+1 HP', '#7ae8e8');
     if (Audio && Audio.sfx && Audio.sfx.heal) Audio.sfx.heal();
     this.updatePlayerHUD();
+    this.updateConsumableHUD();
+  }
+
+  /** 烟雾弹：在玩家脚下弹起一团烟雾，半径内的守卫警觉大幅下降，并同时遮住玩家许久 */
+  useSmokeBomb() {
+    if (this._ended) return;
+    if (!SaveData.consumeConsumable('smoke_bomb')) {
+      this._floatText(this.player.x, this.player.y - 22, '袖中无烟', '#a08434');
+      return;
+    }
+    const RADIUS = 96;
+    const DURATION = 4500;
+    const ALERT_DROP = 0.6;
+    const px = this.player.x;
+    const py = this.player.y;
+
+    // 对半径内守卫警觉下调
+    if (this.guards) {
+      for (const g of this.guards) {
+        if (g.dead) continue;
+        if (Phaser.Math.Distance.Between(px, py, g.sprite.x, g.sprite.y) <= RADIUS) {
+          // 总警觉量为 1，这里下调 ALERT_DROP
+          if (typeof g.alert === 'number') {
+            g.alert = Math.max(0, g.alert - ALERT_DROP);
+          } else if (typeof g.alertValue === 'number') {
+            g.alertValue = Math.max(0, g.alertValue - (g.alertMax || 100) * ALERT_DROP);
+          }
+        }
+      }
+    }
+
+    // 玩家获得一段掩护期：警觉逸出为 0，并为玩家准备一个“烟雾”状态供 Guard 读取
+    const ps = this.playerState;
+    ps.smokedUntil = this.time.now + DURATION;
+
+    // 烟雾视觉效果（多层烟雾圈）
+    for (let i = 0; i < 3; i++) {
+      const cloud = this.add.circle(
+        px + (Math.random() - 0.5) * 24,
+        py + (Math.random() - 0.5) * 18,
+        RADIUS * 0.45,
+        0xb8b8c0,
+        0.45
+      ).setDepth(9);
+      this.tweens.add({
+        targets: cloud,
+        scale: 1.6 + Math.random() * 0.4,
+        alpha: 0,
+        duration: DURATION,
+        ease: 'Cubic.out',
+        onComplete: () => cloud.destroy()
+      });
+    }
+
+    this._floatText(px, py - 22, '迷烟起 · 守卫警觉骤降', '#cdb98a');
+    if (Audio && Audio.sfx && Audio.sfx.click) Audio.sfx.click();
+    this.updateConsumableHUD();
+  }
+
+  /** 轻功符：三息内造成达到疾跑速度且足下无声（警觉增长为 0） */
+  useQinggong() {
+    if (this._ended) return;
+    const ps = this.playerState;
+    if (ps && ps.qinggongUntil > this.time.now) {
+      this._floatText(this.player.x, this.player.y - 22, '轻功未歇', '#a08434');
+      return;
+    }
+    if (!SaveData.consumeConsumable('qinggong_talisman')) {
+      this._floatText(this.player.x, this.player.y - 22, '轻功符库存为空', '#a08434');
+      return;
+    }
+    const DURATION = 3500;
+    const SPEED_MUL = 1.7;
+    ps.qinggongUntil = this.time.now + DURATION;
+    ps.qinggongMul = SPEED_MUL;
+
+    // 视觉：脚下一点绿意光环
+    const ring = this.add.circle(this.player.x, this.player.y, 18, 0xa0e8a8, 0.4).setDepth(8);
+    this.tweens.add({
+      targets: ring,
+      scale: 2.2,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => ring.destroy()
+    });
+    this._floatText(this.player.x, this.player.y - 22, '轻功起 · 足下无声', '#a0e8a8');
+    if (Audio && Audio.sfx && Audio.sfx.click) Audio.sfx.click();
     this.updateConsumableHUD();
   }
 }

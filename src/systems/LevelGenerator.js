@@ -340,13 +340,30 @@ function shuffleArr(arr, rng) {
 }
 
 function pickGuardRooms(rooms, count, rng, spawn) {
-  // 优先选离出生点远的房间；再随机
-  const sorted = [...rooms].sort((A, B) => {
-    const da = Math.abs(A.x + A.w / 2 - spawn.x) + Math.abs(A.y + A.h / 2 - spawn.y);
-    const db = Math.abs(B.x + B.w / 2 - spawn.x) + Math.abs(B.y + B.h / 2 - spawn.y);
-    return db - da;
-  });
-  // 取前 N+1 个再洗牌挑 N 个，保持随机性
+  // —— 计算每个房间中心到出生点的曼哈顿距离 ——
+  const dist = (R) => Math.abs(R.x + R.w / 2 - spawn.x) + Math.abs(R.y + R.h / 2 - spawn.y);
+
+  // —— 安全距离：房间中心至少离出生点 8 格，避免守卫贴脸刷新 ——
+  const SAFE_DIST = 8;
+  // 同时排除出生点所在的房间（spawn 落在矩形内）
+  const inRoom = (R, p) =>
+    p.x >= R.x && p.x < R.x + R.w && p.y >= R.y && p.y < R.y + R.h;
+  // 同时排除房间太小的（否则巡逻只能原地兜圈）
+  const roomArea = (R) => R.w * R.h;
+
+  const safeRooms = rooms.filter(
+    (R) => !inRoom(R, spawn) && dist(R) >= SAFE_DIST && roomArea(R) >= 6
+  );
+  // 若过滤太严没剩多少房间，回退到只排除 spawn 所在房间
+  let candidates = safeRooms;
+  if (candidates.length < count) {
+    candidates = rooms.filter((R) => !inRoom(R, spawn));
+  }
+  // 仍不够则全量
+  if (candidates.length < count) candidates = rooms.slice();
+
+  // 按距离从远到近排序，再在前 N+2 内洗牌挑 N 个，保持随机但远离入口
+  const sorted = [...candidates].sort((A, B) => dist(B) - dist(A));
   const pool = sorted.slice(0, Math.min(sorted.length, count + 2));
   shuffleArr(pool, rng);
   return pool.slice(0, Math.min(count, pool.length));
@@ -359,13 +376,44 @@ function buildPatrolPath(room, walls, W, H) {
   const x1 = Math.min(W - 2, room.x + room.w - 2);
   const y1 = Math.min(H - 2, room.y + room.h - 2);
 
-  // 房间太小直接退化为中心来回
+  // 距离阈值：相邻两巡逻点至少跨 MIN_LEG 格，否则视为兜圈
+  const MIN_LEG = 3;
+
+  // —— 房间太小：尽量在可用范围内拉一条最长的可走对角线 ——
   if (x1 <= x0 || y1 <= y0) {
-    const cx = Math.floor((room.x + room.x + room.w - 1) / 2);
-    const cy = Math.floor((room.y + room.y + room.h - 1) / 2);
+    // 在房间内枚举所有非墙格，找两点距离最远的组合
+    const cells = [];
+    for (let y = room.y; y < room.y + room.h; y++) {
+      for (let x = room.x; x < room.x + room.w; x++) {
+        if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
+        if (!walls.has(k(x, y))) cells.push({ x, y });
+      }
+    }
+    if (cells.length >= 2) {
+      let bestA = cells[0];
+      let bestB = cells[1];
+      let bestD = -1;
+      for (let i = 0; i < cells.length; i++) {
+        for (let j = i + 1; j < cells.length; j++) {
+          const d =
+            Math.abs(cells[i].x - cells[j].x) +
+            Math.abs(cells[i].y - cells[j].y);
+          if (d > bestD) {
+            bestD = d;
+            bestA = cells[i];
+            bestB = cells[j];
+          }
+        }
+      }
+      return [bestA, bestB];
+    }
+    // 万不得已：返回中心 + 偏移 1 格
+    const cx = Math.floor(room.x + room.w / 2);
+    const cy = Math.floor(room.y + room.h / 2);
     return [{ x: cx, y: cy }, { x: Math.min(cx + 1, W - 2), y: cy }];
   }
 
+  // —— 正常房间：四角作为巡逻点 ——
   const corners = [
     { x: x0, y: y0 },
     { x: x1, y: y0 },
@@ -373,8 +421,15 @@ function buildPatrolPath(room, walls, W, H) {
     { x: x0, y: y1 }
   ].filter((p) => !walls.has(k(p.x, p.y)));
 
-  if (corners.length >= 2) return corners;
-  // 极端兜底
+  // 如果四角中至少两点之间能拉开 MIN_LEG，使用四角巡逻
+  if (corners.length >= 2) {
+    const span =
+      Math.abs(corners[0].x - corners[corners.length - 1].x) +
+      Math.abs(corners[0].y - corners[corners.length - 1].y);
+    if (span >= MIN_LEG) return corners;
+  }
+
+  // 退化兜底：在房间内取对角两点
   return [{ x: x0, y: y0 }, { x: x1, y: y1 }];
 }
 
@@ -382,21 +437,19 @@ function buildPatrolPath(room, walls, W, H) {
 //  容器辅助
 // ——————————————————————————————————————
 
-/** 装文物的容器：保险柜/密码锁概率高些，让高价值物品更"有戏" */
+/** 装文物的容器：保险柜概率高些，让高价值物品更"有戏"
+ *  注：已取消密码锁（puzzle）概率，原概率合并到 plain / safe。 */
 function pickRelicContainerKind(rng) {
   const r = rng();
-  if (r < 0.45) return 'plain';   // 45% 普通箱
-  if (r < 0.75) return 'safe';    // 30% 保险柜（需撬锁器）
-  if (r < 0.95) return 'puzzle';  // 20% 密码锁（小游戏）
+  if (r < 0.55) return 'plain';   // 55% 普通箱
+  if (r < 0.95) return 'safe';    // 40% 保险柜（需擬锁器）
   return 'trap';                  // 5%  陷阱箱
 }
-
 /** 不装文物的"补给箱/陷阱箱"分布：更随意 */
 function pickLootContainerKind(rng) {
   const r = rng();
-  if (r < 0.55) return 'plain';
-  if (r < 0.75) return 'safe';
-  if (r < 0.90) return 'puzzle';
+  if (r < 0.65) return 'plain';
+  if (r < 0.92) return 'safe';
   return 'trap';
 }
 

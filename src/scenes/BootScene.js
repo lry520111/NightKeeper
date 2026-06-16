@@ -41,7 +41,7 @@ export default class BootScene extends Phaser.Scene {
 
     // —— Hub 大厅整张背景图（pre-rendered scene）——
     // 高质量预渲染场景图，覆盖整个画布；碰撞与交互锚点在 hubLayout.js 中定义
-    this.load.image('hub_cover', 'assets/hub/hub_cover.png');
+    this.load.image('hub_cover', 'assets/hub/hub_02.jpg');
   }
 
   create() {

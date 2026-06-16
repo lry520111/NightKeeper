@@ -71,14 +71,18 @@ export default class Guard {
     this._lastY = 0;
 
     const start = waypoints[0];
-    this.sprite = scene.physics.add.sprite(start.x, start.y, this.texIdle);
+    // —— 初始生成点：选择路径中点附近的点，避免守卫刚刷出来就贴脸玩家 ——
+    const startIdx = waypoints.length >= 2 ? Math.floor(waypoints.length / 2) : 0;
+    const startPos = waypoints[startIdx];
+    this.wpIdx = (startIdx + 1) % waypoints.length;
+    this.sprite = scene.physics.add.sprite(startPos.x, startPos.y, this.texIdle);
     this.sprite.setCollideWorldBounds(true);
     this.sprite.body.setSize(12, 18).setOffset(2, 4);
     this.sprite.setDepth(5);
 
-    // 朝向（弧度）：初始指向第二个点
-    const next = waypoints[1] || { x: start.x + 1, y: start.y };
-    this.facing = Math.atan2(next.y - start.y, next.x - start.x);
+    // 朝向（弧度）：初始指向下一个路径点
+    const next = waypoints[this.wpIdx] || { x: startPos.x + 1, y: startPos.y };
+    this.facing = Math.atan2(next.y - startPos.y, next.x - startPos.x);
 
     // —— 视野锥渲染 ——
     this.coneGfx = scene.add.graphics();
@@ -87,14 +91,20 @@ export default class Guard {
     // 守卫提灯光晕（在光照系统中读取）
     this.lightKey = 'tex_light_guard';
 
-    this._lastX = start.x;
-    this._lastY = start.y;
+    // —— 血条：仅在受击后临时显示 ——
+    this.hpBarGfx = scene.add.graphics();
+    this.hpBarGfx.setDepth(7);
+    this.hpBarShowUntil = 0;
+
+    this._lastX = startPos.x;
+    this._lastY = startPos.y;
   }
 
   destroy() {
     this.sprite.destroy();
     this.coneGfx.destroy();
     if (this.windupGfx) this.windupGfx.destroy();
+    if (this.hpBarGfx) this.hpBarGfx.destroy();
   }
 
   // —— 玩家攻击造成伤害 ——
@@ -102,15 +112,17 @@ export default class Guard {
     if (this.dead) return false;
     this.hp -= amount;
     this.staggerUntil = this.scene.time.now + GUARD_STAGGER_MS;
-    // 击退
+    // 击退（加大力度，击中手感更明显）
     if (this.sprite.body) {
-      this.sprite.setVelocity(knockX * 120, knockY * 120);
+      this.sprite.setVelocity(knockX * 200, knockY * 200);
     }
     // 闪红
     this.sprite.setTint(0xff5555);
     this.scene.time.delayedCall(160, () => {
       if (this.sprite && !this.dead) this.sprite.clearTint();
     });
+    // 血条显示 2.5 秒
+    this.hpBarShowUntil = this.scene.time.now + 2500;
     if (this.hp <= 0) {
       this.die();
       return true;
@@ -130,6 +142,7 @@ export default class Guard {
     }
     this.coneGfx.clear();
     if (this.windupGfx) this.windupGfx.clear();
+    if (this.hpBarGfx) this.hpBarGfx.clear();
     if (typeof this.onStateChange === 'function') {
       this.onStateChange('dead', this.state, this);
     }
@@ -197,6 +210,9 @@ export default class Guard {
 
     // —— 攻击蓄力提示渲染 ——
     this.drawWindup();
+
+    // —— 血条渲染 ——
+    this.drawHpBar();
 
     // —— 行走帧切换（依据实际位移） ——
     this.updateWalkFrame(dt);
@@ -352,6 +368,31 @@ export default class Guard {
     g.strokePath();
   }
 
+  // —— 血条渲染：只在受击后几秒内显示 ——
+  drawHpBar() {
+    const g = this.hpBarGfx;
+    if (!g) return;
+    g.clear();
+    if (this.dead) return;
+    if (this.scene.time.now > this.hpBarShowUntil) return;
+
+    const w = 22;
+    const h = 3;
+    const x = this.sprite.x - w / 2;
+    const y = this.sprite.y - 16;
+    const ratio = Phaser.Math.Clamp(this.hp / GUARD_MAX_HP, 0, 1);
+
+    // 底框
+    g.fillStyle(0x000000, 0.7);
+    g.fillRect(x - 1, y - 1, w + 2, h + 2);
+    // 背景（深红）
+    g.fillStyle(0x6a1818, 0.95);
+    g.fillRect(x, y, w, h);
+    // 剩余血量（鲜红）
+    g.fillStyle(0xff4848, 1);
+    g.fillRect(x, y, w * ratio, h);
+  }
+
   // —— 视线检测：扇形 + 射线遮挡 ——
   canSee(player, walls) {
     const dx = player.x - this.sprite.x;
@@ -362,6 +403,12 @@ export default class Guard {
     const ang = Math.atan2(dy, dx);
     const diff = Math.abs(Phaser.Math.Angle.Wrap(ang - this.facing));
     if (diff > VIEW_HALF_ANGLE) return false;
+
+    // 玩家烟雾遮蔽：30 像素以外即可视为看不见（贴脸仍会被发现）
+    const ps = this.scene && this.scene.playerState;
+    if (ps && ps.smokedUntil && this.scene.time.now < ps.smokedUntil) {
+      if (dist > 30) return false;
+    }
 
     // 射线 vs 墙体（用墙的 AABB 求交）
     return !this.rayHitsWall(this.sprite.x, this.sprite.y, player.x, player.y, walls);

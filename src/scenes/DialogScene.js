@@ -42,6 +42,9 @@ export default class DialogScene extends Phaser.Scene {
   }
 
   create() {
+    // 视口适配：与下层场景（HubScene/MuseumScene）保持一致，居中 960×540 显示
+    this.cameras.main.setViewport(160, 90, SCREEN_W, SCREEN_H);
+
     // —— 半透明遮罩（不全黑，保留下层场景的氛围） ——
     const dim = this.add.rectangle(0, 0, SCREEN_W, SCREEN_H, 0x000000, 0.35).setOrigin(0, 0);
     dim.setDepth(0);

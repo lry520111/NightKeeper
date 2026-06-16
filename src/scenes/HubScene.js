@@ -47,7 +47,7 @@ export default class HubScene extends Phaser.Scene {
     Audio.init();
     this._dialogOpen = false;
 
-    // —— 1. 背景大图（一张图覆盖全画布，所有视觉细节都在里面）——
+    // —— 1. 背景大图（一张图覆盖整个 1280×720 画布，所有视觉细节都在里面）——
     const bg = this.add.image(ROOM_W / 2, ROOM_H / 2, 'hub_cover');
     bg.setDisplaySize(ROOM_W, ROOM_H);
     bg.setDepth(-10);

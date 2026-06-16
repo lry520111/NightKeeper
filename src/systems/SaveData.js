@@ -11,7 +11,15 @@
 // 与 Codex 的关系：Codex 仍然负责"图鉴是否解锁 / 历史撤离统计"，
 // SaveData 负责"流程经济 + 配装 + 委托"。两者并存。
 
-import { TOOLS, getToolById, CONSUMABLES, getConsumableById } from '../data/tools.js';
+import {
+  TOOLS,
+  getToolById,
+  CONSUMABLES,
+  getConsumableById,
+  WEAPONS,
+  getWeaponById,
+  getStarterWeaponId
+} from '../data/tools.js';
 import SaveSlots from './SaveSlots.js';
 
 const BASE_KEY = 'nightkeeper:save';
@@ -19,6 +27,7 @@ function storageKey() { return SaveSlots.slotKey(BASE_KEY); }
 
 const STARTER_GOLD = 200;
 const STARTER_TOOLS = ['silent_shoes']; // 起手送一双消音鞋
+const STARTER_WEAPONS = ['short_blade']; // 起手送一柄青锋短刃
 
 function emptyState() {
   return {
@@ -29,8 +38,10 @@ function emptyState() {
     vault: [],
     // 已购工具 ID 集合
     ownedTools: STARTER_TOOLS.slice(),
-    // 装备槽：head / feet / tool / sub
-    loadout: { head: null, feet: 'silent_shoes', tool: null, sub: null },
+    // 已购武器 ID 集合
+    ownedWeapons: STARTER_WEAPONS.slice(),
+    // 装备槽：head / feet / tool / sub / weapon
+    loadout: { head: null, feet: 'silent_shoes', tool: null, sub: null, weapon: 'short_blade' },
     // 安全箱：从仓库预选 1 件文物 ID（失败不丢）
     safeBox: null,
     // 当前接取的委托对象（结构见 contracts.js）
@@ -66,7 +77,13 @@ function safeParse(raw) {
       runs: obj.runs || base.runs,
       vault: Array.isArray(obj.vault) ? obj.vault : [],
       ownedTools: Array.isArray(obj.ownedTools) ? obj.ownedTools : base.ownedTools,
-      loadout: Object.assign({ head: null, feet: null, tool: null, sub: null }, obj.loadout || {}),
+      ownedWeapons: Array.isArray(obj.ownedWeapons) && obj.ownedWeapons.length
+        ? obj.ownedWeapons
+        : base.ownedWeapons,
+      loadout: Object.assign(
+        { head: null, feet: null, tool: null, sub: null, weapon: getStarterWeaponId() },
+        obj.loadout || {}
+      ),
       safeBox: typeof obj.safeBox === 'string' ? obj.safeBox : null,
       activeContract: obj.activeContract || null,
       completedContracts: Array.isArray(obj.completedContracts) ? obj.completedContracts : [],
@@ -74,7 +91,8 @@ function safeParse(raw) {
       contractPoolDay: typeof obj.contractPoolDay === 'number' ? obj.contractPoolDay : -1,
       gameDay: typeof obj.gameDay === 'number' && obj.gameDay > 0 ? obj.gameDay : 1,
       consumables: obj.consumables && typeof obj.consumables === 'object'
-        ? Object.assign({ medkit: 0 }, obj.consumables) : { medkit: 0 },
+        ? Object.assign({ medkit: 0, smoke_bomb: 0, qinggong_talisman: 0 }, obj.consumables)
+        : { medkit: 0, smoke_bomb: 0, qinggong_talisman: 0 },
       flags: obj.flags && typeof obj.flags === 'object' ? obj.flags : {},
       stats: Object.assign(
         { totalKills: 0, totalAlerts: 0, totalGhostRuns: 0, totalSpent: 0 },
@@ -216,6 +234,54 @@ export const SaveData = {
     return true;
   },
 
+  // —— 武器 ——
+  getOwnedWeapons() {
+    const s = load();
+    return Array.isArray(s.ownedWeapons) && s.ownedWeapons.length
+      ? s.ownedWeapons.slice()
+      : STARTER_WEAPONS.slice();
+  },
+  ownsWeapon(weaponId) { return this.getOwnedWeapons().includes(weaponId); },
+  getEquippedWeaponId() {
+    const s = load();
+    return (s.loadout && s.loadout.weapon) || getStarterWeaponId();
+  },
+  getEquippedWeapon() {
+    return getWeaponById(this.getEquippedWeaponId());
+  },
+
+  /** 购买武器，成功返回 true；金币不足或已拥有则 false */
+  buyWeapon(weaponId) {
+    const w = getWeaponById(weaponId);
+    if (!w) return false;
+    const s = load();
+    s.ownedWeapons = s.ownedWeapons || [];
+    if (s.ownedWeapons.includes(weaponId)) return false;
+    if ((s.gold || 0) < (w.price || 0)) return false;
+    s.gold -= w.price || 0;
+    s.ownedWeapons.push(weaponId);
+    s.stats = s.stats || { totalKills: 0, totalAlerts: 0, totalGhostRuns: 0, totalSpent: 0 };
+    s.stats.totalSpent = (s.stats.totalSpent || 0) + (w.price || 0);
+    save(s);
+    return true;
+  },
+
+  /** 装备武器到 weapon 槽；null 会回退到 starter 武器（不允许空手） */
+  equipWeapon(weaponId) {
+    const s = load();
+    s.loadout = s.loadout || {};
+    if (weaponId === null) {
+      s.loadout.weapon = getStarterWeaponId();
+    } else {
+      if (!getWeaponById(weaponId)) return false;
+      s.ownedWeapons = s.ownedWeapons || [];
+      if (!s.ownedWeapons.includes(weaponId)) return false;
+      s.loadout.weapon = weaponId;
+    }
+    save(s);
+    return true;
+  },
+
   /** 把当前装备解析为运行时效果对象（供 MuseumScene 读取） */
   resolveEffects() {
     const s = load();
@@ -226,7 +292,8 @@ export const SaveData = {
       extractCdMul: 1,        // 撤离冷却倍率
       hasDart: false,         // 是否带麻醉针
       hasBeacon: false,
-      tools: []
+      tools: [],
+      weapon: null            // 当前装备的武器定义
     };
     for (const slot of ['head', 'feet', 'tool', 'sub']) {
       const id = s.loadout[slot];
@@ -243,6 +310,9 @@ export const SaveData = {
         if (tool.effects.hasBeacon) eff.hasBeacon = true;
       }
     }
+    // 武器槽：默认 starter
+    const wid = (s.loadout && s.loadout.weapon) || getStarterWeaponId();
+    eff.weapon = getWeaponById(wid) || null;
     return eff;
   },
 
@@ -319,13 +389,13 @@ export const SaveData = {
   /** 返回一份消耗品库存副本（不包含未定义的） */
   getConsumables() {
     const s = load();
-    return Object.assign({ medkit: 0 }, s.consumables || {});
+    return Object.assign({ medkit: 0, smoke_bomb: 0, qinggong_talisman: 0 }, s.consumables || {});
   },
 
   /** 为某种消耗品增加库存。返回新库存。 */
   addConsumable(id, n = 1) {
     const s = load();
-    s.consumables = s.consumables || { medkit: 0 };
+    s.consumables = s.consumables || { medkit: 0, smoke_bomb: 0, qinggong_talisman: 0 };
     s.consumables[id] = (s.consumables[id] || 0) + n;
     save(s);
     return s.consumables[id];
@@ -334,7 +404,7 @@ export const SaveData = {
   /** 消耗一个。库存 0 返回 false；否则减一返回 true。 */
   consumeConsumable(id) {
     const s = load();
-    s.consumables = s.consumables || { medkit: 0 };
+    s.consumables = s.consumables || { medkit: 0, smoke_bomb: 0, qinggong_talisman: 0 };
     if ((s.consumables[id] || 0) <= 0) return false;
     s.consumables[id] -= 1;
     save(s);
@@ -348,7 +418,7 @@ export const SaveData = {
     const s = load();
     if (s.gold < c.price) return false;
     s.gold -= c.price;
-    s.consumables = s.consumables || { medkit: 0 };
+    s.consumables = s.consumables || { medkit: 0, smoke_bomb: 0, qinggong_talisman: 0 };
     s.consumables[id] = (s.consumables[id] || 0) + 1;
     s.stats = s.stats || { totalKills: 0, totalAlerts: 0, totalGhostRuns: 0, totalSpent: 0 };
     s.stats.totalSpent = (s.stats.totalSpent || 0) + c.price;
@@ -448,5 +518,5 @@ function evaluateContract(contract, items) {
 }
 
 // 导出工具表方便外部直接 import
-export { TOOLS, CONSUMABLES };
+export { TOOLS, CONSUMABLES, WEAPONS };
 export default SaveData;

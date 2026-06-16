@@ -7,8 +7,8 @@ import SaveData from '../systems/SaveData.js';
 import Audio from '../systems/AudioFx.js';
 import { RARITY_COLOR } from '../data/relics.js';
 
-const W = 960;
-const H = 540;
+const W = 1280;
+const H = 720;
 const PAGE_SIZE = 8;
 
 export default class VaultScene extends Phaser.Scene {
@@ -117,8 +117,8 @@ export default class VaultScene extends Phaser.Scene {
     items.forEach((it, i) => {
       const col = i % 2;
       const row = Math.floor(i / 2);
-      const x = 60 + col * 440;
-      const y = 130 + row * 90;
+      const x = 130 + col * 510;     // 1280 画布下两列居中：左 130，右 640，中间 100 px 间距
+      const y = 140 + row * 100;
       const realIndex = start + i;
       this.listGroup.add(this.makeItemCard(it, x, y, realIndex));
     });
@@ -138,8 +138,8 @@ export default class VaultScene extends Phaser.Scene {
 
   makeItemCard(it, x, y, realIndex) {
     const c = this.add.container(x, y);
-    const w = 420;
-    const h = 80;
+    const w = 500;
+    const h = 88;
     const bg = this.add.rectangle(0, 0, w, h, 0x1a1208).setOrigin(0, 0);
     bg.setStrokeStyle(1, Phaser.Display.Color.HexStringToColor(RARITY_COLOR[it.rarity] || '#6b5824').color);
     c.add(bg);

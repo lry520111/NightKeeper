@@ -11,8 +11,8 @@ import {
 } from '../data/contracts.js';
 import { getBiome } from '../data/biomes.js';
 
-const W = 960;
-const H = 540;
+const W = 1280;
+const H = 720;
 
 export default class ContractScene extends Phaser.Scene {
   constructor() { super('ContractScene'); }
@@ -88,10 +88,10 @@ export default class ContractScene extends Phaser.Scene {
   }
 
   createCard(c, idx) {
-    const x = 60;
-    const y = 90 + idx * 102;     // 4 张卡片紧凑布局
-    const w = 360;
-    const h = 92;
+    const x = 80;
+    const y = 110 + idx * 130;    // 1280×720 画布下加大间距，更舒展
+    const w = 400;
+    const h = 110;
     const bg = this.add.rectangle(x, y, w, h, 0x1a1208).setOrigin(0, 0);
     bg.setStrokeStyle(1, 0x6b5824);
     bg.setInteractive({ useHandCursor: true });
@@ -155,10 +155,10 @@ export default class ContractScene extends Phaser.Scene {
 
     this.detailGroup.removeAll(true);
 
-    const dx = 460;
-    const dy = 100;
-    const dw = 460;
-    const dh = 380;
+    const dx = 520;
+    const dy = 110;
+    const dw = 700;
+    const dh = 520;
 
     const bg = this.add.rectangle(dx, dy, dw, dh, 0x140d05).setOrigin(0, 0);
     bg.setStrokeStyle(1, 0x6b5824);

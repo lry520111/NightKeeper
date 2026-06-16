@@ -13,8 +13,8 @@ import Codex from '../systems/Codex.js';
 import Audio from '../systems/AudioFx.js';
 import { describeRequirement } from '../data/contracts.js';
 
-const W = 960;
-const H = 540;
+const W = 1280;
+const H = 720;
 
 export default class ResultScene extends Phaser.Scene {
   constructor() { super('ResultScene'); }
