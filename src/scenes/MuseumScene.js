@@ -336,27 +336,32 @@ export default class MuseumScene extends Phaser.Scene {
       this.decorLights = [];
       this.lanterns = [];
     }    // —— 5. 玩家（出生点由生成器提供） ——
-    // 使用新版精美角色精灵表（93x137 / 6 列 × 4 方向；行序：left/up/right/down）
-    const useLZPlayer = this.textures.exists('lz_adam_idle');
+    // 优先使用新主角帧图：5 行 × 5 列，64×64；旧 LimeZu 角色仅作 fallback。
+    const useHeroPlayer = this.textures.exists('hero_hongfa');
+    const useLZPlayer = !useHeroPlayer && this.textures.exists('lz_adam_idle');
     this.player = this.physics.add.sprite(
       level.spawn.x * TILE + TILE / 2,
       level.spawn.y * TILE + TILE / 2,
-      useLZPlayer ? 'lz_adam_idle' : 'tex_player',
-      useLZPlayer ? 18 : 0  // 18 = LimeZu down 行首帧（right=0/up=6/left=12/down=18）
+      useHeroPlayer ? 'hero_hongfa' : (useLZPlayer ? 'lz_adam_idle' : 'tex_player'),
+      useHeroPlayer ? 0 : (useLZPlayer ? 18 : 0)  // hero: down row first frame; LimeZu: down row first frame
     );
     this.player.setCollideWorldBounds(true);
-    if (useLZPlayer) {
+    if (useHeroPlayer) {
+      this.player.body.setSize(18, 10).setOffset(23, 44);
+    } else if (useLZPlayer) {
       // LimeZu 16×32 像素帧：脚部 body 居中
       this.player.body.setSize(10, 12).setOffset(3, 18);
     } else {
       this.player.body.setSize(12, 18).setOffset(2, 4);
     }
     this.player.setDepth(5);
-    // LimeZu 像素角色放大 1.7 倍，视觉高度 ~54px，与房间贴图比例协调
-    this.player.setScale(1.7);
+    this.player.setScale(useHeroPlayer ? 0.85 : 1.7);
     // 标记：后续切换动画时用
+    this._useHeroPlayer = useHeroPlayer;
     this._useLZPlayer = useLZPlayer;
-    if (useLZPlayer && this.anims.exists('adam_idle_down')) {
+    if (useHeroPlayer && this.anims.exists('hero_idle_down')) {
+      this.player.play('hero_idle_down');
+    } else if (useLZPlayer && this.anims.exists('adam_idle_down')) {
       this.player.play('adam_idle_down');
     }
     // 玩家朝向（弧度），鼠标方向决定光锥朝向
@@ -395,6 +400,7 @@ export default class MuseumScene extends Phaser.Scene {
       sprint: false,         // Ctrl
       blocking: false,       // K（按住）
       attackUntil: 0,        // 攻击动画/判定有效期
+      attackAnimUntil: 0,    // 主角攻击帧图播放保护，避免被走路动画立刻覆盖
       attackHitDone: false,  // 本次挥刀是否已结算
       attackDir: 0,          // 本次攻击方向（弧度）
       attackCooldownUntil: 0,// 出招冷却结束
@@ -1387,7 +1393,7 @@ export default class MuseumScene extends Phaser.Scene {
       if (this._playerWalkPhase !== 0) {
         this._playerWalkPhase = 0;
         this._playerWalkAccum = 0;
-        if (!this._useLZPlayer) this.player.setTexture('tex_player');
+        if (!this._useHeroPlayer && !this._useLZPlayer) this.player.setTexture('tex_player');
       }
       // 僵直期间仍要驱动其他逻辑（攻击结算、守卫 update 等），所以这里不 return
     } else {
@@ -1430,7 +1436,31 @@ export default class MuseumScene extends Phaser.Scene {
     // 暴露给攻击系统使用（_resolveMeleeAimAssist 回退方向）
     this._playerFacingAngle = ({ right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 })[facingDir];
 
-    if (this._useLZPlayer) {
+    if (this._useHeroPlayer) {
+      const animDir = facingDir === 'left' ? 'right' : facingDir;
+      const attacking = now < (ps.attackAnimUntil || 0);
+      const wantAnim = attacking
+        ? 'hero_attack'
+        : (now < ps.staggerUntil ? 'hero_hurt_down' : (moving ? `hero_walk_${animDir}` : `hero_idle_${animDir}`));
+      if (this.anims.exists(wantAnim)) {
+        const cur = this.player.anims.currentAnim;
+        if (!cur || cur.key !== wantAnim) {
+          this.player.play(wantAnim, wantAnim === 'hero_attack' || wantAnim === 'hero_hurt_down');
+        }
+      }
+      this.player.setFlipX(attacking ? Math.cos(ps.attackDir || 0) < 0 : facingDir === 'left');
+      if (moving) {
+        this._playerWalkAccum += dtSec;
+        const stepTime = ps.sprint ? 0.20 : ps.stealth ? 0.45 : 0.30;
+        if (this._playerWalkAccum >= stepTime) {
+          this._playerWalkAccum = 0;
+          const mode = ps.sprint ? 'sprint' : ps.stealth ? 'stealth' : 'walk';
+          Audio.sfx.footstep(mode);
+        }
+      } else {
+        this._playerWalkAccum = 0;
+      }
+    } else if (this._useLZPlayer) {
       // —— LimeZu 模式：使用 WASD 朝向选 4 方向动画 ——
       const dir = facingDir;
       const wantAnim = moving ? `adam_run_${dir}` : `adam_idle_${dir}`;
@@ -2487,8 +2517,13 @@ export default class MuseumScene extends Phaser.Scene {
     // —— 近身肉搏自动索敌：若 1.6 倍攻击距离内存在活守卫，则将攻击方向锁定到最近者 ——
     ps.attackDir = this._resolveMeleeAimAssist(baseAim, ps.attackRange);
     ps.attackUntil = now + 220;     // 判定窗口
+    ps.attackAnimUntil = now + 420;
     ps.attackCooldownUntil = now + ((wp && wp.cooldownMs) || 360);
     ps.attackHitDone = false;
+    if (this._useHeroPlayer && this.anims.exists('hero_attack')) {
+      this.player.setFlipX(Math.cos(ps.attackDir) < 0);
+      this.player.play('hero_attack', true);
+    }
 
     // 视觉：玩家前方扇形刀光
     this.spawnSlashGfx(ps.attackDir, ps.attackRange, ps.attackArc);
@@ -2519,7 +2554,12 @@ export default class MuseumScene extends Phaser.Scene {
     ps.stam = Math.max(0, ps.stam - cost);
     ps.ammo -= 1;
     ps.attackDir = this.player.getData('aim') || 0;
+    ps.attackAnimUntil = now + 360;
     ps.attackCooldownUntil = now + (wp.cooldownMs || 300);
+    if (this._useHeroPlayer && this.anims.exists('hero_attack')) {
+      this.player.setFlipX(Math.cos(ps.attackDir) < 0);
+      this.player.play('hero_attack', true);
+    }
 
     this.spawnProjectile(wp, ps.attackDir);
     if (wp.noisy && Audio && Audio.sfx && Audio.sfx.slash) Audio.sfx.slash();

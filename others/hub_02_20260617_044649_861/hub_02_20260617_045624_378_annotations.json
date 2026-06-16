@@ -1,0 +1,5440 @@
+{
+  "version": 1,
+  "coordinate_system": "top_left_origin_y_down_pixels",
+  "unity_coordinate_system": "x_right_y_up_pixels",
+  "layers": [
+    {
+      "id": "occlusion",
+      "label": "遮挡层",
+      "order": 100,
+      "color": "#f2c94c",
+      "shapes": [
+        {
+          "id": "occlusion_rectangle_mqgztcpq_fsrcy6",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 50,
+              "y": 429
+            },
+            {
+              "x": 107,
+              "y": 429
+            },
+            {
+              "x": 107,
+              "y": 504
+            },
+            {
+              "x": 50,
+              "y": 504
+            }
+          ],
+          "local_points": [
+            {
+              "x": 50,
+              "y": 429
+            },
+            {
+              "x": 107,
+              "y": 429
+            },
+            {
+              "x": 107,
+              "y": 504
+            },
+            {
+              "x": 50,
+              "y": 504
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 50,
+              "y": -429
+            },
+            {
+              "x": 107,
+              "y": -429
+            },
+            {
+              "x": 107,
+              "y": -504
+            },
+            {
+              "x": 50,
+              "y": -504
+            }
+          ],
+          "bounds": {
+            "x": 50,
+            "y": 429,
+            "width": 57,
+            "height": 75
+          },
+          "local_bounds": {
+            "x": 50,
+            "y": 429,
+            "width": 57,
+            "height": 75
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqgzvoc6_cb7304",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 163,
+              "y": 640
+            },
+            {
+              "x": 454,
+              "y": 640
+            },
+            {
+              "x": 454,
+              "y": 726
+            },
+            {
+              "x": 163,
+              "y": 726
+            }
+          ],
+          "local_points": [
+            {
+              "x": 163,
+              "y": 640
+            },
+            {
+              "x": 454,
+              "y": 640
+            },
+            {
+              "x": 454,
+              "y": 726
+            },
+            {
+              "x": 163,
+              "y": 726
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 163,
+              "y": -640
+            },
+            {
+              "x": 454,
+              "y": -640
+            },
+            {
+              "x": 454,
+              "y": -726
+            },
+            {
+              "x": 163,
+              "y": -726
+            }
+          ],
+          "bounds": {
+            "x": 163,
+            "y": 640,
+            "width": 291,
+            "height": 86
+          },
+          "local_bounds": {
+            "x": 163,
+            "y": 640,
+            "width": 291,
+            "height": 86
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqgzwm00_gnnjxw",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 663,
+              "y": 316
+            },
+            {
+              "x": 1026,
+              "y": 316
+            },
+            {
+              "x": 1026,
+              "y": 405
+            },
+            {
+              "x": 663,
+              "y": 405
+            }
+          ],
+          "local_points": [
+            {
+              "x": 663,
+              "y": 316
+            },
+            {
+              "x": 1026,
+              "y": 316
+            },
+            {
+              "x": 1026,
+              "y": 405
+            },
+            {
+              "x": 663,
+              "y": 405
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 663,
+              "y": -316
+            },
+            {
+              "x": 1026,
+              "y": -316
+            },
+            {
+              "x": 1026,
+              "y": -405
+            },
+            {
+              "x": 663,
+              "y": -405
+            }
+          ],
+          "bounds": {
+            "x": 663,
+            "y": 316,
+            "width": 363,
+            "height": 89
+          },
+          "local_bounds": {
+            "x": 663,
+            "y": 316,
+            "width": 363,
+            "height": 89
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqgzyun9_08jzoh",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1571,
+              "y": 441
+            },
+            {
+              "x": 1622,
+              "y": 441
+            },
+            {
+              "x": 1622,
+              "y": 501
+            },
+            {
+              "x": 1571,
+              "y": 501
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1571,
+              "y": 441
+            },
+            {
+              "x": 1622,
+              "y": 441
+            },
+            {
+              "x": 1622,
+              "y": 501
+            },
+            {
+              "x": 1571,
+              "y": 501
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1571,
+              "y": -441
+            },
+            {
+              "x": 1622,
+              "y": -441
+            },
+            {
+              "x": 1622,
+              "y": -501
+            },
+            {
+              "x": 1571,
+              "y": -501
+            }
+          ],
+          "bounds": {
+            "x": 1571,
+            "y": 441,
+            "width": 51,
+            "height": 60
+          },
+          "local_bounds": {
+            "x": 1571,
+            "y": 441,
+            "width": 51,
+            "height": 60
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh00d0z_bbh256",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1218,
+              "y": 292
+            },
+            {
+              "x": 1452,
+              "y": 292
+            },
+            {
+              "x": 1452,
+              "y": 410
+            },
+            {
+              "x": 1218,
+              "y": 410
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1218,
+              "y": 292
+            },
+            {
+              "x": 1452,
+              "y": 292
+            },
+            {
+              "x": 1452,
+              "y": 410
+            },
+            {
+              "x": 1218,
+              "y": 410
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1218,
+              "y": -292
+            },
+            {
+              "x": 1452,
+              "y": -292
+            },
+            {
+              "x": 1452,
+              "y": -410
+            },
+            {
+              "x": 1218,
+              "y": -410
+            }
+          ],
+          "bounds": {
+            "x": 1218,
+            "y": 292,
+            "width": 234,
+            "height": 118
+          },
+          "local_bounds": {
+            "x": 1218,
+            "y": 292,
+            "width": 234,
+            "height": 118
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh00g0l_ini01s",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1466,
+              "y": 298
+            },
+            {
+              "x": 1524,
+              "y": 298
+            },
+            {
+              "x": 1524,
+              "y": 385
+            },
+            {
+              "x": 1466,
+              "y": 385
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1466,
+              "y": 298
+            },
+            {
+              "x": 1524,
+              "y": 298
+            },
+            {
+              "x": 1524,
+              "y": 385
+            },
+            {
+              "x": 1466,
+              "y": 385
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1466,
+              "y": -298
+            },
+            {
+              "x": 1524,
+              "y": -298
+            },
+            {
+              "x": 1524,
+              "y": -385
+            },
+            {
+              "x": 1466,
+              "y": -385
+            }
+          ],
+          "bounds": {
+            "x": 1466,
+            "y": 298,
+            "width": 58,
+            "height": 87
+          },
+          "local_bounds": {
+            "x": 1466,
+            "y": 298,
+            "width": 58,
+            "height": 87
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh00p26_fc2qdm",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1166,
+              "y": 736
+            },
+            {
+              "x": 1541,
+              "y": 736
+            },
+            {
+              "x": 1541,
+              "y": 841
+            },
+            {
+              "x": 1166,
+              "y": 841
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1166,
+              "y": 736
+            },
+            {
+              "x": 1541,
+              "y": 736
+            },
+            {
+              "x": 1541,
+              "y": 841
+            },
+            {
+              "x": 1166,
+              "y": 841
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1166,
+              "y": -736
+            },
+            {
+              "x": 1541,
+              "y": -736
+            },
+            {
+              "x": 1541,
+              "y": -841
+            },
+            {
+              "x": 1166,
+              "y": -841
+            }
+          ],
+          "bounds": {
+            "x": 1166,
+            "y": 736,
+            "width": 375,
+            "height": 105
+          },
+          "local_bounds": {
+            "x": 1166,
+            "y": 736,
+            "width": 375,
+            "height": 105
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh00sg4_6qmbb8",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1237,
+              "y": 716
+            },
+            {
+              "x": 1485,
+              "y": 716
+            },
+            {
+              "x": 1485,
+              "y": 736
+            },
+            {
+              "x": 1237,
+              "y": 736
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1237,
+              "y": 716
+            },
+            {
+              "x": 1485,
+              "y": 716
+            },
+            {
+              "x": 1485,
+              "y": 736
+            },
+            {
+              "x": 1237,
+              "y": 736
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1237,
+              "y": -716
+            },
+            {
+              "x": 1485,
+              "y": -716
+            },
+            {
+              "x": 1485,
+              "y": -736
+            },
+            {
+              "x": 1237,
+              "y": -736
+            }
+          ],
+          "bounds": {
+            "x": 1237,
+            "y": 716,
+            "width": 248,
+            "height": 20
+          },
+          "local_bounds": {
+            "x": 1237,
+            "y": 716,
+            "width": 248,
+            "height": 20
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh00xhr_rx6r4s",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1564,
+              "y": 738
+            },
+            {
+              "x": 1597,
+              "y": 738
+            },
+            {
+              "x": 1597,
+              "y": 793
+            },
+            {
+              "x": 1564,
+              "y": 793
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1564,
+              "y": 738
+            },
+            {
+              "x": 1597,
+              "y": 738
+            },
+            {
+              "x": 1597,
+              "y": 793
+            },
+            {
+              "x": 1564,
+              "y": 793
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1564,
+              "y": -738
+            },
+            {
+              "x": 1597,
+              "y": -738
+            },
+            {
+              "x": 1597,
+              "y": -793
+            },
+            {
+              "x": 1564,
+              "y": -793
+            }
+          ],
+          "bounds": {
+            "x": 1564,
+            "y": 738,
+            "width": 33,
+            "height": 55
+          },
+          "local_bounds": {
+            "x": 1564,
+            "y": 738,
+            "width": 33,
+            "height": 55
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh017y0_2jbk4t",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 77,
+              "y": 760
+            },
+            {
+              "x": 112,
+              "y": 760
+            },
+            {
+              "x": 112,
+              "y": 793
+            },
+            {
+              "x": 77,
+              "y": 793
+            }
+          ],
+          "local_points": [
+            {
+              "x": 77,
+              "y": 760
+            },
+            {
+              "x": 112,
+              "y": 760
+            },
+            {
+              "x": 112,
+              "y": 793
+            },
+            {
+              "x": 77,
+              "y": 793
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 77,
+              "y": -760
+            },
+            {
+              "x": 112,
+              "y": -760
+            },
+            {
+              "x": 112,
+              "y": -793
+            },
+            {
+              "x": 77,
+              "y": -793
+            }
+          ],
+          "bounds": {
+            "x": 77,
+            "y": 760,
+            "width": 35,
+            "height": 33
+          },
+          "local_bounds": {
+            "x": 77,
+            "y": 760,
+            "width": 35,
+            "height": 33
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh02lz9_qyisln",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 185,
+              "y": 306
+            },
+            {
+              "x": 246,
+              "y": 306
+            },
+            {
+              "x": 246,
+              "y": 403
+            },
+            {
+              "x": 185,
+              "y": 403
+            }
+          ],
+          "local_points": [
+            {
+              "x": 185,
+              "y": 306
+            },
+            {
+              "x": 246,
+              "y": 306
+            },
+            {
+              "x": 246,
+              "y": 403
+            },
+            {
+              "x": 185,
+              "y": 403
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 185,
+              "y": -306
+            },
+            {
+              "x": 246,
+              "y": -306
+            },
+            {
+              "x": 246,
+              "y": -403
+            },
+            {
+              "x": 185,
+              "y": -403
+            }
+          ],
+          "bounds": {
+            "x": 185,
+            "y": 306,
+            "width": 61,
+            "height": 97
+          },
+          "local_bounds": {
+            "x": 185,
+            "y": 306,
+            "width": 61,
+            "height": 97
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh02o5n_h3cx7x",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 222,
+              "y": 287
+            },
+            {
+              "x": 453,
+              "y": 287
+            },
+            {
+              "x": 453,
+              "y": 340
+            },
+            {
+              "x": 222,
+              "y": 340
+            }
+          ],
+          "local_points": [
+            {
+              "x": 222,
+              "y": 287
+            },
+            {
+              "x": 453,
+              "y": 287
+            },
+            {
+              "x": 453,
+              "y": 340
+            },
+            {
+              "x": 222,
+              "y": 340
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 222,
+              "y": -287
+            },
+            {
+              "x": 453,
+              "y": -287
+            },
+            {
+              "x": 453,
+              "y": -340
+            },
+            {
+              "x": 222,
+              "y": -340
+            }
+          ],
+          "bounds": {
+            "x": 222,
+            "y": 287,
+            "width": 231,
+            "height": 53
+          },
+          "local_bounds": {
+            "x": 222,
+            "y": 287,
+            "width": 231,
+            "height": 53
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh02pr8_snns6e",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 308,
+              "y": 340
+            },
+            {
+              "x": 349,
+              "y": 340
+            },
+            {
+              "x": 349,
+              "y": 373
+            },
+            {
+              "x": 308,
+              "y": 373
+            }
+          ],
+          "local_points": [
+            {
+              "x": 308,
+              "y": 340
+            },
+            {
+              "x": 349,
+              "y": 340
+            },
+            {
+              "x": 349,
+              "y": 373
+            },
+            {
+              "x": 308,
+              "y": 373
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 308,
+              "y": -340
+            },
+            {
+              "x": 349,
+              "y": -340
+            },
+            {
+              "x": 349,
+              "y": -373
+            },
+            {
+              "x": 308,
+              "y": -373
+            }
+          ],
+          "bounds": {
+            "x": 308,
+            "y": 340,
+            "width": 41,
+            "height": 33
+          },
+          "local_bounds": {
+            "x": 308,
+            "y": 340,
+            "width": 41,
+            "height": 33
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh02rdm_wv61ds",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 252,
+              "y": 337
+            },
+            {
+              "x": 286,
+              "y": 337
+            },
+            {
+              "x": 286,
+              "y": 387
+            },
+            {
+              "x": 252,
+              "y": 387
+            }
+          ],
+          "local_points": [
+            {
+              "x": 252,
+              "y": 337
+            },
+            {
+              "x": 286,
+              "y": 337
+            },
+            {
+              "x": 286,
+              "y": 387
+            },
+            {
+              "x": 252,
+              "y": 387
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 252,
+              "y": -337
+            },
+            {
+              "x": 286,
+              "y": -337
+            },
+            {
+              "x": 286,
+              "y": -387
+            },
+            {
+              "x": 252,
+              "y": -387
+            }
+          ],
+          "bounds": {
+            "x": 252,
+            "y": 337,
+            "width": 34,
+            "height": 50
+          },
+          "local_bounds": {
+            "x": 252,
+            "y": 337,
+            "width": 34,
+            "height": 50
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh02so0_r89jys",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 372,
+              "y": 337
+            },
+            {
+              "x": 410,
+              "y": 337
+            },
+            {
+              "x": 410,
+              "y": 378
+            },
+            {
+              "x": 372,
+              "y": 378
+            }
+          ],
+          "local_points": [
+            {
+              "x": 372,
+              "y": 337
+            },
+            {
+              "x": 410,
+              "y": 337
+            },
+            {
+              "x": 410,
+              "y": 378
+            },
+            {
+              "x": 372,
+              "y": 378
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 372,
+              "y": -337
+            },
+            {
+              "x": 410,
+              "y": -337
+            },
+            {
+              "x": 410,
+              "y": -378
+            },
+            {
+              "x": 372,
+              "y": -378
+            }
+          ],
+          "bounds": {
+            "x": 372,
+            "y": 337,
+            "width": 38,
+            "height": 41
+          },
+          "local_bounds": {
+            "x": 372,
+            "y": 337,
+            "width": 38,
+            "height": 41
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh02u2t_6f9ol2",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 419,
+              "y": 331
+            },
+            {
+              "x": 464,
+              "y": 331
+            },
+            {
+              "x": 464,
+              "y": 387
+            },
+            {
+              "x": 419,
+              "y": 387
+            }
+          ],
+          "local_points": [
+            {
+              "x": 419,
+              "y": 331
+            },
+            {
+              "x": 464,
+              "y": 331
+            },
+            {
+              "x": 464,
+              "y": 387
+            },
+            {
+              "x": 419,
+              "y": 387
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 419,
+              "y": -331
+            },
+            {
+              "x": 464,
+              "y": -331
+            },
+            {
+              "x": 464,
+              "y": -387
+            },
+            {
+              "x": 419,
+              "y": -387
+            }
+          ],
+          "bounds": {
+            "x": 419,
+            "y": 331,
+            "width": 45,
+            "height": 56
+          },
+          "local_bounds": {
+            "x": 419,
+            "y": 331,
+            "width": 45,
+            "height": 56
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh02vt9_e4up7l",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 444,
+              "y": 297
+            },
+            {
+              "x": 508,
+              "y": 297
+            },
+            {
+              "x": 508,
+              "y": 406
+            },
+            {
+              "x": 444,
+              "y": 406
+            }
+          ],
+          "local_points": [
+            {
+              "x": 444,
+              "y": 297
+            },
+            {
+              "x": 508,
+              "y": 297
+            },
+            {
+              "x": 508,
+              "y": 406
+            },
+            {
+              "x": 444,
+              "y": 406
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 444,
+              "y": -297
+            },
+            {
+              "x": 508,
+              "y": -297
+            },
+            {
+              "x": 508,
+              "y": -406
+            },
+            {
+              "x": 444,
+              "y": -406
+            }
+          ],
+          "bounds": {
+            "x": 444,
+            "y": 297,
+            "width": 64,
+            "height": 109
+          },
+          "local_bounds": {
+            "x": 444,
+            "y": 297,
+            "width": 64,
+            "height": 109
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh02y31_eihu31",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 472,
+              "y": 215
+            },
+            {
+              "x": 528,
+              "y": 215
+            },
+            {
+              "x": 528,
+              "y": 297
+            },
+            {
+              "x": 472,
+              "y": 297
+            }
+          ],
+          "local_points": [
+            {
+              "x": 472,
+              "y": 215
+            },
+            {
+              "x": 528,
+              "y": 215
+            },
+            {
+              "x": 528,
+              "y": 297
+            },
+            {
+              "x": 472,
+              "y": 297
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 472,
+              "y": -215
+            },
+            {
+              "x": 528,
+              "y": -215
+            },
+            {
+              "x": 528,
+              "y": -297
+            },
+            {
+              "x": 472,
+              "y": -297
+            }
+          ],
+          "bounds": {
+            "x": 472,
+            "y": 215,
+            "width": 56,
+            "height": 82
+          },
+          "local_bounds": {
+            "x": 472,
+            "y": 215,
+            "width": 56,
+            "height": 82
+          }
+        },
+        {
+          "id": "occlusion_rectangle_mqh032lx_uw9i6z",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "occlusion",
+          "layer_label": "遮挡层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 158,
+              "y": 307
+            },
+            {
+              "x": 196,
+              "y": 307
+            },
+            {
+              "x": 196,
+              "y": 376
+            },
+            {
+              "x": 158,
+              "y": 376
+            }
+          ],
+          "local_points": [
+            {
+              "x": 158,
+              "y": 307
+            },
+            {
+              "x": 196,
+              "y": 307
+            },
+            {
+              "x": 196,
+              "y": 376
+            },
+            {
+              "x": 158,
+              "y": 376
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 158,
+              "y": -307
+            },
+            {
+              "x": 196,
+              "y": -307
+            },
+            {
+              "x": 196,
+              "y": -376
+            },
+            {
+              "x": 158,
+              "y": -376
+            }
+          ],
+          "bounds": {
+            "x": 158,
+            "y": 307,
+            "width": 38,
+            "height": 69
+          },
+          "local_bounds": {
+            "x": 158,
+            "y": 307,
+            "width": 38,
+            "height": 69
+          }
+        }
+      ]
+    },
+    {
+      "id": "collision",
+      "label": "碰撞层",
+      "order": 110,
+      "color": "#d73a49",
+      "shapes": [
+        {
+          "id": "collision_rectangle_mqgzse20_rkv8gp",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 64,
+              "y": 184
+            },
+            {
+              "x": 120,
+              "y": 184
+            },
+            {
+              "x": 120,
+              "y": 311
+            },
+            {
+              "x": 64,
+              "y": 311
+            }
+          ],
+          "local_points": [
+            {
+              "x": 64,
+              "y": 184
+            },
+            {
+              "x": 120,
+              "y": 184
+            },
+            {
+              "x": 120,
+              "y": 311
+            },
+            {
+              "x": 64,
+              "y": 311
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 64,
+              "y": -184
+            },
+            {
+              "x": 120,
+              "y": -184
+            },
+            {
+              "x": 120,
+              "y": -311
+            },
+            {
+              "x": 64,
+              "y": -311
+            }
+          ],
+          "bounds": {
+            "x": 64,
+            "y": 184,
+            "width": 56,
+            "height": 127
+          },
+          "local_bounds": {
+            "x": 64,
+            "y": 184,
+            "width": 56,
+            "height": 127
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzt27m_20rc9j",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 50,
+              "y": 422
+            },
+            {
+              "x": 109,
+              "y": 422
+            },
+            {
+              "x": 109,
+              "y": 504
+            },
+            {
+              "x": 50,
+              "y": 504
+            }
+          ],
+          "local_points": [
+            {
+              "x": 50,
+              "y": 422
+            },
+            {
+              "x": 109,
+              "y": 422
+            },
+            {
+              "x": 109,
+              "y": 504
+            },
+            {
+              "x": 50,
+              "y": 504
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 50,
+              "y": -422
+            },
+            {
+              "x": 109,
+              "y": -422
+            },
+            {
+              "x": 109,
+              "y": -504
+            },
+            {
+              "x": 50,
+              "y": -504
+            }
+          ],
+          "bounds": {
+            "x": 50,
+            "y": 422,
+            "width": 59,
+            "height": 82
+          },
+          "local_bounds": {
+            "x": 50,
+            "y": 422,
+            "width": 59,
+            "height": 82
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgztxwj_j8pnj9",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 77,
+              "y": 758
+            },
+            {
+              "x": 110,
+              "y": 758
+            },
+            {
+              "x": 110,
+              "y": 794
+            },
+            {
+              "x": 77,
+              "y": 794
+            }
+          ],
+          "local_points": [
+            {
+              "x": 77,
+              "y": 758
+            },
+            {
+              "x": 110,
+              "y": 758
+            },
+            {
+              "x": 110,
+              "y": 794
+            },
+            {
+              "x": 77,
+              "y": 794
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 77,
+              "y": -758
+            },
+            {
+              "x": 110,
+              "y": -758
+            },
+            {
+              "x": 110,
+              "y": -794
+            },
+            {
+              "x": 77,
+              "y": -794
+            }
+          ],
+          "bounds": {
+            "x": 77,
+            "y": 758,
+            "width": 33,
+            "height": 36
+          },
+          "local_bounds": {
+            "x": 77,
+            "y": 758,
+            "width": 33,
+            "height": 36
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzuw7j_25dmo9",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 163,
+              "y": 616
+            },
+            {
+              "x": 454,
+              "y": 616
+            },
+            {
+              "x": 454,
+              "y": 726
+            },
+            {
+              "x": 163,
+              "y": 726
+            }
+          ],
+          "local_points": [
+            {
+              "x": 163,
+              "y": 616
+            },
+            {
+              "x": 454,
+              "y": 616
+            },
+            {
+              "x": 454,
+              "y": 726
+            },
+            {
+              "x": 163,
+              "y": 726
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 163,
+              "y": -616
+            },
+            {
+              "x": 454,
+              "y": -616
+            },
+            {
+              "x": 454,
+              "y": -726
+            },
+            {
+              "x": 163,
+              "y": -726
+            }
+          ],
+          "bounds": {
+            "x": 163,
+            "y": 616,
+            "width": 291,
+            "height": 110
+          },
+          "local_bounds": {
+            "x": 163,
+            "y": 616,
+            "width": 291,
+            "height": 110
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzvxzu_wldde6",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 661,
+              "y": 307
+            },
+            {
+              "x": 1026,
+              "y": 307
+            },
+            {
+              "x": 1026,
+              "y": 405
+            },
+            {
+              "x": 661,
+              "y": 405
+            }
+          ],
+          "local_points": [
+            {
+              "x": 661,
+              "y": 307
+            },
+            {
+              "x": 1026,
+              "y": 307
+            },
+            {
+              "x": 1026,
+              "y": 405
+            },
+            {
+              "x": 661,
+              "y": 405
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 661,
+              "y": -307
+            },
+            {
+              "x": 1026,
+              "y": -307
+            },
+            {
+              "x": 1026,
+              "y": -405
+            },
+            {
+              "x": 661,
+              "y": -405
+            }
+          ],
+          "bounds": {
+            "x": 661,
+            "y": 307,
+            "width": 365,
+            "height": 98
+          },
+          "local_bounds": {
+            "x": 661,
+            "y": 307,
+            "width": 365,
+            "height": 98
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzwb2z_8mt0s0",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 810,
+              "y": 275
+            },
+            {
+              "x": 863,
+              "y": 275
+            },
+            {
+              "x": 863,
+              "y": 305
+            },
+            {
+              "x": 810,
+              "y": 305
+            }
+          ],
+          "local_points": [
+            {
+              "x": 810,
+              "y": 275
+            },
+            {
+              "x": 863,
+              "y": 275
+            },
+            {
+              "x": 863,
+              "y": 305
+            },
+            {
+              "x": 810,
+              "y": 305
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 810,
+              "y": -275
+            },
+            {
+              "x": 863,
+              "y": -275
+            },
+            {
+              "x": 863,
+              "y": -305
+            },
+            {
+              "x": 810,
+              "y": -305
+            }
+          ],
+          "bounds": {
+            "x": 810,
+            "y": 275,
+            "width": 53,
+            "height": 30
+          },
+          "local_bounds": {
+            "x": 810,
+            "y": 275,
+            "width": 53,
+            "height": 30
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzy3z3_h943mj",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1153,
+              "y": 157
+            },
+            {
+              "x": 1206,
+              "y": 157
+            },
+            {
+              "x": 1206,
+              "y": 301
+            },
+            {
+              "x": 1153,
+              "y": 301
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1153,
+              "y": 157
+            },
+            {
+              "x": 1206,
+              "y": 157
+            },
+            {
+              "x": 1206,
+              "y": 301
+            },
+            {
+              "x": 1153,
+              "y": 301
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1153,
+              "y": -157
+            },
+            {
+              "x": 1206,
+              "y": -157
+            },
+            {
+              "x": 1206,
+              "y": -301
+            },
+            {
+              "x": 1153,
+              "y": -301
+            }
+          ],
+          "bounds": {
+            "x": 1153,
+            "y": 157,
+            "width": 53,
+            "height": 144
+          },
+          "local_bounds": {
+            "x": 1153,
+            "y": 157,
+            "width": 53,
+            "height": 144
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzy8wf_rch5ba",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1215,
+              "y": 290
+            },
+            {
+              "x": 1452,
+              "y": 290
+            },
+            {
+              "x": 1452,
+              "y": 411
+            },
+            {
+              "x": 1215,
+              "y": 411
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1215,
+              "y": 290
+            },
+            {
+              "x": 1452,
+              "y": 290
+            },
+            {
+              "x": 1452,
+              "y": 411
+            },
+            {
+              "x": 1215,
+              "y": 411
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1215,
+              "y": -290
+            },
+            {
+              "x": 1452,
+              "y": -290
+            },
+            {
+              "x": 1452,
+              "y": -411
+            },
+            {
+              "x": 1215,
+              "y": -411
+            }
+          ],
+          "bounds": {
+            "x": 1215,
+            "y": 290,
+            "width": 237,
+            "height": 121
+          },
+          "local_bounds": {
+            "x": 1215,
+            "y": 290,
+            "width": 237,
+            "height": 121
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzyb2h_5oj2ai",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1471,
+              "y": 322
+            },
+            {
+              "x": 1522,
+              "y": 322
+            },
+            {
+              "x": 1522,
+              "y": 383
+            },
+            {
+              "x": 1471,
+              "y": 383
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1471,
+              "y": 322
+            },
+            {
+              "x": 1522,
+              "y": 322
+            },
+            {
+              "x": 1522,
+              "y": 383
+            },
+            {
+              "x": 1471,
+              "y": 383
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1471,
+              "y": -322
+            },
+            {
+              "x": 1522,
+              "y": -322
+            },
+            {
+              "x": 1522,
+              "y": -383
+            },
+            {
+              "x": 1471,
+              "y": -383
+            }
+          ],
+          "bounds": {
+            "x": 1471,
+            "y": 322,
+            "width": 51,
+            "height": 61
+          },
+          "local_bounds": {
+            "x": 1471,
+            "y": 322,
+            "width": 51,
+            "height": 61
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzyd6n_qjbiad",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1558,
+              "y": 196
+            },
+            {
+              "x": 1617,
+              "y": 196
+            },
+            {
+              "x": 1617,
+              "y": 312
+            },
+            {
+              "x": 1558,
+              "y": 312
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1558,
+              "y": 196
+            },
+            {
+              "x": 1617,
+              "y": 196
+            },
+            {
+              "x": 1617,
+              "y": 312
+            },
+            {
+              "x": 1558,
+              "y": 312
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1558,
+              "y": -196
+            },
+            {
+              "x": 1617,
+              "y": -196
+            },
+            {
+              "x": 1617,
+              "y": -312
+            },
+            {
+              "x": 1558,
+              "y": -312
+            }
+          ],
+          "bounds": {
+            "x": 1558,
+            "y": 196,
+            "width": 59,
+            "height": 116
+          },
+          "local_bounds": {
+            "x": 1558,
+            "y": 196,
+            "width": 59,
+            "height": 116
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzyhn5_3a5q0q",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1568,
+              "y": 439
+            },
+            {
+              "x": 1622,
+              "y": 439
+            },
+            {
+              "x": 1622,
+              "y": 503
+            },
+            {
+              "x": 1568,
+              "y": 503
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1568,
+              "y": 439
+            },
+            {
+              "x": 1622,
+              "y": 439
+            },
+            {
+              "x": 1622,
+              "y": 503
+            },
+            {
+              "x": 1568,
+              "y": 503
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1568,
+              "y": -439
+            },
+            {
+              "x": 1622,
+              "y": -439
+            },
+            {
+              "x": 1622,
+              "y": -503
+            },
+            {
+              "x": 1568,
+              "y": -503
+            }
+          ],
+          "bounds": {
+            "x": 1568,
+            "y": 439,
+            "width": 54,
+            "height": 64
+          },
+          "local_bounds": {
+            "x": 1568,
+            "y": 439,
+            "width": 54,
+            "height": 64
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzyz4o_a9k3qr",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1560,
+              "y": 749
+            },
+            {
+              "x": 1599,
+              "y": 749
+            },
+            {
+              "x": 1599,
+              "y": 793
+            },
+            {
+              "x": 1560,
+              "y": 793
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1560,
+              "y": 749
+            },
+            {
+              "x": 1599,
+              "y": 749
+            },
+            {
+              "x": 1599,
+              "y": 793
+            },
+            {
+              "x": 1560,
+              "y": 793
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1560,
+              "y": -749
+            },
+            {
+              "x": 1599,
+              "y": -749
+            },
+            {
+              "x": 1599,
+              "y": -793
+            },
+            {
+              "x": 1560,
+              "y": -793
+            }
+          ],
+          "bounds": {
+            "x": 1560,
+            "y": 749,
+            "width": 39,
+            "height": 44
+          },
+          "local_bounds": {
+            "x": 1560,
+            "y": 749,
+            "width": 39,
+            "height": 44
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzz6i4_41ctzs",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1232,
+              "y": 715
+            },
+            {
+              "x": 1485,
+              "y": 715
+            },
+            {
+              "x": 1485,
+              "y": 795
+            },
+            {
+              "x": 1232,
+              "y": 795
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1232,
+              "y": 715
+            },
+            {
+              "x": 1485,
+              "y": 715
+            },
+            {
+              "x": 1485,
+              "y": 795
+            },
+            {
+              "x": 1232,
+              "y": 795
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1232,
+              "y": -715
+            },
+            {
+              "x": 1485,
+              "y": -715
+            },
+            {
+              "x": 1485,
+              "y": -795
+            },
+            {
+              "x": 1232,
+              "y": -795
+            }
+          ],
+          "bounds": {
+            "x": 1232,
+            "y": 715,
+            "width": 253,
+            "height": 80
+          },
+          "local_bounds": {
+            "x": 1232,
+            "y": 715,
+            "width": 253,
+            "height": 80
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzz8a0_ygwgdx",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1228,
+              "y": 797
+            },
+            {
+              "x": 1262,
+              "y": 797
+            },
+            {
+              "x": 1262,
+              "y": 833
+            },
+            {
+              "x": 1228,
+              "y": 833
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1228,
+              "y": 797
+            },
+            {
+              "x": 1262,
+              "y": 797
+            },
+            {
+              "x": 1262,
+              "y": 833
+            },
+            {
+              "x": 1228,
+              "y": 833
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1228,
+              "y": -797
+            },
+            {
+              "x": 1262,
+              "y": -797
+            },
+            {
+              "x": 1262,
+              "y": -833
+            },
+            {
+              "x": 1228,
+              "y": -833
+            }
+          ],
+          "bounds": {
+            "x": 1228,
+            "y": 797,
+            "width": 34,
+            "height": 36
+          },
+          "local_bounds": {
+            "x": 1228,
+            "y": 797,
+            "width": 34,
+            "height": 36
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzz9ot_67lsd6",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1448,
+              "y": 798
+            },
+            {
+              "x": 1489,
+              "y": 798
+            },
+            {
+              "x": 1489,
+              "y": 835
+            },
+            {
+              "x": 1448,
+              "y": 835
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1448,
+              "y": 798
+            },
+            {
+              "x": 1489,
+              "y": 798
+            },
+            {
+              "x": 1489,
+              "y": 835
+            },
+            {
+              "x": 1448,
+              "y": 835
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1448,
+              "y": -798
+            },
+            {
+              "x": 1489,
+              "y": -798
+            },
+            {
+              "x": 1489,
+              "y": -835
+            },
+            {
+              "x": 1448,
+              "y": -835
+            }
+          ],
+          "bounds": {
+            "x": 1448,
+            "y": 798,
+            "width": 41,
+            "height": 37
+          },
+          "local_bounds": {
+            "x": 1448,
+            "y": 798,
+            "width": 41,
+            "height": 37
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzzbon_chq557",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1490,
+              "y": 748
+            },
+            {
+              "x": 1541,
+              "y": 748
+            },
+            {
+              "x": 1541,
+              "y": 814
+            },
+            {
+              "x": 1490,
+              "y": 814
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1490,
+              "y": 748
+            },
+            {
+              "x": 1541,
+              "y": 748
+            },
+            {
+              "x": 1541,
+              "y": 814
+            },
+            {
+              "x": 1490,
+              "y": 814
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1490,
+              "y": -748
+            },
+            {
+              "x": 1541,
+              "y": -748
+            },
+            {
+              "x": 1541,
+              "y": -814
+            },
+            {
+              "x": 1490,
+              "y": -814
+            }
+          ],
+          "bounds": {
+            "x": 1490,
+            "y": 748,
+            "width": 51,
+            "height": 66
+          },
+          "local_bounds": {
+            "x": 1490,
+            "y": 748,
+            "width": 51,
+            "height": 66
+          }
+        },
+        {
+          "id": "collision_rectangle_mqgzze4y_zu9s7s",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1168,
+              "y": 768
+            },
+            {
+              "x": 1221,
+              "y": 768
+            },
+            {
+              "x": 1221,
+              "y": 816
+            },
+            {
+              "x": 1168,
+              "y": 816
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1168,
+              "y": 768
+            },
+            {
+              "x": 1221,
+              "y": 768
+            },
+            {
+              "x": 1221,
+              "y": 816
+            },
+            {
+              "x": 1168,
+              "y": 816
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1168,
+              "y": -768
+            },
+            {
+              "x": 1221,
+              "y": -768
+            },
+            {
+              "x": 1221,
+              "y": -816
+            },
+            {
+              "x": 1168,
+              "y": -816
+            }
+          ],
+          "bounds": {
+            "x": 1168,
+            "y": 768,
+            "width": 53,
+            "height": 48
+          },
+          "local_bounds": {
+            "x": 1168,
+            "y": 768,
+            "width": 53,
+            "height": 48
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh01he5_i248yc",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 190,
+              "y": 306
+            },
+            {
+              "x": 246,
+              "y": 306
+            },
+            {
+              "x": 246,
+              "y": 403
+            },
+            {
+              "x": 190,
+              "y": 403
+            }
+          ],
+          "local_points": [
+            {
+              "x": 190,
+              "y": 306
+            },
+            {
+              "x": 246,
+              "y": 306
+            },
+            {
+              "x": 246,
+              "y": 403
+            },
+            {
+              "x": 190,
+              "y": 403
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 190,
+              "y": -306
+            },
+            {
+              "x": 246,
+              "y": -306
+            },
+            {
+              "x": 246,
+              "y": -403
+            },
+            {
+              "x": 190,
+              "y": -403
+            }
+          ],
+          "bounds": {
+            "x": 190,
+            "y": 306,
+            "width": 56,
+            "height": 97
+          },
+          "local_bounds": {
+            "x": 190,
+            "y": 306,
+            "width": 56,
+            "height": 97
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh01k3o_bodb2n",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 218,
+              "y": 286
+            },
+            {
+              "x": 452,
+              "y": 286
+            },
+            {
+              "x": 452,
+              "y": 340
+            },
+            {
+              "x": 218,
+              "y": 340
+            }
+          ],
+          "local_points": [
+            {
+              "x": 218,
+              "y": 286
+            },
+            {
+              "x": 452,
+              "y": 286
+            },
+            {
+              "x": 452,
+              "y": 340
+            },
+            {
+              "x": 218,
+              "y": 340
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 218,
+              "y": -286
+            },
+            {
+              "x": 452,
+              "y": -286
+            },
+            {
+              "x": 452,
+              "y": -340
+            },
+            {
+              "x": 218,
+              "y": -340
+            }
+          ],
+          "bounds": {
+            "x": 218,
+            "y": 286,
+            "width": 234,
+            "height": 54
+          },
+          "local_bounds": {
+            "x": 218,
+            "y": 286,
+            "width": 234,
+            "height": 54
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh01lry_drweqd",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 252,
+              "y": 345
+            },
+            {
+              "x": 285,
+              "y": 345
+            },
+            {
+              "x": 285,
+              "y": 387
+            },
+            {
+              "x": 252,
+              "y": 387
+            }
+          ],
+          "local_points": [
+            {
+              "x": 252,
+              "y": 345
+            },
+            {
+              "x": 285,
+              "y": 345
+            },
+            {
+              "x": 285,
+              "y": 387
+            },
+            {
+              "x": 252,
+              "y": 387
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 252,
+              "y": -345
+            },
+            {
+              "x": 285,
+              "y": -345
+            },
+            {
+              "x": 285,
+              "y": -387
+            },
+            {
+              "x": 252,
+              "y": -387
+            }
+          ],
+          "bounds": {
+            "x": 252,
+            "y": 345,
+            "width": 33,
+            "height": 42
+          },
+          "local_bounds": {
+            "x": 252,
+            "y": 345,
+            "width": 33,
+            "height": 42
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh01mv2_b2at25",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 310,
+              "y": 343
+            },
+            {
+              "x": 347,
+              "y": 343
+            },
+            {
+              "x": 347,
+              "y": 371
+            },
+            {
+              "x": 310,
+              "y": 371
+            }
+          ],
+          "local_points": [
+            {
+              "x": 310,
+              "y": 343
+            },
+            {
+              "x": 347,
+              "y": 343
+            },
+            {
+              "x": 347,
+              "y": 371
+            },
+            {
+              "x": 310,
+              "y": 371
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 310,
+              "y": -343
+            },
+            {
+              "x": 347,
+              "y": -343
+            },
+            {
+              "x": 347,
+              "y": -371
+            },
+            {
+              "x": 310,
+              "y": -371
+            }
+          ],
+          "bounds": {
+            "x": 310,
+            "y": 343,
+            "width": 37,
+            "height": 28
+          },
+          "local_bounds": {
+            "x": 310,
+            "y": 343,
+            "width": 37,
+            "height": 28
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh01oqa_0y9o4g",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 371,
+              "y": 343
+            },
+            {
+              "x": 410,
+              "y": 343
+            },
+            {
+              "x": 410,
+              "y": 381
+            },
+            {
+              "x": 371,
+              "y": 381
+            }
+          ],
+          "local_points": [
+            {
+              "x": 371,
+              "y": 343
+            },
+            {
+              "x": 410,
+              "y": 343
+            },
+            {
+              "x": 410,
+              "y": 381
+            },
+            {
+              "x": 371,
+              "y": 381
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 371,
+              "y": -343
+            },
+            {
+              "x": 410,
+              "y": -343
+            },
+            {
+              "x": 410,
+              "y": -381
+            },
+            {
+              "x": 371,
+              "y": -381
+            }
+          ],
+          "bounds": {
+            "x": 371,
+            "y": 343,
+            "width": 39,
+            "height": 38
+          },
+          "local_bounds": {
+            "x": 371,
+            "y": 343,
+            "width": 39,
+            "height": 38
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh01ql0_vbhzli",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 419,
+              "y": 343
+            },
+            {
+              "x": 461,
+              "y": 343
+            },
+            {
+              "x": 461,
+              "y": 384
+            },
+            {
+              "x": 419,
+              "y": 384
+            }
+          ],
+          "local_points": [
+            {
+              "x": 419,
+              "y": 343
+            },
+            {
+              "x": 461,
+              "y": 343
+            },
+            {
+              "x": 461,
+              "y": 384
+            },
+            {
+              "x": 419,
+              "y": 384
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 419,
+              "y": -343
+            },
+            {
+              "x": 461,
+              "y": -343
+            },
+            {
+              "x": 461,
+              "y": -384
+            },
+            {
+              "x": 419,
+              "y": -384
+            }
+          ],
+          "bounds": {
+            "x": 419,
+            "y": 343,
+            "width": 42,
+            "height": 41
+          },
+          "local_bounds": {
+            "x": 419,
+            "y": 343,
+            "width": 42,
+            "height": 41
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh01spo_nwe91a",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 458,
+              "y": 293
+            },
+            {
+              "x": 508,
+              "y": 293
+            },
+            {
+              "x": 508,
+              "y": 404
+            },
+            {
+              "x": 458,
+              "y": 404
+            }
+          ],
+          "local_points": [
+            {
+              "x": 458,
+              "y": 293
+            },
+            {
+              "x": 508,
+              "y": 293
+            },
+            {
+              "x": 508,
+              "y": 404
+            },
+            {
+              "x": 458,
+              "y": 404
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 458,
+              "y": -293
+            },
+            {
+              "x": 508,
+              "y": -293
+            },
+            {
+              "x": 508,
+              "y": -404
+            },
+            {
+              "x": 458,
+              "y": -404
+            }
+          ],
+          "bounds": {
+            "x": 458,
+            "y": 293,
+            "width": 50,
+            "height": 111
+          },
+          "local_bounds": {
+            "x": 458,
+            "y": 293,
+            "width": 50,
+            "height": 111
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh01u6r_c4sx6k",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 469,
+              "y": 194
+            },
+            {
+              "x": 527,
+              "y": 194
+            },
+            {
+              "x": 527,
+              "y": 300
+            },
+            {
+              "x": 469,
+              "y": 300
+            }
+          ],
+          "local_points": [
+            {
+              "x": 469,
+              "y": 194
+            },
+            {
+              "x": 527,
+              "y": 194
+            },
+            {
+              "x": 527,
+              "y": 300
+            },
+            {
+              "x": 469,
+              "y": 300
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 469,
+              "y": -194
+            },
+            {
+              "x": 527,
+              "y": -194
+            },
+            {
+              "x": 527,
+              "y": -300
+            },
+            {
+              "x": 469,
+              "y": -300
+            }
+          ],
+          "bounds": {
+            "x": 469,
+            "y": 194,
+            "width": 58,
+            "height": 106
+          },
+          "local_bounds": {
+            "x": 469,
+            "y": 194,
+            "width": 58,
+            "height": 106
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh022iv_rw81ln",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 154,
+              "y": 326
+            },
+            {
+              "x": 180,
+              "y": 326
+            },
+            {
+              "x": 180,
+              "y": 373
+            },
+            {
+              "x": 154,
+              "y": 373
+            }
+          ],
+          "local_points": [
+            {
+              "x": 154,
+              "y": 326
+            },
+            {
+              "x": 180,
+              "y": 326
+            },
+            {
+              "x": 180,
+              "y": 373
+            },
+            {
+              "x": 154,
+              "y": 373
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 154,
+              "y": -326
+            },
+            {
+              "x": 180,
+              "y": -326
+            },
+            {
+              "x": 180,
+              "y": -373
+            },
+            {
+              "x": 154,
+              "y": -373
+            }
+          ],
+          "bounds": {
+            "x": 154,
+            "y": 326,
+            "width": 26,
+            "height": 47
+          },
+          "local_bounds": {
+            "x": 154,
+            "y": 326,
+            "width": 26,
+            "height": 47
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh1ktge_i4z84x",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 48,
+              "y": 132
+            },
+            {
+              "x": 1620,
+              "y": 132
+            },
+            {
+              "x": 1620,
+              "y": 226
+            },
+            {
+              "x": 48,
+              "y": 226
+            }
+          ],
+          "local_points": [
+            {
+              "x": 48,
+              "y": 132
+            },
+            {
+              "x": 1620,
+              "y": 132
+            },
+            {
+              "x": 1620,
+              "y": 226
+            },
+            {
+              "x": 48,
+              "y": 226
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 48,
+              "y": -132
+            },
+            {
+              "x": 1620,
+              "y": -132
+            },
+            {
+              "x": 1620,
+              "y": -226
+            },
+            {
+              "x": 48,
+              "y": -226
+            }
+          ],
+          "bounds": {
+            "x": 48,
+            "y": 132,
+            "width": 1572,
+            "height": 94
+          },
+          "local_bounds": {
+            "x": 48,
+            "y": 132,
+            "width": 1572,
+            "height": 94
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh1kxny_bj2az7",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 532,
+              "y": 197
+            },
+            {
+              "x": 589,
+              "y": 197
+            },
+            {
+              "x": 589,
+              "y": 250
+            },
+            {
+              "x": 532,
+              "y": 250
+            }
+          ],
+          "local_points": [
+            {
+              "x": 532,
+              "y": 197
+            },
+            {
+              "x": 589,
+              "y": 197
+            },
+            {
+              "x": 589,
+              "y": 250
+            },
+            {
+              "x": 532,
+              "y": 250
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 532,
+              "y": -197
+            },
+            {
+              "x": 589,
+              "y": -197
+            },
+            {
+              "x": 589,
+              "y": -250
+            },
+            {
+              "x": 532,
+              "y": -250
+            }
+          ],
+          "bounds": {
+            "x": 532,
+            "y": 197,
+            "width": 57,
+            "height": 53
+          },
+          "local_bounds": {
+            "x": 532,
+            "y": 197,
+            "width": 57,
+            "height": 53
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh1l17i_4gjxy2",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 603,
+              "y": 199
+            },
+            {
+              "x": 734,
+              "y": 199
+            },
+            {
+              "x": 734,
+              "y": 255
+            },
+            {
+              "x": 603,
+              "y": 255
+            }
+          ],
+          "local_points": [
+            {
+              "x": 603,
+              "y": 199
+            },
+            {
+              "x": 734,
+              "y": 199
+            },
+            {
+              "x": 734,
+              "y": 255
+            },
+            {
+              "x": 603,
+              "y": 255
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 603,
+              "y": -199
+            },
+            {
+              "x": 734,
+              "y": -199
+            },
+            {
+              "x": 734,
+              "y": -255
+            },
+            {
+              "x": 603,
+              "y": -255
+            }
+          ],
+          "bounds": {
+            "x": 603,
+            "y": 199,
+            "width": 131,
+            "height": 56
+          },
+          "local_bounds": {
+            "x": 603,
+            "y": 199,
+            "width": 131,
+            "height": 56
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh1l3bo_77qfmr",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 937,
+              "y": 212
+            },
+            {
+              "x": 1056,
+              "y": 212
+            },
+            {
+              "x": 1056,
+              "y": 250
+            },
+            {
+              "x": 937,
+              "y": 250
+            }
+          ],
+          "local_points": [
+            {
+              "x": 937,
+              "y": 212
+            },
+            {
+              "x": 1056,
+              "y": 212
+            },
+            {
+              "x": 1056,
+              "y": 250
+            },
+            {
+              "x": 937,
+              "y": 250
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 937,
+              "y": -212
+            },
+            {
+              "x": 1056,
+              "y": -212
+            },
+            {
+              "x": 1056,
+              "y": -250
+            },
+            {
+              "x": 937,
+              "y": -250
+            }
+          ],
+          "bounds": {
+            "x": 937,
+            "y": 212,
+            "width": 119,
+            "height": 38
+          },
+          "local_bounds": {
+            "x": 937,
+            "y": 212,
+            "width": 119,
+            "height": 38
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh1l6ds_am10s0",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1075,
+              "y": 207
+            },
+            {
+              "x": 1136,
+              "y": 207
+            },
+            {
+              "x": 1136,
+              "y": 250
+            },
+            {
+              "x": 1075,
+              "y": 250
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1075,
+              "y": 207
+            },
+            {
+              "x": 1136,
+              "y": 207
+            },
+            {
+              "x": 1136,
+              "y": 250
+            },
+            {
+              "x": 1075,
+              "y": 250
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1075,
+              "y": -207
+            },
+            {
+              "x": 1136,
+              "y": -207
+            },
+            {
+              "x": 1136,
+              "y": -250
+            },
+            {
+              "x": 1075,
+              "y": -250
+            }
+          ],
+          "bounds": {
+            "x": 1075,
+            "y": 207,
+            "width": 61,
+            "height": 43
+          },
+          "local_bounds": {
+            "x": 1075,
+            "y": 207,
+            "width": 61,
+            "height": 43
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh1l8ao_u6x2q8",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1487,
+              "y": 199
+            },
+            {
+              "x": 1526,
+              "y": 199
+            },
+            {
+              "x": 1526,
+              "y": 242
+            },
+            {
+              "x": 1487,
+              "y": 242
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1487,
+              "y": 199
+            },
+            {
+              "x": 1526,
+              "y": 199
+            },
+            {
+              "x": 1526,
+              "y": 242
+            },
+            {
+              "x": 1487,
+              "y": 242
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1487,
+              "y": -199
+            },
+            {
+              "x": 1526,
+              "y": -199
+            },
+            {
+              "x": 1526,
+              "y": -242
+            },
+            {
+              "x": 1487,
+              "y": -242
+            }
+          ],
+          "bounds": {
+            "x": 1487,
+            "y": 199,
+            "width": 39,
+            "height": 43
+          },
+          "local_bounds": {
+            "x": 1487,
+            "y": 199,
+            "width": 39,
+            "height": 43
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh1lary_qzr9nk",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 142,
+              "y": 191
+            },
+            {
+              "x": 189,
+              "y": 191
+            },
+            {
+              "x": 189,
+              "y": 238
+            },
+            {
+              "x": 142,
+              "y": 238
+            }
+          ],
+          "local_points": [
+            {
+              "x": 142,
+              "y": 191
+            },
+            {
+              "x": 189,
+              "y": 191
+            },
+            {
+              "x": 189,
+              "y": 238
+            },
+            {
+              "x": 142,
+              "y": 238
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 142,
+              "y": -191
+            },
+            {
+              "x": 189,
+              "y": -191
+            },
+            {
+              "x": 189,
+              "y": -238
+            },
+            {
+              "x": 142,
+              "y": -238
+            }
+          ],
+          "bounds": {
+            "x": 142,
+            "y": 191,
+            "width": 47,
+            "height": 47
+          },
+          "local_bounds": {
+            "x": 142,
+            "y": 191,
+            "width": 47,
+            "height": 47
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh1lf8d_dc4big",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 7,
+              "y": 152
+            },
+            {
+              "x": 46,
+              "y": 152
+            },
+            {
+              "x": 46,
+              "y": 919
+            },
+            {
+              "x": 7,
+              "y": 919
+            }
+          ],
+          "local_points": [
+            {
+              "x": 7,
+              "y": 152
+            },
+            {
+              "x": 46,
+              "y": 152
+            },
+            {
+              "x": 46,
+              "y": 919
+            },
+            {
+              "x": 7,
+              "y": 919
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 7,
+              "y": -152
+            },
+            {
+              "x": 46,
+              "y": -152
+            },
+            {
+              "x": 46,
+              "y": -919
+            },
+            {
+              "x": 7,
+              "y": -919
+            }
+          ],
+          "bounds": {
+            "x": 7,
+            "y": 152,
+            "width": 39,
+            "height": 767
+          },
+          "local_bounds": {
+            "x": 7,
+            "y": 152,
+            "width": 39,
+            "height": 767
+          }
+        },
+        {
+          "id": "collision_rectangle_mqh1lm0b_vfu3os",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "collision",
+          "layer_label": "碰撞层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1624,
+              "y": 144
+            },
+            {
+              "x": 1667,
+              "y": 144
+            },
+            {
+              "x": 1667,
+              "y": 921
+            },
+            {
+              "x": 1624,
+              "y": 921
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1624,
+              "y": 144
+            },
+            {
+              "x": 1667,
+              "y": 144
+            },
+            {
+              "x": 1667,
+              "y": 921
+            },
+            {
+              "x": 1624,
+              "y": 921
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1624,
+              "y": -144
+            },
+            {
+              "x": 1667,
+              "y": -144
+            },
+            {
+              "x": 1667,
+              "y": -921
+            },
+            {
+              "x": 1624,
+              "y": -921
+            }
+          ],
+          "bounds": {
+            "x": 1624,
+            "y": 144,
+            "width": 43,
+            "height": 777
+          },
+          "local_bounds": {
+            "x": 1624,
+            "y": 144,
+            "width": 43,
+            "height": 777
+          }
+        }
+      ]
+    },
+    {
+      "id": "adjust",
+      "label": "调节层",
+      "order": 120,
+      "color": "#7a3eb1",
+      "shapes": [
+        {
+          "id": "adjust_rectangle_mqgzt737_mmgonw",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 49,
+              "y": 371
+            },
+            {
+              "x": 109,
+              "y": 371
+            },
+            {
+              "x": 109,
+              "y": 420
+            },
+            {
+              "x": 49,
+              "y": 420
+            }
+          ],
+          "local_points": [
+            {
+              "x": 49,
+              "y": 371
+            },
+            {
+              "x": 109,
+              "y": 371
+            },
+            {
+              "x": 109,
+              "y": 420
+            },
+            {
+              "x": 49,
+              "y": 420
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 49,
+              "y": -371
+            },
+            {
+              "x": 109,
+              "y": -371
+            },
+            {
+              "x": 109,
+              "y": -420
+            },
+            {
+              "x": 49,
+              "y": -420
+            }
+          ],
+          "bounds": {
+            "x": 49,
+            "y": 371,
+            "width": 60,
+            "height": 49
+          },
+          "local_bounds": {
+            "x": 49,
+            "y": 371,
+            "width": 60,
+            "height": 49
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqgzv3up_sz4c2j",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 163,
+              "y": 516
+            },
+            {
+              "x": 452,
+              "y": 516
+            },
+            {
+              "x": 452,
+              "y": 613
+            },
+            {
+              "x": 163,
+              "y": 613
+            }
+          ],
+          "local_points": [
+            {
+              "x": 163,
+              "y": 516
+            },
+            {
+              "x": 452,
+              "y": 516
+            },
+            {
+              "x": 452,
+              "y": 613
+            },
+            {
+              "x": 163,
+              "y": 613
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 163,
+              "y": -516
+            },
+            {
+              "x": 452,
+              "y": -516
+            },
+            {
+              "x": 452,
+              "y": -613
+            },
+            {
+              "x": 163,
+              "y": -613
+            }
+          ],
+          "bounds": {
+            "x": 163,
+            "y": 516,
+            "width": 289,
+            "height": 97
+          },
+          "local_bounds": {
+            "x": 163,
+            "y": 516,
+            "width": 289,
+            "height": 97
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqgzww6g_gwinfp",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 806,
+              "y": 222
+            },
+            {
+              "x": 863,
+              "y": 222
+            },
+            {
+              "x": 863,
+              "y": 274
+            },
+            {
+              "x": 806,
+              "y": 274
+            }
+          ],
+          "local_points": [
+            {
+              "x": 806,
+              "y": 222
+            },
+            {
+              "x": 863,
+              "y": 222
+            },
+            {
+              "x": 863,
+              "y": 274
+            },
+            {
+              "x": 806,
+              "y": 274
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 806,
+              "y": -222
+            },
+            {
+              "x": 863,
+              "y": -222
+            },
+            {
+              "x": 863,
+              "y": -274
+            },
+            {
+              "x": 806,
+              "y": -274
+            }
+          ],
+          "bounds": {
+            "x": 806,
+            "y": 222,
+            "width": 57,
+            "height": 52
+          },
+          "local_bounds": {
+            "x": 806,
+            "y": 222,
+            "width": 57,
+            "height": 52
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqgzxlc7_i8wmq6",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 655,
+              "y": 249
+            },
+            {
+              "x": 806,
+              "y": 249
+            },
+            {
+              "x": 806,
+              "y": 305
+            },
+            {
+              "x": 655,
+              "y": 305
+            }
+          ],
+          "local_points": [
+            {
+              "x": 655,
+              "y": 249
+            },
+            {
+              "x": 806,
+              "y": 249
+            },
+            {
+              "x": 806,
+              "y": 305
+            },
+            {
+              "x": 655,
+              "y": 305
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 655,
+              "y": -249
+            },
+            {
+              "x": 806,
+              "y": -249
+            },
+            {
+              "x": 806,
+              "y": -305
+            },
+            {
+              "x": 655,
+              "y": -305
+            }
+          ],
+          "bounds": {
+            "x": 655,
+            "y": 249,
+            "width": 151,
+            "height": 56
+          },
+          "local_bounds": {
+            "x": 655,
+            "y": 249,
+            "width": 151,
+            "height": 56
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqgzxp6d_cnxcek",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 866,
+              "y": 249
+            },
+            {
+              "x": 1025,
+              "y": 249
+            },
+            {
+              "x": 1025,
+              "y": 305
+            },
+            {
+              "x": 866,
+              "y": 305
+            }
+          ],
+          "local_points": [
+            {
+              "x": 866,
+              "y": 249
+            },
+            {
+              "x": 1025,
+              "y": 249
+            },
+            {
+              "x": 1025,
+              "y": 305
+            },
+            {
+              "x": 866,
+              "y": 305
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 866,
+              "y": -249
+            },
+            {
+              "x": 1025,
+              "y": -249
+            },
+            {
+              "x": 1025,
+              "y": -305
+            },
+            {
+              "x": 866,
+              "y": -305
+            }
+          ],
+          "bounds": {
+            "x": 866,
+            "y": 249,
+            "width": 159,
+            "height": 56
+          },
+          "local_bounds": {
+            "x": 866,
+            "y": 249,
+            "width": 159,
+            "height": 56
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqgzynxu_ywcrks",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1567,
+              "y": 356
+            },
+            {
+              "x": 1622,
+              "y": 356
+            },
+            {
+              "x": 1622,
+              "y": 437
+            },
+            {
+              "x": 1567,
+              "y": 437
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1567,
+              "y": 356
+            },
+            {
+              "x": 1622,
+              "y": 356
+            },
+            {
+              "x": 1622,
+              "y": 437
+            },
+            {
+              "x": 1567,
+              "y": 437
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1567,
+              "y": -356
+            },
+            {
+              "x": 1622,
+              "y": -356
+            },
+            {
+              "x": 1622,
+              "y": -437
+            },
+            {
+              "x": 1567,
+              "y": -437
+            }
+          ],
+          "bounds": {
+            "x": 1567,
+            "y": 356,
+            "width": 55,
+            "height": 81
+          },
+          "local_bounds": {
+            "x": 1567,
+            "y": 356,
+            "width": 55,
+            "height": 81
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqgzzq4e_uay2dw",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1232,
+              "y": 534
+            },
+            {
+              "x": 1477,
+              "y": 534
+            },
+            {
+              "x": 1477,
+              "y": 711
+            },
+            {
+              "x": 1232,
+              "y": 711
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1232,
+              "y": 534
+            },
+            {
+              "x": 1477,
+              "y": 534
+            },
+            {
+              "x": 1477,
+              "y": 711
+            },
+            {
+              "x": 1232,
+              "y": 711
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1232,
+              "y": -534
+            },
+            {
+              "x": 1477,
+              "y": -534
+            },
+            {
+              "x": 1477,
+              "y": -711
+            },
+            {
+              "x": 1232,
+              "y": -711
+            }
+          ],
+          "bounds": {
+            "x": 1232,
+            "y": 534,
+            "width": 245,
+            "height": 177
+          },
+          "local_bounds": {
+            "x": 1232,
+            "y": 534,
+            "width": 245,
+            "height": 177
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqgzzsgl_mq3rae",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1478,
+              "y": 565
+            },
+            {
+              "x": 1526,
+              "y": 565
+            },
+            {
+              "x": 1526,
+              "y": 704
+            },
+            {
+              "x": 1478,
+              "y": 704
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1478,
+              "y": 565
+            },
+            {
+              "x": 1526,
+              "y": 565
+            },
+            {
+              "x": 1526,
+              "y": 704
+            },
+            {
+              "x": 1478,
+              "y": 704
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1478,
+              "y": -565
+            },
+            {
+              "x": 1526,
+              "y": -565
+            },
+            {
+              "x": 1526,
+              "y": -704
+            },
+            {
+              "x": 1478,
+              "y": -704
+            }
+          ],
+          "bounds": {
+            "x": 1478,
+            "y": 565,
+            "width": 48,
+            "height": 139
+          },
+          "local_bounds": {
+            "x": 1478,
+            "y": 565,
+            "width": 48,
+            "height": 139
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqgzzubi_r3twel",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1497,
+              "y": 666
+            },
+            {
+              "x": 1537,
+              "y": 666
+            },
+            {
+              "x": 1537,
+              "y": 745
+            },
+            {
+              "x": 1497,
+              "y": 745
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1497,
+              "y": 666
+            },
+            {
+              "x": 1537,
+              "y": 666
+            },
+            {
+              "x": 1537,
+              "y": 745
+            },
+            {
+              "x": 1497,
+              "y": 745
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1497,
+              "y": -666
+            },
+            {
+              "x": 1537,
+              "y": -666
+            },
+            {
+              "x": 1537,
+              "y": -745
+            },
+            {
+              "x": 1497,
+              "y": -745
+            }
+          ],
+          "bounds": {
+            "x": 1497,
+            "y": 666,
+            "width": 40,
+            "height": 79
+          },
+          "local_bounds": {
+            "x": 1497,
+            "y": 666,
+            "width": 40,
+            "height": 79
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqgzzvyg_m7edt6",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1560,
+              "y": 663
+            },
+            {
+              "x": 1598,
+              "y": 663
+            },
+            {
+              "x": 1598,
+              "y": 745
+            },
+            {
+              "x": 1560,
+              "y": 745
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1560,
+              "y": 663
+            },
+            {
+              "x": 1598,
+              "y": 663
+            },
+            {
+              "x": 1598,
+              "y": 745
+            },
+            {
+              "x": 1560,
+              "y": 745
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1560,
+              "y": -663
+            },
+            {
+              "x": 1598,
+              "y": -663
+            },
+            {
+              "x": 1598,
+              "y": -745
+            },
+            {
+              "x": 1560,
+              "y": -745
+            }
+          ],
+          "bounds": {
+            "x": 1560,
+            "y": 663,
+            "width": 38,
+            "height": 82
+          },
+          "local_bounds": {
+            "x": 1560,
+            "y": 663,
+            "width": 38,
+            "height": 82
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqgzzxwh_qytigc",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1184,
+              "y": 572
+            },
+            {
+              "x": 1229,
+              "y": 572
+            },
+            {
+              "x": 1229,
+              "y": 709
+            },
+            {
+              "x": 1184,
+              "y": 709
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1184,
+              "y": 572
+            },
+            {
+              "x": 1229,
+              "y": 572
+            },
+            {
+              "x": 1229,
+              "y": 709
+            },
+            {
+              "x": 1184,
+              "y": 709
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1184,
+              "y": -572
+            },
+            {
+              "x": 1229,
+              "y": -572
+            },
+            {
+              "x": 1229,
+              "y": -709
+            },
+            {
+              "x": 1184,
+              "y": -709
+            }
+          ],
+          "bounds": {
+            "x": 1184,
+            "y": 572,
+            "width": 45,
+            "height": 137
+          },
+          "local_bounds": {
+            "x": 1184,
+            "y": 572,
+            "width": 45,
+            "height": 137
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqgzzzfl_f7h1hz",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1162,
+              "y": 708
+            },
+            {
+              "x": 1218,
+              "y": 708
+            },
+            {
+              "x": 1218,
+              "y": 765
+            },
+            {
+              "x": 1162,
+              "y": 765
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1162,
+              "y": 708
+            },
+            {
+              "x": 1218,
+              "y": 708
+            },
+            {
+              "x": 1218,
+              "y": 765
+            },
+            {
+              "x": 1162,
+              "y": 765
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1162,
+              "y": -708
+            },
+            {
+              "x": 1218,
+              "y": -708
+            },
+            {
+              "x": 1218,
+              "y": -765
+            },
+            {
+              "x": 1162,
+              "y": -765
+            }
+          ],
+          "bounds": {
+            "x": 1162,
+            "y": 708,
+            "width": 56,
+            "height": 57
+          },
+          "local_bounds": {
+            "x": 1162,
+            "y": 708,
+            "width": 56,
+            "height": 57
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqh01abw_4xj14o",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 76,
+              "y": 662
+            },
+            {
+              "x": 113,
+              "y": 662
+            },
+            {
+              "x": 113,
+              "y": 758
+            },
+            {
+              "x": 76,
+              "y": 758
+            }
+          ],
+          "local_points": [
+            {
+              "x": 76,
+              "y": 662
+            },
+            {
+              "x": 113,
+              "y": 662
+            },
+            {
+              "x": 113,
+              "y": 758
+            },
+            {
+              "x": 76,
+              "y": 758
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 76,
+              "y": -662
+            },
+            {
+              "x": 113,
+              "y": -662
+            },
+            {
+              "x": 113,
+              "y": -758
+            },
+            {
+              "x": 76,
+              "y": -758
+            }
+          ],
+          "bounds": {
+            "x": 76,
+            "y": 662,
+            "width": 37,
+            "height": 96
+          },
+          "local_bounds": {
+            "x": 76,
+            "y": 662,
+            "width": 37,
+            "height": 96
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqh0357e_1ko9gj",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 155,
+              "y": 245
+            },
+            {
+              "x": 187,
+              "y": 245
+            },
+            {
+              "x": 187,
+              "y": 309
+            },
+            {
+              "x": 155,
+              "y": 309
+            }
+          ],
+          "local_points": [
+            {
+              "x": 155,
+              "y": 245
+            },
+            {
+              "x": 187,
+              "y": 245
+            },
+            {
+              "x": 187,
+              "y": 309
+            },
+            {
+              "x": 155,
+              "y": 309
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 155,
+              "y": -245
+            },
+            {
+              "x": 187,
+              "y": -245
+            },
+            {
+              "x": 187,
+              "y": -309
+            },
+            {
+              "x": 155,
+              "y": -309
+            }
+          ],
+          "bounds": {
+            "x": 155,
+            "y": 245,
+            "width": 32,
+            "height": 64
+          },
+          "local_bounds": {
+            "x": 155,
+            "y": 245,
+            "width": 32,
+            "height": 64
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqh1lwme_63znvt",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 52,
+              "y": 902
+            },
+            {
+              "x": 581,
+              "y": 902
+            },
+            {
+              "x": 581,
+              "y": 941
+            },
+            {
+              "x": 52,
+              "y": 941
+            }
+          ],
+          "local_points": [
+            {
+              "x": 52,
+              "y": 902
+            },
+            {
+              "x": 581,
+              "y": 902
+            },
+            {
+              "x": 581,
+              "y": 941
+            },
+            {
+              "x": 52,
+              "y": 941
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 52,
+              "y": -902
+            },
+            {
+              "x": 581,
+              "y": -902
+            },
+            {
+              "x": 581,
+              "y": -941
+            },
+            {
+              "x": 52,
+              "y": -941
+            }
+          ],
+          "bounds": {
+            "x": 52,
+            "y": 902,
+            "width": 529,
+            "height": 39
+          },
+          "local_bounds": {
+            "x": 52,
+            "y": 902,
+            "width": 529,
+            "height": 39
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqh1m4t9_s6iq2g",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 537,
+              "y": 872
+            },
+            {
+              "x": 581,
+              "y": 872
+            },
+            {
+              "x": 581,
+              "y": 910
+            },
+            {
+              "x": 537,
+              "y": 910
+            }
+          ],
+          "local_points": [
+            {
+              "x": 537,
+              "y": 872
+            },
+            {
+              "x": 581,
+              "y": 872
+            },
+            {
+              "x": 581,
+              "y": 910
+            },
+            {
+              "x": 537,
+              "y": 910
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 537,
+              "y": -872
+            },
+            {
+              "x": 581,
+              "y": -872
+            },
+            {
+              "x": 581,
+              "y": -910
+            },
+            {
+              "x": 537,
+              "y": -910
+            }
+          ],
+          "bounds": {
+            "x": 537,
+            "y": 872,
+            "width": 44,
+            "height": 38
+          },
+          "local_bounds": {
+            "x": 537,
+            "y": 872,
+            "width": 44,
+            "height": 38
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqh1m7e7_q9viaw",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1086,
+              "y": 872
+            },
+            {
+              "x": 1130,
+              "y": 872
+            },
+            {
+              "x": 1130,
+              "y": 940
+            },
+            {
+              "x": 1086,
+              "y": 940
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1086,
+              "y": 872
+            },
+            {
+              "x": 1130,
+              "y": 872
+            },
+            {
+              "x": 1130,
+              "y": 940
+            },
+            {
+              "x": 1086,
+              "y": 940
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1086,
+              "y": -872
+            },
+            {
+              "x": 1130,
+              "y": -872
+            },
+            {
+              "x": 1130,
+              "y": -940
+            },
+            {
+              "x": 1086,
+              "y": -940
+            }
+          ],
+          "bounds": {
+            "x": 1086,
+            "y": 872,
+            "width": 44,
+            "height": 68
+          },
+          "local_bounds": {
+            "x": 1086,
+            "y": 872,
+            "width": 44,
+            "height": 68
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqh1ma25_rdjhbw",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 1130,
+              "y": 904
+            },
+            {
+              "x": 1663,
+              "y": 904
+            },
+            {
+              "x": 1663,
+              "y": 938
+            },
+            {
+              "x": 1130,
+              "y": 938
+            }
+          ],
+          "local_points": [
+            {
+              "x": 1130,
+              "y": 904
+            },
+            {
+              "x": 1663,
+              "y": 904
+            },
+            {
+              "x": 1663,
+              "y": 938
+            },
+            {
+              "x": 1130,
+              "y": 938
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 1130,
+              "y": -904
+            },
+            {
+              "x": 1663,
+              "y": -904
+            },
+            {
+              "x": 1663,
+              "y": -938
+            },
+            {
+              "x": 1130,
+              "y": -938
+            }
+          ],
+          "bounds": {
+            "x": 1130,
+            "y": 904,
+            "width": 533,
+            "height": 34
+          },
+          "local_bounds": {
+            "x": 1130,
+            "y": 904,
+            "width": 533,
+            "height": 34
+          }
+        },
+        {
+          "id": "adjust_rectangle_mqh1mkvi_mdr6ob",
+          "tile_key": "0,0",
+          "map_layer": "overall",
+          "layer": "adjust",
+          "layer_label": "调节层",
+          "mode": "rectangle",
+          "points": [
+            {
+              "x": 580,
+              "y": 901
+            },
+            {
+              "x": 1134,
+              "y": 901
+            },
+            {
+              "x": 1134,
+              "y": 937
+            },
+            {
+              "x": 580,
+              "y": 937
+            }
+          ],
+          "local_points": [
+            {
+              "x": 580,
+              "y": 901
+            },
+            {
+              "x": 1134,
+              "y": 901
+            },
+            {
+              "x": 1134,
+              "y": 937
+            },
+            {
+              "x": 580,
+              "y": 937
+            }
+          ],
+          "unity_points": [
+            {
+              "x": 580,
+              "y": -901
+            },
+            {
+              "x": 1134,
+              "y": -901
+            },
+            {
+              "x": 1134,
+              "y": -937
+            },
+            {
+              "x": 580,
+              "y": -937
+            }
+          ],
+          "bounds": {
+            "x": 580,
+            "y": 901,
+            "width": 554,
+            "height": 36
+          },
+          "local_bounds": {
+            "x": 580,
+            "y": 901,
+            "width": 554,
+            "height": 36
+          }
+        }
+      ]
+    },
+    {
+      "id": "top",
+      "label": "最上层",
+      "order": 130,
+      "color": "#0f9f8f",
+      "shapes": []
+    }
+  ]
+}

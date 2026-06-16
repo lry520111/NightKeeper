@@ -20,7 +20,8 @@ import {
   ROOM_W,
   ROOM_H,
   HUB_ANCHORS,
-  HUB_COLLIDERS,
+  HUB_GODOT_COLLIDERS,
+  HUB_OCCLUSION_REGIONS,
   HUB_PHYS_BOUNDS,
   HUB_INTERACT_RADIUS,
 } from '../data/hubLayout.js';
@@ -48,9 +49,13 @@ export default class HubScene extends Phaser.Scene {
     this._dialogOpen = false;
 
     // —— 1. 背景大图（一张图覆盖整个 1280×720 画布，所有视觉细节都在里面）——
-    const bg = this.add.image(ROOM_W / 2, ROOM_H / 2, 'hub_cover');
+    const bg = this.add.image(ROOM_W / 2, ROOM_H / 2, 'hub_surface');
     bg.setDisplaySize(ROOM_W, ROOM_H);
     bg.setDepth(-10);
+
+    this.objectOverlay = this.add.image(ROOM_W / 2, ROOM_H / 2, 'hub_object');
+    this.objectOverlay.setDisplaySize(ROOM_W, ROOM_H);
+    this.objectOverlay.setDepth(20);
 
     // —— 2. 顶部资源栏（叠在背景上方，半透明黑底防止文字糊在背景里）——
     const topBar = this.add.rectangle(ROOM_W / 2, 18, ROOM_W, 36, 0x000000, 0.55).setDepth(40);
@@ -68,7 +73,7 @@ export default class HubScene extends Phaser.Scene {
 
     // —— 3. 隐形碰撞墙（玩家无法穿过的家具/墙体，与背景图视觉对齐）——
     this.colliderGroup = this.physics.add.staticGroup();
-    for (const c of HUB_COLLIDERS) {
+    for (const c of HUB_GODOT_COLLIDERS) {
       const rect = this.add.rectangle(c.x + c.w / 2, c.y + c.h / 2, c.w, c.h, 0xff0000, 0);
       this.physics.add.existing(rect, true); // static body
       rect.body.updateFromGameObject();
@@ -85,11 +90,11 @@ export default class HubScene extends Phaser.Scene {
     // —— 5. 馆长 NPC ——
     this.curator = this.createCurator(CURATOR);
 
-    // —— 6. 玩家（高清精灵表 93×137，scale 0.75 → 视觉约 70×103）——
-    this.player = this.physics.add.sprite(HUB_ANCHORS.player.x, HUB_ANCHORS.player.y, 'lz_adam_idle', 18);
-    this.player.setScale(1.6);
-    this.player.body.setSize(10, 12).setOffset(3, 18);
-    this.player.setDepth(10);
+    // —— 6. 玩家（hero_hongfa：64×64 五行动作表，脚底物理盒）——
+    this.player = this.physics.add.sprite(HUB_ANCHORS.player.x, HUB_ANCHORS.player.y, 'hero_hongfa', 0);
+    this.player.setScale(1.1);
+    this.player.body.setSize(18, 10).setOffset(23, 44);
+    this.player.setDepth(30);
 
     // 物理边界
     this.physics.world.setBounds(
@@ -102,15 +107,7 @@ export default class HubScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.colliderGroup);
 
     this._playerDir = 'down';
-    if (this.anims.exists('adam_idle_down')) this.player.play('adam_idle_down');
-
-    // 玩家暖光投影（脚下圆形光晕）
-    this.playerHalo = this.add
-      .image(this.player.x, this.player.y + 18, 'tex_light_warm')
-      .setBlendMode(Phaser.BlendModes.ADD)
-      .setAlpha(0.45)
-      .setScale(0.85)
-      .setDepth(this.player.depth - 1);
+    if (this.anims.exists('hero_idle_down')) this.player.play('hero_idle_down');
 
     // —— 7. 当前委托提示（左下角小字）——
     const tipBg = this.add.rectangle(15, ROOM_H - 60, 380, 56, 0x000000, 0.65)
@@ -298,13 +295,19 @@ export default class HubScene extends Phaser.Scene {
     // 碰撞矩形：红色半透明
     g.lineStyle(2, 0xff3344, 0.9);
     g.fillStyle(0xff3344, 0.18);
-    for (const c of HUB_COLLIDERS) {
+    for (const c of HUB_GODOT_COLLIDERS) {
       g.fillRect(c.x, c.y, c.w, c.h);
       g.strokeRect(c.x, c.y, c.w, c.h);
       const t = this.add.text(c.x + 4, c.y + 4, c.tag, {
         fontFamily: 'monospace', fontSize: '10px', color: '#ff8888',
       });
       this.debugLabels.add(t);
+    }
+    g.lineStyle(2, 0x66ccff, 0.9);
+    g.fillStyle(0x66ccff, 0.14);
+    for (const r of HUB_OCCLUSION_REGIONS) {
+      g.fillRect(r.x, r.y, r.w, r.h);
+      g.strokeRect(r.x, r.y, r.w, r.h);
     }
     // 物理边界：黄色虚线
     g.lineStyle(2, 0xffff00, 0.8);
@@ -328,6 +331,19 @@ export default class HubScene extends Phaser.Scene {
     this.debugGraphics.setVisible(this._debugMode);
     this.debugLabels.setVisible(this._debugMode);
     Audio.sfx.click();
+  }
+
+  _updatePlayerOcclusionDepth() {
+    if (!this.player || !this.player.body) return;
+    const body = this.player.body;
+    const footRect = new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height);
+    const behindObject = HUB_OCCLUSION_REGIONS.some((r) => (
+      Phaser.Geom.Rectangle.Overlaps(
+        footRect,
+        new Phaser.Geom.Rectangle(r.x, r.y, r.w, r.h)
+      )
+    ));
+    this.player.setDepth(behindObject ? 12 : 30);
   }
 
   // ——————————— 主循环 ———————————
@@ -357,15 +373,15 @@ export default class HubScene extends Phaser.Scene {
       if (Math.abs(vx) > Math.abs(vy)) dir = vx > 0 ? 'right' : 'left';
       else dir = vy > 0 ? 'down' : 'up';
     }
-    const wantAnim = moving ? `adam_run_${dir}` : `adam_idle_${dir}`;
+    const animDir = dir === 'left' ? 'right' : dir;
+    const wantAnim = moving ? `hero_walk_${animDir}` : `hero_idle_${animDir}`;
     if (this.anims.exists(wantAnim) &&
         (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== wantAnim)) {
       this.player.play(wantAnim);
     }
+    this.player.setFlipX(dir === 'left');
     this._playerDir = dir;
-
-    // 玩家光晕跟随
-    this.playerHalo.setPosition(this.player.x, this.player.y + 20);
+    this._updatePlayerOcclusionDepth();
 
     // 寻找最近交互对象
     let nearest = null;
