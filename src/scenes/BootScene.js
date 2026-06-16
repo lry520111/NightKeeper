@@ -29,6 +29,10 @@ export default class BootScene extends Phaser.Scene {
       frameWidth: 16,
       frameHeight: 32
     });
+    this.load.spritesheet('hero_hongfa', 'assets/characters/hero/hongfa.png', {
+      frameWidth: 32,
+      frameHeight: 32
+    });
 
     this.load.image('hub_hall_back', 'assets/hub/hall_back.png');
   }
@@ -109,13 +113,14 @@ export default class BootScene extends Phaser.Scene {
 
     // —— 注册 LimeZu 角色动画（供 HubScene/对话使用）——
     this.registerLZAnims();
+    this.registerHeroAnims();
 
     // —— 像素美术保护：所有像素纹理（tex_* / lz_*）强制 NEAREST 过滤 ——
     // 全局 pixelArt 已关（让 UI 文字高清），像素纹理需要在此单独设置，否则会被 LINEAR 模糊
     const Filter = Phaser.Textures.FilterMode || { NEAREST: 0 };
     const NEAREST = (Filter.NEAREST !== undefined) ? Filter.NEAREST : 0;
     Object.keys(this.textures.list).forEach((key) => {
-      if (key.startsWith('tex_') || key.startsWith('lz_') || key.startsWith('hub_')) {
+      if (key.startsWith('tex_') || key.startsWith('lz_') || key.startsWith('hub_') || key.startsWith('hero_')) {
         const t = this.textures.get(key);
         if (t && typeof t.setFilter === 'function') t.setFilter(NEAREST);
       }
@@ -1571,6 +1576,30 @@ export default class BootScene extends Phaser.Scene {
       ctx.fillRect(8, 9, 1, 1);
       ctx.fillRect(7, 10, 1, 1);
     });
+  }
+
+  // ——————————— 新主角动画注册 ———————————
+  // hongfa.png: 5 rows x 5 columns, 32x32 per frame.
+  // row 1 down walk, row 2 right walk, row 3 up walk, row 4 attack, row 5 hurt/down.
+  registerHeroAnims() {
+    const makeAnim = (key, start, end, frameRate = 10, repeat = -1) => {
+      if (this.anims.exists(key)) return;
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers('hero_hongfa', { start, end }),
+        frameRate,
+        repeat
+      });
+    };
+
+    makeAnim('hero_idle_down', 0, 0, 1);
+    makeAnim('hero_walk_down', 0, 4, 10);
+    makeAnim('hero_idle_right', 5, 5, 1);
+    makeAnim('hero_walk_right', 5, 9, 10);
+    makeAnim('hero_idle_up', 10, 10, 1);
+    makeAnim('hero_walk_up', 10, 14, 10);
+    makeAnim('hero_attack', 15, 19, 12, 0);
+    makeAnim('hero_hurt_down', 20, 24, 8, 0);
   }
 
   // ——————————— LimeZu 角色动画注册 ———————————

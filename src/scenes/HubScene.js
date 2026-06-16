@@ -39,34 +39,102 @@ const REFINED_STATIONS = [
   { id: 'depart', name: '任务门', x: 995, y: 505, interactX: 995, interactY: 640, color: 0xff8c42, glyph: '门', target: 'MuseumScene' }
 ];
 
-const REFINED_CURATOR = { x: ROOM_W / 2, y: 338, name: '林默 · 馆长', portraitKey: 'lz_amelia_idle' };
+const REFINED_CURATOR = { x: ROOM_W / 2, y: 338, sortY: 302, name: '林默 · 馆长', portraitKey: 'lz_amelia_idle' };
 
+// Centralized hub obstacle config. `hitbox` is the blocked footprint used by
+// Arcade Physics. `front` is a tight visual slice copied from hall_back and
+// sorted by `sortY`, so actors can pass in front of or behind the object.
 const HUB_OBSTACLES = [
-  { x: 276, y: 255, w: 330, h: 128 },
-  { x: 1018, y: 256, w: 328, h: 132 },
-  { x: 640, y: 278, w: 348, h: 88 },
-  { x: 174, y: 522, w: 88, h: 120 },
-  { x: 300, y: 520, w: 142, h: 126 },
-  { x: 408, y: 522, w: 70, h: 118 },
-  { x: 902, y: 548, w: 64, h: 146 },
-  { x: 1038, y: 590, w: 174, h: 86 },
-  { x: 1160, y: 548, w: 64, h: 146 },
-  { x: 104, y: 312, w: 50, h: 94 },
-  { x: 1168, y: 314, w: 54, h: 96 }
-];
-
-const HUB_OCCLUDERS = [
-  { x: 98, y: 82, w: 360, h: 250, depthY: 335 },
-  { x: 842, y: 80, w: 366, h: 262, depthY: 346 },
-  { x: 456, y: 172, w: 382, h: 158, depthY: 332 },
-  { x: 118, y: 412, w: 120, h: 162, depthY: 590 },
-  { x: 214, y: 416, w: 166, h: 174, depthY: 596 },
-  { x: 360, y: 418, w: 86, h: 160, depthY: 592 },
-  { x: 872, y: 400, w: 80, h: 238, depthY: 640 },
-  { x: 948, y: 452, w: 184, h: 196, depthY: 654 },
-  { x: 1116, y: 400, w: 84, h: 238, depthY: 640 },
-  { x: 72, y: 240, w: 86, h: 174, depthY: 414 },
-  { x: 1116, y: 240, w: 92, h: 178, depthY: 418 }
+  {
+    name: 'managerDesk',
+    hitbox: { x: 640, y: 294, width: 320, height: 66 },
+    sortY: 326,
+    front: { x: 488, y: 198, width: 304, height: 124 }
+  },
+  {
+    name: 'contractBoard',
+    hitbox: { x: 255, y: 284, width: 270, height: 78 },
+    sortY: 326,
+    front: { x: 116, y: 122, width: 286, height: 202 }
+  },
+  {
+    name: 'loadoutRack',
+    hitbox: { x: 1034, y: 282, width: 284, height: 74 },
+    sortY: 326,
+    front: { x: 902, y: 112, width: 300, height: 208 }
+  },
+  {
+    name: 'vaultLeftCabinet',
+    hitbox: { x: 168, y: 518, width: 78, height: 74 },
+    sortY: 566,
+    front: { x: 126, y: 418, width: 92, height: 146 }
+  },
+  {
+    name: 'vaultSafe',
+    hitbox: { x: 286, y: 524, width: 136, height: 96 },
+    sortY: 580,
+    front: { x: 214, y: 410, width: 154, height: 166 }
+  },
+  {
+    name: 'vaultRightCabinet',
+    hitbox: { x: 390, y: 516, width: 70, height: 74 },
+    sortY: 566,
+    front: { x: 350, y: 420, width: 76, height: 142 }
+  },
+  {
+    name: 'missionLeftColumn',
+    hitbox: { x: 918, y: 552, width: 58, height: 130 },
+    sortY: 642,
+    front: { x: 888, y: 392, width: 78, height: 246 }
+  },
+  {
+    name: 'missionDoor',
+    hitbox: { x: 1038, y: 610, width: 170, height: 62 },
+    sortY: 650,
+    front: { x: 954, y: 414, width: 182, height: 232 }
+  },
+  {
+    name: 'missionRightColumn',
+    hitbox: { x: 1166, y: 552, width: 58, height: 130 },
+    sortY: 642,
+    front: { x: 1134, y: 392, width: 78, height: 246 }
+  },
+  {
+    name: 'leftWallLamp',
+    hitbox: { x: 116, y: 350, width: 42, height: 74 },
+    sortY: 404,
+    front: { x: 94, y: 286, width: 48, height: 124 }
+  },
+  {
+    name: 'rightWallLamp',
+    hitbox: { x: 1164, y: 350, width: 42, height: 74 },
+    sortY: 404,
+    front: { x: 1140, y: 286, width: 48, height: 124 }
+  },
+  {
+    name: 'leftTopPlant',
+    hitbox: { x: 72, y: 188, width: 50, height: 74 },
+    sortY: 224,
+    front: { x: 42, y: 126, width: 72, height: 104 }
+  },
+  {
+    name: 'rightTopPlant',
+    hitbox: { x: 1210, y: 188, width: 50, height: 74 },
+    sortY: 224,
+    front: { x: 1178, y: 126, width: 72, height: 104 }
+  },
+  {
+    name: 'leftBottomPlant',
+    hitbox: { x: 62, y: 318, width: 52, height: 82 },
+    sortY: 360,
+    front: { x: 28, y: 276, width: 78, height: 98 }
+  },
+  {
+    name: 'rightBottomPlant',
+    hitbox: { x: 1216, y: 318, width: 52, height: 82 },
+    sortY: 360,
+    front: { x: 1180, y: 276, width: 78, height: 98 }
+  }
 ];
 
 export default class HubScene extends Phaser.Scene {
@@ -124,18 +192,18 @@ export default class HubScene extends Phaser.Scene {
     // —— 馆长 NPC ——
     this.curator = this.createCurator(REFINED_CURATOR);
 
-    // —— 玩家（用 LimeZu Adam，16x32）——
-    this.player = this.physics.add.sprite(ROOM_W / 2, ROOM_H / 2 + 145, 'lz_adam_idle', 0);
-    this.player.setScale(2.4);          // 16x32 → 约 38x76 像素，舒适
-    this.player.setSize(12, 16);        // 物理盒只取脚部
-    this.player.setOffset(2, 16);
+    // —— 玩家（hongfa.png，32x32 五行动作表）——
+    this.player = this.physics.add.sprite(ROOM_W / 2, ROOM_H / 2 + 145, 'hero_hongfa', 0);
+    this.player.setScale(2);
+    this.player.setSize(12, 8);         // Arcade body 只取脚底，避免头发/身体误撞家具
+    this.player.setOffset(10, 22);
     this.player.setCollideWorldBounds(true);
-    this.player.setDepth(this.player.y);
+    this.updateActorDepth(this.player);
     this.physics.world.setBounds(60, 110, ROOM_W - 120, ROOM_H - 170);
     this.createObstacleLayer();
     this.physics.add.collider(this.player, this.hubObstacles);
     this._playerDir = 'down';
-    if (this.anims.exists('adam_idle_down')) this.player.play('adam_idle_down');
+    if (this.anims.exists('hero_idle_down')) this.player.play('hero_idle_down');
 
     // 玩家投影/暖光
     this.playerHalo = this.add
@@ -146,6 +214,7 @@ export default class HubScene extends Phaser.Scene {
       .setDepth(this.player.depth - 1);
 
     this.createOcclusionLayer();
+    this.createHitboxDebug();
 
     // —— 当前委托提示 ——
     this.contractTip = this.add
@@ -171,9 +240,10 @@ export default class HubScene extends Phaser.Scene {
 
     // —— 输入 ——
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,E,B,ESC');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,E,B,ESC,H');
 
     this.keys.E.on('down', () => this.tryInteract());
+    this.keys.H.on('down', () => this.toggleHitboxDebug());
     this.keys.B.on('down', () => {
       if (this._dialogOpen) return;
       Audio.sfx.click();
@@ -776,7 +846,7 @@ export default class HubScene extends Phaser.Scene {
   }
 
   createCurator(cur) {
-    const sprite = this.add.sprite(cur.x, cur.y, 'lz_amelia_idle', 0).setDepth(cur.y);
+    const sprite = this.add.sprite(cur.x, cur.y, 'lz_amelia_idle', 0).setDepth(cur.sortY ?? cur.y);
     sprite.setScale(2.6);
     if (this.anims.exists('amelia_idle_down')) sprite.play('amelia_idle_down');
 
@@ -845,29 +915,109 @@ export default class HubScene extends Phaser.Scene {
 
   createObstacleLayer() {
     this.hubObstacles = this.physics.add.staticGroup();
-    for (const box of HUB_OBSTACLES) {
-      this.addObstacle(box.x, box.y, box.w, box.h);
+    this.hubObstacleItems = [];
+
+    for (const config of HUB_OBSTACLES) {
+      const zone = this.addObstacle(config);
+      this.hubObstacleItems.push({ ...config, zone, frontSprites: [] });
     }
   }
 
   createOcclusionLayer() {
-    this.hubOccluders = [];
-    for (const occ of HUB_OCCLUDERS) {
-      const sprite = this.add.image(occ.x, occ.y, 'hub_hall_back')
-        .setOrigin(0, 0)
-        .setCrop(occ.x, occ.y, occ.w, occ.h)
-        .setDepth(occ.depthY);
-      this.hubOccluders.push(sprite);
+    if (!this.hubObstacleItems) return;
+
+    for (const item of this.hubObstacleItems) {
+      const frontRects = Array.isArray(item.front) ? item.front : [item.front].filter(Boolean);
+      for (const rect of frontRects) {
+        const sprite = this.add.image(rect.x, rect.y, 'hub_hall_back')
+          .setOrigin(0, 0)
+          .setCrop(rect.x, rect.y, rect.width, rect.height)
+          .setDepth(item.sortY);
+        item.frontSprites.push(sprite);
+      }
     }
   }
 
-  addObstacle(x, y, width, height) {
+  createHitboxDebug() {
+    this.hitboxDebugVisible = false;
+    this.hitboxDebugLabels = [];
+    this.hitboxDebugGraphics = this.add.graphics()
+      .setDepth(1800)
+      .setVisible(false);
+    this.redrawHitboxDebug();
+  }
+
+  redrawHitboxDebug() {
+    if (!this.hitboxDebugGraphics || !this.hubObstacleItems) return;
+
+    this.hitboxDebugGraphics.clear();
+    for (const label of this.hitboxDebugLabels) label.destroy();
+    this.hitboxDebugLabels = [];
+
+    for (const item of this.hubObstacleItems) {
+      const h = item.hitbox;
+      const left = h.x - h.width / 2;
+      const top = h.y - h.height / 2;
+
+      this.hitboxDebugGraphics
+        .fillStyle(0xff3355, 0.22)
+        .fillRect(left, top, h.width, h.height)
+        .lineStyle(2, 0xff3355, 0.9)
+        .strokeRect(left, top, h.width, h.height);
+
+      this.hitboxDebugGraphics
+        .lineStyle(1, 0xffe066, 0.95)
+        .lineBetween(left - 8, item.sortY, left + h.width + 8, item.sortY);
+
+      const frontRects = Array.isArray(item.front) ? item.front : [item.front].filter(Boolean);
+      for (const rect of frontRects) {
+        this.hitboxDebugGraphics
+          .lineStyle(1, 0x66ccff, 0.8)
+          .strokeRect(rect.x, rect.y, rect.width, rect.height);
+      }
+
+      const label = this.add.text(left, top - 14, item.name, {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#ffec99',
+        backgroundColor: '#000000aa',
+        padding: { x: 3, y: 1 }
+      })
+        .setDepth(1801)
+        .setVisible(this.hitboxDebugVisible);
+      this.hitboxDebugLabels.push(label);
+    }
+
+    this.hitboxDebugGraphics.setVisible(this.hitboxDebugVisible);
+  }
+
+  toggleHitboxDebug() {
+    this.hitboxDebugVisible = !this.hitboxDebugVisible;
+    if (this.hitboxDebugGraphics) {
+      this.hitboxDebugGraphics.setVisible(this.hitboxDebugVisible);
+    }
+    for (const label of this.hitboxDebugLabels || []) {
+      label.setVisible(this.hitboxDebugVisible);
+    }
+  }
+
+  addObstacle(config) {
+    const { x, y, width, height } = config.hitbox;
     const zone = this.add.zone(x, y, width, height).setOrigin(0.5);
     this.physics.add.existing(zone, true);
     zone.body.setSize(width, height, false);
     zone.body.updateFromGameObject();
     this.hubObstacles.add(zone);
     return zone;
+  }
+
+  getActorSortY(actor) {
+    return actor?.body ? actor.body.bottom : actor.y;
+  }
+
+  updateActorDepth(actor) {
+    if (!actor) return;
+    actor.setDepth(this.getActorSortY(actor));
   }
 
   createStation(st) {
@@ -927,7 +1077,7 @@ export default class HubScene extends Phaser.Scene {
   }
 
   createCurator(cur) {
-    const sprite = this.add.sprite(cur.x, cur.y, 'lz_amelia_idle', 0).setDepth(cur.y);
+    const sprite = this.add.sprite(cur.x, cur.y, 'lz_amelia_idle', 0).setDepth(cur.sortY ?? cur.y);
     sprite.setScale(2.45);
     if (this.anims.exists('amelia_idle_down')) sprite.play('amelia_idle_down');
 
@@ -951,7 +1101,7 @@ export default class HubScene extends Phaser.Scene {
       .setBlendMode(Phaser.BlendModes.ADD)
       .setAlpha(0.28)
       .setScale(0.85)
-      .setDepth(cur.y - 1);
+      .setDepth((cur.sortY ?? cur.y) - 1);
     this.tweens.add({
       targets: halo,
       alpha: 0.46,
@@ -1004,7 +1154,7 @@ export default class HubScene extends Phaser.Scene {
       vx *= inv; vy *= inv;
     }
     this.player.setVelocity(vx * speed, vy * speed);
-    this.player.setDepth(this.player.y);
+    this.updateActorDepth(this.player);
 
     // —— 朝向与动画 ——
     const moving = vx !== 0 || vy !== 0;
@@ -1013,11 +1163,13 @@ export default class HubScene extends Phaser.Scene {
       if (Math.abs(vx) > Math.abs(vy)) dir = vx > 0 ? 'right' : 'left';
       else dir = vy > 0 ? 'down' : 'up';
     }
-    const wantAnim = moving ? `adam_run_${dir}` : `adam_idle_${dir}`;
+    const animDir = dir === 'left' ? 'right' : dir;
+    const wantAnim = moving ? `hero_walk_${animDir}` : `hero_idle_${animDir}`;
     if (this.anims.exists(wantAnim) &&
         (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== wantAnim)) {
       this.player.play(wantAnim);
     }
+    this.player.setFlipX(dir === 'left');
     this._playerDir = dir;
 
     // 玩家光晕跟随
