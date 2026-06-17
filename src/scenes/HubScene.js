@@ -93,7 +93,7 @@ export default class HubScene extends Phaser.Scene {
     // —— 6. 玩家（hero_hongfa：64×64 五行动作表，脚底物理盒）——
     this.player = this.physics.add.sprite(HUB_ANCHORS.player.x, HUB_ANCHORS.player.y, 'hero_hongfa', 0);
     this.player.setScale(1.1);
-    this.player.body.setSize(18, 10).setOffset(23, 44);
+    this.player.body.setSize(24, 40).setOffset(20, 16);
     this.player.setDepth(30);
 
     // 物理边界

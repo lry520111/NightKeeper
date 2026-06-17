@@ -62,33 +62,33 @@ export default class SpikeTrap {
         this._drawWarning();
         if (this.stateTimer <= 0) {
           this.state = 'active';
-          this.stateTimer = ACTIVE_DURATION_MS;
+          // Once triggered, spikes stay out permanently
+          this.stateTimer = Infinity;
+          this._drawActive();
         }
         break;
 
       case 'active':
-        this._drawActive();
-        // Check player collision
-        if (!this.hasHitThisCycle && playerSprite) {
+        // Spikes remain extended permanently after triggering
+        // Continuously check player collision (can hit multiple times with cooldown)
+        if (playerSprite) {
           const dx = playerSprite.x - this.x;
           const dy = playerSprite.y - this.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < DAMAGE_RADIUS) {
-            this.hasHitThisCycle = true;
-            if (this.onHitPlayer) this.onHitPlayer(this);
+            if (!this.hasHitThisCycle) {
+              this.hasHitThisCycle = true;
+              this._hitCooldown = 1500; // 1.5s before can hit again
+              if (this.onHitPlayer) this.onHitPlayer(this);
+            }
           }
-        }
-        if (this.stateTimer <= 0) {
-          this.state = 'cooldown';
-          this.stateTimer = this._randomCooldown();
-          this._drawIdle();
-        }
-        break;
-
-      case 'cooldown':
-        if (this.stateTimer <= 0) {
-          this.state = 'idle';
-          this.stateTimer = this._randomCooldown();
+          // Reset hit flag after cooldown so spikes can damage again
+          if (this.hasHitThisCycle) {
+            this._hitCooldown = (this._hitCooldown || 0) - delta;
+            if (this._hitCooldown <= 0) {
+              this.hasHitThisCycle = false;
+            }
+          }
         }
         break;
     }

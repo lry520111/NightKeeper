@@ -232,8 +232,14 @@ export default class Guard {
       this.die();
       return true;
     }
-    // 受击立即拉满警觉
+    // 受击立即拉满警觉 → 直接进入追击状态（被打了肯定发现主角）
     this.alert = ALERT_FULL;
+    this.state = 'chase';
+    this.chaseUntil = this.scene.time.now + 8000; // 追击 8 秒
+    // 触发警报联动
+    if (typeof this.onAlarm === 'function') {
+      this.onAlarm(this, ALARM_RADIUS);
+    }
     return false;
   }
 
@@ -420,6 +426,7 @@ export default class Guard {
   }
 
   // —— 巡逻：往下一路径点走，停顿，再下一点 ——
+  // 支持长距离跨区域巡逻（走私船模式）：到达路径点后随机停顿，偶尔偏移方向
   behaviorPatrol(dt) {
     const now = this.scene.time.now;
     if (now < this.waitUntil) {
@@ -432,14 +439,19 @@ export default class Guard {
     const dx = target.x - this.sprite.x;
     const dy = target.y - this.sprite.y;
     const dist = Math.hypot(dx, dy);
-    if (dist < 4) {
+    if (dist < 6) {
       this.sprite.setVelocity(0, 0);
-      this.waitUntil = now + WAIT_AT_WAYPOINT_MS;
+      // Random wait time: 400~1800ms for variety
+      const waitTime = 400 + Math.floor(Math.random() * 1400);
+      this.waitUntil = now + waitTime;
       this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
       return;
     }
     const ang = Math.atan2(dy, dx);
-    this.facing = this.lerpAngle(this.facing, ang, TURN_SPEED * dt);
+    // Add slight random drift to make movement less robotic
+    const drift = (Math.sin(now / 1200 + this.wpIdx * 2.7) * 0.12);
+    const targetAng = ang + drift;
+    this.facing = this.lerpAngle(this.facing, targetAng, TURN_SPEED * dt);
     this.sprite.setVelocity(Math.cos(this.facing) * PATROL_SPEED, Math.sin(this.facing) * PATROL_SPEED);
   }
 

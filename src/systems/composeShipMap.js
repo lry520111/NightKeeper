@@ -3,312 +3,253 @@
 // Smuggler Ship "沉鲸号" map composer — Full-map PNG version
 //
 // Uses a single pre-rendered full map image (ship_full.png, 1070×1470px)
-// Collision walls are placed ONLY where visible walls exist in the artwork.
-// Doors (yellow-striped openings) are left passable.
+// Collision data imported DIRECTLY from Godot annotations JSON in PIXEL coords.
+// Source: ship_full_20260617_184234_230_annotations.json
 //
 // Image: 1070 × 1470 px
 // Tile size: 32px → effective grid: ~33.4 × 45.9 tiles
 // We use MAP_W=34, MAP_H=46 tiles (1088×1472 world px)
 //
-// Coordinate system: tile (0,0) = top-left of image
+// IMPORTANT: walls[] uses PIXEL coordinates (wallsInPixels: true).
+//   MuseumScene addWall detects this and skips tile→pixel conversion.
 // ——————————————————————————————————————————————————
 
 const TILE = 32;
 const MAP_W = 34;
 const MAP_H = 46;
 
-// ===== Room Bounds (logical areas for gameplay) =====
-const ROOM_BOUNDS = {
-  bridge:           { x: 3, y: 2, w: 28, h: 6 },    // Section 1: Bridge/wheelhouse
-  security_office:  { x: 2, y: 9, w: 5, h: 9 },     // Section 2: Left security office
-  vault_main:       { x: 8, y: 9, w: 18, h: 9 },    // Section 2: Main relic vault
-  captain_quarters: { x: 27, y: 9, w: 5, h: 9 },    // Section 2: Right captain's quarters
-  crew_quarters:    { x: 2, y: 20, w: 9, h: 9 },    // Section 3: Left crew quarters
-  operations:       { x: 12, y: 20, w: 10, h: 9 },   // Section 3: Center operations room
-  armory:           { x: 23, y: 20, w: 9, h: 9 },    // Section 3: Right armory
-  engine_room:      { x: 2, y: 31, w: 9, h: 9 },    // Section 4: Left engine room
-  cargo_hold:       { x: 12, y: 31, w: 10, h: 9 },   // Section 4: Center cargo hold
-  storage:          { x: 23, y: 31, w: 9, h: 9 },    // Section 4: Right storage
-  stern_deck:       { x: 2, y: 42, w: 30, h: 3 },    // Section 5: Stern entry deck
-};
-
-// ===== Wall Definitions =====
-// ONLY placed where actual walls are visible in the artwork.
-// Each wall segment is broken at door openings so players can pass through.
+// ===== Collision Walls =====
+// Directly from annotations JSON collision layer — PIXEL coordinates.
+// 88 rectangle shapes + 3 polygons decomposed into 24 rects = 112 total.
+// Players CANNOT move through these areas.
 function generateWalls() {
-  const walls = [];
+  return [
+    // --- 88 Rectangle collision shapes (exact pixel bounds) ---
+    { x: 138, y: 665, w: 72, h: 118 },
+    { x: 236, y: 3, w: 572, h: 95 },
+    { x: 822, y: 230, w: 41, h: 162 },
+    { x: 825, y: 446, w: 29, h: 95 },
+    { x: 868, y: 228, w: 179, h: 31 },
+    { x: 1030, y: 259, w: 23, h: 268 },
+    { x: 374, y: 328, w: 57, h: 41 },
+    { x: 287, y: 383, w: 58, h: 37 },
+    { x: 371, y: 458, w: 60, h: 40 },
+    { x: 633, y: 463, w: 66, h: 32 },
+    { x: 633, y: 337, w: 63, h: 29 },
+    { x: 728, y: 383, w: 57, h: 29 },
+    { x: 492, y: 705, w: 86, h: 69 },
+    { x: 1001, y: 958, w: 37, h: 78 },
+    { x: 992, y: 1039, w: 43, h: 57 },
+    { x: 811, y: 909, w: 92, h: 32 },
+    { x: 952, y: 904, w: 83, h: 28 },
+    { x: 506, y: 1286, w: 60, h: 35 },
+    { x: 310, y: 1094, w: 15, h: 123 },
+    { x: 14, y: 861, w: 480, h: 20 },
+    { x: 5, y: 884, w: 18, h: 310 },
+    { x: 17, y: 1191, w: 452, h: 12 },
+    { x: 310, y: 878, w: 18, h: 144 },
+    { x: 581, y: 984, w: 26, h: 26 },
+    { x: 463, y: 970, w: 20, h: 20 },
+    { x: 492, y: 1053, w: 23, h: 23 },
+    { x: 664, y: 878, w: 89, h: 72 },
+    { x: 25, y: 895, w: 130, h: 236 },
+    { x: 28, y: 1142, w: 41, h: 46 },
+    { x: 23, y: 527, w: 474, h: 14 },
+    { x: 14, y: 538, w: 14, h: 320 },
+    { x: 115, y: 558, w: 123, h: 29 },
+    { x: 316, y: 535, w: 26, h: 147 },
+    { x: 319, y: 748, w: 20, h: 115 },
+    { x: 664, y: 786, w: 23, h: 66 },
+    { x: 664, y: 587, w: 26, h: 72 },
+    { x: 382, y: 584, w: 20, h: 87 },
+    { x: 379, y: 791, w: 26, h: 61 },
+    { x: 23, y: 233, w: 218, h: 18 },
+    { x: 221, y: 248, w: 17, h: 141 },
+    { x: 224, y: 452, w: 12, h: 72 },
+    { x: 23, y: 248, w: 20, h: 290 },
+    { x: 46, y: 245, w: 172, h: 69 },
+    { x: 582, y: 1362, w: 32, h: 103 },
+    { x: 456, y: 1360, w: 32, h: 100 },
+    { x: 997, y: 1209, w: 21, h: 130 },
+    { x: 822, y: 1358, w: 156, h: 15 },
+    { x: 976, y: 1335, w: 45, h: 36 },
+    { x: 857, y: 1332, w: 17, h: 28 },
+    { x: 850, y: 1213, w: 24, h: 43 },
+    { x: 871, y: 1209, w: 133, h: 34 },
+    { x: 475, y: 1183, w: 19, h: 24 },
+    { x: 51, y: 1205, w: 19, h: 130 },
+    { x: 57, y: 1335, w: 36, h: 36 },
+    { x: 93, y: 1354, w: 158, h: 25 },
+    { x: 196, y: 1207, w: 25, h: 40 },
+    { x: 251, y: 1373, w: 26, h: 28 },
+    { x: 270, y: 1388, w: 190, h: 21 },
+    { x: 614, y: 1386, w: 59, h: 17 },
+    { x: 675, y: 1367, w: 41, h: 36 },
+    { x: 716, y: 1373, w: 60, h: 30 },
+    { x: 786, y: 1352, w: 34, h: 70 },
+    { x: 776, y: 1371, w: 12, h: 30 },
+    { x: 328, y: 878, w: 53, h: 54 },
+    { x: 381, y: 908, w: 28, h: 24 },
+    { x: 388, y: 881, w: 106, h: 14 },
+    { x: 336, y: 936, w: 43, h: 21 },
+    { x: 407, y: 923, w: 27, h: 28 },
+    { x: 328, y: 962, w: 38, h: 27 },
+    { x: 705, y: 1096, w: 39, h: 55 },
+    { x: 652, y: 1087, w: 23, h: 19 },
+    { x: 673, y: 1109, w: 30, h: 49 },
+    { x: 654, y: 1132, w: 19, h: 41 },
+    { x: 588, y: 861, w: 462, h: 20 },
+    { x: 1033, y: 527, w: 26, h: 678 },
+    { x: 582, y: 1194, w: 475, h: 15 },
+    { x: 752, y: 1094, w: 19, h: 117 },
+    { x: 752, y: 876, w: 15, h: 143 },
+    { x: 767, y: 974, w: 68, h: 39 },
+    { x: 1006, y: 1136, w: 23, h: 41 },
+    // New rects in this version (right-side interior walls)
+    { x: 579, y: 527, w: 474, h: 18 },
+    { x: 728, y: 539, w: 23, h: 129 },
+    { x: 731, y: 749, w: 23, h: 112 },
+    { x: 984, y: 588, w: 64, h: 57 },
+    { x: 987, y: 689, w: 55, h: 109 },
+    { x: 757, y: 786, w: 29, h: 81 },
+    { x: 760, y: 818, w: 80, h: 49 },
+    { x: 843, y: 832, w: 29, h: 26 },
 
-  // ============================================================
-  // OUTER HULL — follows the ship's visible boundary
-  // ============================================================
-
-  // --- Top bow (curved, approximated as stepped blocks) ---
-  // The bow narrows at the top. From the image:
-  // Row 0-1: only center ~20 tiles are hull roof
-  walls.push({ x: 5, y: 0, w: 24, h: 1 });   // Very top edge
-  // Row 1: hull sides taper in
-  walls.push({ x: 3, y: 1, w: 2, h: 1 });    // Left bow curve
-  walls.push({ x: 29, y: 1, w: 2, h: 1 });   // Right bow curve
-
-  // --- Left hull wall (y=2 to y=44) ---
-  walls.push({ x: 1, y: 2, w: 1, h: 42 });
-
-  // --- Right hull wall (y=2 to y=44) ---
-  walls.push({ x: 32, y: 2, w: 1, h: 42 });
-
-  // --- Bottom stern ---
-  walls.push({ x: 2, y: 44, w: 30, h: 1 });  // Bottom edge
-  // Bottom corners
-  walls.push({ x: 1, y: 44, w: 1, h: 1 });
-  walls.push({ x: 32, y: 44, w: 1, h: 1 });
-
-  // ============================================================
-  // SECTION 1→2 DIVIDER (y=8, between bridge and vault level)
-  // From image: horizontal wall at y=8 with 3 door openings
-  // Doors visible at approximately: x=8-9, x=16-17, x=24-25
-  // ============================================================
-  walls.push({ x: 2, y: 8, w: 6, h: 1 });    // Left of door 1 (x=2..7)
-  // DOOR at x=8..9
-  walls.push({ x: 10, y: 8, w: 6, h: 1 });   // Between door 1 and 2 (x=10..15)
-  // DOOR at x=16..17
-  walls.push({ x: 18, y: 8, w: 6, h: 1 });   // Between door 2 and 3 (x=18..23)
-  // DOOR at x=24..25
-  walls.push({ x: 26, y: 8, w: 6, h: 1 });   // Right of door 3 (x=26..31)
-
-  // ============================================================
-  // SECTION 2 INTERNAL VERTICAL WALLS
-  // Left wall (security office | vault): x=7, from y=9 to y=18
-  // Door opening at approximately y=12..14
-  // ============================================================
-  walls.push({ x: 7, y: 9, w: 1, h: 3 });    // Top segment (y=9..11)
-  // DOOR at y=12..14
-  walls.push({ x: 7, y: 15, w: 1, h: 3 });   // Bottom segment (y=15..17)
-
-  // Right wall (vault | captain's quarters): x=26, from y=9 to y=18
-  // Door opening at approximately y=12..14
-  walls.push({ x: 26, y: 9, w: 1, h: 3 });   // Top segment (y=9..11)
-  // DOOR at y=12..14
-  walls.push({ x: 26, y: 15, w: 1, h: 3 });  // Bottom segment (y=15..17)
-
-  // ============================================================
-  // SECTION 2→3 DIVIDER (y=19, between vault level and ops level)
-  // From image: horizontal wall at y=19 with 4 door openings
-  // Doors at approximately: x=5-6, x=13-14, x=19-20, x=27-28
-  // ============================================================
-  walls.push({ x: 2, y: 19, w: 3, h: 1 });   // x=2..4
-  // DOOR at x=5..6
-  walls.push({ x: 7, y: 19, w: 6, h: 1 });   // x=7..12
-  // DOOR at x=13..14
-  walls.push({ x: 15, y: 19, w: 4, h: 1 });  // x=15..18
-  // DOOR at x=19..20
-  walls.push({ x: 21, y: 19, w: 6, h: 1 });  // x=21..26
-  // DOOR at x=27..28
-  walls.push({ x: 29, y: 19, w: 3, h: 1 });  // x=29..31
-
-  // ============================================================
-  // SECTION 3 INTERNAL VERTICAL WALLS
-  // Left wall (crew | operations): x=11, from y=20 to y=29
-  // Door opening at approximately y=23..25
-  // ============================================================
-  walls.push({ x: 11, y: 20, w: 1, h: 3 });  // Top segment (y=20..22)
-  // DOOR at y=23..25
-  walls.push({ x: 11, y: 26, w: 1, h: 3 });  // Bottom segment (y=26..28)
-
-  // Right wall (operations | armory): x=22, from y=20 to y=29
-  // Door opening at approximately y=23..25
-  walls.push({ x: 22, y: 20, w: 1, h: 3 });  // Top segment (y=20..22)
-  // DOOR at y=23..25
-  walls.push({ x: 22, y: 26, w: 1, h: 3 });  // Bottom segment (y=26..28)
-
-  // ============================================================
-  // SECTION 3→4 DIVIDER (y=30, between ops level and cargo level)
-  // From image: horizontal wall at y=30 with 4 door openings
-  // Doors at approximately: x=5-6, x=13-14, x=19-20, x=27-28
-  // ============================================================
-  walls.push({ x: 2, y: 30, w: 3, h: 1 });   // x=2..4
-  // DOOR at x=5..6
-  walls.push({ x: 7, y: 30, w: 6, h: 1 });   // x=7..12
-  // DOOR at x=13..14
-  walls.push({ x: 15, y: 30, w: 4, h: 1 });  // x=15..18
-  // DOOR at x=19..20
-  walls.push({ x: 21, y: 30, w: 6, h: 1 });  // x=21..26
-  // DOOR at x=27..28
-  walls.push({ x: 29, y: 30, w: 3, h: 1 });  // x=29..31
-
-  // ============================================================
-  // SECTION 4 INTERNAL VERTICAL WALLS
-  // Left wall (engine | cargo): x=11, from y=31 to y=40
-  // Door opening at approximately y=34..36
-  // ============================================================
-  walls.push({ x: 11, y: 31, w: 1, h: 3 });  // Top segment (y=31..33)
-  // DOOR at y=34..36
-  walls.push({ x: 11, y: 37, w: 1, h: 3 });  // Bottom segment (y=37..39)
-
-  // Right wall (cargo | storage): x=22, from y=31 to y=40
-  // Door opening at approximately y=34..36
-  walls.push({ x: 22, y: 31, w: 1, h: 3 });  // Top segment (y=31..33)
-  // DOOR at y=34..36
-  walls.push({ x: 22, y: 37, w: 1, h: 3 });  // Bottom segment (y=37..39)
-
-  // ============================================================
-  // SECTION 4→5 DIVIDER (y=41, between cargo level and stern deck)
-  // From image: horizontal wall at y=41 with 3 door openings
-  // Doors at approximately: x=8-9, x=16-17, x=24-25
-  // ============================================================
-  walls.push({ x: 2, y: 41, w: 6, h: 1 });   // Left of door 1 (x=2..7)
-  // DOOR at x=8..9
-  walls.push({ x: 10, y: 41, w: 6, h: 1 });  // Between door 1 and 2 (x=10..15)
-  // DOOR at x=16..17
-  walls.push({ x: 18, y: 41, w: 6, h: 1 });  // Between door 2 and 3 (x=18..23)
-  // DOOR at x=24..25
-  walls.push({ x: 26, y: 41, w: 6, h: 1 });  // Right of door 3 (x=26..31)
-
-  return walls;
+    // --- 3 Polygon collision shapes (scanline decomposed at 16px, merged) ---
+    // Polygon 0: Upper bridge interior wall - 3 rects
+    { x: 296, y: 219, w: 464, h: 16 },
+    { x: 296, y: 235, w: 480, h: 16 },
+    { x: 488, y: 251, w: 80, h: 64 },
+    // Polygon 1: Top-left bow corner - 11 rects
+    { x: 40, y: 143, w: 32, h: 16 },
+    { x: 40, y: 159, w: 16, h: 32 },
+    { x: 40, y: 191, w: 32, h: 32 },
+    { x: 56, y: 127, w: 16, h: 16 },
+    { x: 72, y: 111, w: 16, h: 16 },
+    { x: 88, y: 95, w: 16, h: 16 },
+    { x: 104, y: 79, w: 32, h: 16 },
+    { x: 120, y: 63, w: 48, h: 16 },
+    { x: 152, y: 47, w: 48, h: 16 },
+    { x: 184, y: 31, w: 48, h: 16 },
+    { x: 216, y: 15, w: 16, h: 16 },
+    // Polygon 2: Top-right bow corner - 10 rects
+    { x: 821, y: 15, w: 16, h: 16 },
+    { x: 869, y: 31, w: 16, h: 16 },
+    { x: 885, y: 47, w: 32, h: 16 },
+    { x: 917, y: 63, w: 32, h: 16 },
+    { x: 933, y: 79, w: 32, h: 16 },
+    { x: 965, y: 95, w: 16, h: 16 },
+    { x: 981, y: 111, w: 16, h: 16 },
+    { x: 981, y: 127, w: 32, h: 16 },
+    { x: 997, y: 143, w: 32, h: 16 },
+    { x: 1013, y: 159, w: 16, h: 64 },
+  ];
 }
 
-// ===== Obstacle Definitions (furniture, machinery — from artwork) =====
-// These are passable-blocking objects visible in the image
-function generateObstacles() {
-  const obs = [];
-
-  // --- Section 1: Bridge ---
-  // Top instrument panel row (visible equipment along top wall)
-  obs.push({ x: 5, y: 2, w: 24, h: 2 });
-
-  // --- Section 2: Vault ---
-  // Central vault safe (large dark object at top-center of vault)
-  obs.push({ x: 14, y: 9, w: 5, h: 2 });
-  // Glass display cases (6 visible cyan-glowing cases)
-  obs.push({ x: 9, y: 12, w: 2, h: 2 });    // Case 1
-  obs.push({ x: 12, y: 12, w: 2, h: 2 });   // Case 2
-  obs.push({ x: 18, y: 12, w: 2, h: 2 });   // Case 3
-  obs.push({ x: 21, y: 12, w: 2, h: 2 });   // Case 4
-  obs.push({ x: 10, y: 15, w: 2, h: 2 });   // Case 5
-  obs.push({ x: 20, y: 15, w: 2, h: 2 });   // Case 6
-
-  // Security office furniture (left room)
-  obs.push({ x: 2, y: 10, w: 3, h: 2 });    // Monitor bank
-  obs.push({ x: 2, y: 15, w: 3, h: 2 });    // Equipment rack
-
-  // Captain's quarters furniture (right room)
-  obs.push({ x: 28, y: 10, w: 3, h: 2 });   // Desk
-  obs.push({ x: 28, y: 15, w: 3, h: 2 });   // Bed/cabinet
-
-  // --- Section 3: Operations level ---
-  // Crew quarters - bunks (left room)
-  obs.push({ x: 2, y: 21, w: 3, h: 2 });    // Bunk row 1
-  obs.push({ x: 2, y: 24, w: 3, h: 2 });    // Bunk row 2
-  obs.push({ x: 6, y: 21, w: 3, h: 2 });    // Lockers
-
-  // Operations room - central table + pillars
-  obs.push({ x: 15, y: 23, w: 3, h: 3 });   // Planning table
-  obs.push({ x: 13, y: 21, w: 1, h: 1 });   // Pillar
-  obs.push({ x: 20, y: 21, w: 1, h: 1 });   // Pillar
-  obs.push({ x: 13, y: 27, w: 1, h: 1 });   // Pillar
-  obs.push({ x: 20, y: 27, w: 1, h: 1 });   // Pillar
-
-  // Armory (right room)
-  obs.push({ x: 24, y: 21, w: 7, h: 1 });   // Weapon rack top
-  obs.push({ x: 24, y: 25, w: 3, h: 2 });   // Workbench
-  obs.push({ x: 29, y: 25, w: 2, h: 2 });   // Ammo crates
-
-  // --- Section 4: Cargo level ---
-  // Engine room (left room)
-  obs.push({ x: 2, y: 32, w: 4, h: 4 });    // Main engine
-  obs.push({ x: 2, y: 37, w: 3, h: 2 });    // Pipes
-
-  // Cargo hold (center room) - crate clusters
-  obs.push({ x: 13, y: 32, w: 2, h: 2 });   // Crates top-left
-  obs.push({ x: 19, y: 32, w: 2, h: 2 });   // Crates top-right
-  obs.push({ x: 13, y: 37, w: 2, h: 2 });   // Crates bottom-left
-  obs.push({ x: 19, y: 37, w: 2, h: 2 });   // Crates bottom-right
-  obs.push({ x: 16, y: 35, w: 1, h: 1 });   // Center crate
-
-  // Storage (right room)
-  obs.push({ x: 24, y: 32, w: 7, h: 1 });   // Shelving
-  obs.push({ x: 24, y: 36, w: 3, h: 2 });   // Locked crates
-  obs.push({ x: 29, y: 37, w: 2, h: 2 });   // Corner crates
-
-  // --- Section 5: Stern deck ---
-  // Winch mechanism (center)
-  obs.push({ x: 15, y: 42, w: 3, h: 2 });
-
-  return obs;
+// ===== Occlusion Zones =====
+// Items (relics, props) spawn ONLY within these zones.
+// Pixel coordinates directly from annotations JSON occlusion layer.
+function generateOcclusionZones() {
+  return [
+    { x: 198, y: 909, w: 81, h: 35 },    // Zone 0: Lower-left storage
+    { x: 377, y: 130, w: 43, h: 34 },    // Zone 1: Bridge left console
+    { x: 661, y: 135, w: 46, h: 35 },    // Zone 2: Bridge right console
+    { x: 917, y: 276, w: 58, h: 44 },    // Zone 3: Right upper room
+    { x: 892, y: 1030, w: 28, h: 38 },   // Zone 4: Right lower storage
+    { x: 860, y: 702, w: 23, h: 46 },    // Zone 5: Right mid corridor
+    { x: 221, y: 622, w: 32, h: 26 },    // Zone 6: Left mid area
+    { x: 753, y: 475, w: 38, h: 29 },    // Zone 7: Center-right vault
+    { x: 768, y: 1286, w: 37, h: 32 },   // Zone 8: Stern right area
+  ];
 }
 
-// ===== Doorway Definitions (passable openings in walls) =====
-function generateDoorways() {
-  const doorways = [];
-
-  // Section 1→2 doors (y=8, 3 openings)
-  doorways.push({ x: 8, y: 8, w: 2, h: 1, orientation: 'horizontal' });
-  doorways.push({ x: 16, y: 8, w: 2, h: 1, orientation: 'horizontal' });
-  doorways.push({ x: 24, y: 8, w: 2, h: 1, orientation: 'horizontal' });
-
-  // Section 2 vertical doors
-  doorways.push({ x: 7, y: 12, w: 1, h: 3, orientation: 'vertical' });   // Security → Vault
-  doorways.push({ x: 26, y: 12, w: 1, h: 3, orientation: 'vertical' });  // Vault → Captain
-
-  // Section 2→3 doors (y=19, 4 openings)
-  doorways.push({ x: 5, y: 19, w: 2, h: 1, orientation: 'horizontal' });
-  doorways.push({ x: 13, y: 19, w: 2, h: 1, orientation: 'horizontal' });
-  doorways.push({ x: 19, y: 19, w: 2, h: 1, orientation: 'horizontal' });
-  doorways.push({ x: 27, y: 19, w: 2, h: 1, orientation: 'horizontal' });
-
-  // Section 3 vertical doors
-  doorways.push({ x: 11, y: 23, w: 1, h: 3, orientation: 'vertical' });  // Crew → Ops
-  doorways.push({ x: 22, y: 23, w: 1, h: 3, orientation: 'vertical' });  // Ops → Armory
-
-  // Section 3→4 doors (y=30, 4 openings)
-  doorways.push({ x: 5, y: 30, w: 2, h: 1, orientation: 'horizontal' });
-  doorways.push({ x: 13, y: 30, w: 2, h: 1, orientation: 'horizontal' });
-  doorways.push({ x: 19, y: 30, w: 2, h: 1, orientation: 'horizontal' });
-  doorways.push({ x: 27, y: 30, w: 2, h: 1, orientation: 'horizontal' });
-
-  // Section 4 vertical doors
-  doorways.push({ x: 11, y: 34, w: 1, h: 3, orientation: 'vertical' });  // Engine → Cargo
-  doorways.push({ x: 22, y: 34, w: 1, h: 3, orientation: 'vertical' });  // Cargo → Storage
-
-  // Section 4→5 doors (y=41, 3 openings)
-  doorways.push({ x: 8, y: 41, w: 2, h: 1, orientation: 'horizontal' });
-  doorways.push({ x: 16, y: 41, w: 2, h: 1, orientation: 'horizontal' });
-  doorways.push({ x: 24, y: 41, w: 2, h: 1, orientation: 'horizontal' });
-
-  return doorways;
-}
-
-// ===== Placeable Positions (for items, enemies, loot) =====
+// ===== Placeable Positions =====
+// Items, enemies, and loot spawn at these positions (centers of occlusion zones)
 function generatePlaceable() {
   const points = [];
-  for (const [roomId, bounds] of Object.entries(ROOM_BOUNDS)) {
-    const margin = 2;
-    const step = 3;
-    for (let ty = bounds.y + margin; ty < bounds.y + bounds.h - margin; ty += step) {
-      for (let tx = bounds.x + margin; tx < bounds.x + bounds.w - margin; tx += step) {
-        points.push({ x: tx, y: ty, roomId });
+  const occZones = generateOcclusionZones();
+  // Image scale: annotations are in 1070×1470 image pixels,
+  // game world is MAP_W*TILE × MAP_H*TILE = 1088×1472
+  const sX = (MAP_W * TILE) / 1070;
+  const sY = (MAP_H * TILE) / 1470;
+
+  const zoneRoomIds = [
+    'lower_left_storage',
+    'bridge_left',
+    'bridge_right',
+    'right_upper_cabin',
+    'right_lower_storage',
+    'right_mid_corridor',
+    'left_mid_area',
+    'center_vault',
+    'stern_right',
+  ];
+
+  occZones.forEach((z, idx) => {
+    const roomId = zoneRoomIds[idx] || `zone_${idx}`;
+    // Convert pixel center (scaled) to tile coords for placeable
+    const cx = Math.floor(((z.x + z.w / 2) * sX) / TILE);
+    const cy = Math.floor(((z.y + z.h / 2) * sY) / TILE);
+    points.push({ x: cx, y: cy, roomId });
+
+    // Additional spawn points within zone
+    const startTX = Math.floor((z.x * sX) / TILE);
+    const startTY = Math.floor((z.y * sY) / TILE);
+    const endTX = Math.ceil(((z.x + z.w) * sX) / TILE);
+    const endTY = Math.ceil(((z.y + z.h) * sY) / TILE);
+    for (let ty = startTY; ty < endTY; ty++) {
+      for (let tx = startTX; tx < endTX; tx++) {
+        if (tx !== cx || ty !== cy) {
+          points.push({ x: tx, y: ty, roomId });
+        }
       }
     }
-  }
+  });
+
   return points;
+}
+
+// ===== Room Bounds (logical areas for gameplay) =====
+const ROOM_BOUNDS = {
+  bridge:         { x: 7, y: 0, w: 19, h: 7 },
+  left_upper:     { x: 0, y: 7, w: 9, h: 9 },
+  center_upper:   { x: 9, y: 7, w: 14, h: 9 },
+  right_upper:    { x: 23, y: 7, w: 10, h: 10 },
+  left_mid:       { x: 0, y: 16, w: 9, h: 11 },
+  center_mid:     { x: 9, y: 16, w: 14, h: 11 },
+  right_mid:      { x: 23, y: 16, w: 10, h: 11 },
+  left_lower:     { x: 0, y: 27, w: 9, h: 11 },
+  center_lower:   { x: 9, y: 27, w: 14, h: 11 },
+  right_lower:    { x: 23, y: 27, w: 10, h: 11 },
+  stern:          { x: 0, y: 38, w: 34, h: 8 },
+};
+
+// ===== Doorway Definitions =====
+function generateDoorways() {
+  return [
+    { x: 8, y: 10, w: 1, h: 2, orientation: 'vertical' },
+    { x: 22, y: 10, w: 1, h: 2, orientation: 'vertical' },
+    { x: 10, y: 16, w: 3, h: 1, orientation: 'horizontal' },
+    { x: 16, y: 16, w: 4, h: 1, orientation: 'horizontal' },
+    { x: 10, y: 27, w: 3, h: 1, orientation: 'horizontal' },
+    { x: 16, y: 27, w: 4, h: 1, orientation: 'horizontal' },
+  ];
 }
 
 // ===== Water Zones =====
 function generateWaterZones() {
   return [
-    { x: 5, y: 36, w: 4, h: 3 },   // Engine room leaks
-    { x: 15, y: 38, w: 3, h: 2 },   // Cargo hold bilge
+    { x: 2, y: 32, w: 4, h: 3 },
   ];
 }
 
 // ===== Porthole Positions =====
 function generatePortholes() {
   return [
-    { x: 1, y: 12 }, { x: 1, y: 16 },
-    { x: 1, y: 23 }, { x: 1, y: 27 },
-    { x: 1, y: 34 }, { x: 1, y: 38 },
-    { x: 32, y: 12 }, { x: 32, y: 16 },
-    { x: 32, y: 23 }, { x: 32, y: 27 },
-    { x: 32, y: 34 }, { x: 32, y: 38 },
+    { x: 0, y: 12 }, { x: 0, y: 20 },
+    { x: 0, y: 30 }, { x: 0, y: 35 },
+    { x: 33, y: 12 }, { x: 33, y: 20 },
+    { x: 33, y: 30 }, { x: 33, y: 35 },
   ];
 }
 
@@ -317,7 +258,8 @@ function generatePortholes() {
  */
 export function composeShipMap() {
   const walls = generateWalls();
-  const obstacles = generateObstacles();
+  const obstacles = [];
+  const occlusionZones = generateOcclusionZones();
   const placeable = generatePlaceable();
   const doorways = generateDoorways();
   const waterZones = generateWaterZones();
@@ -333,8 +275,8 @@ export function composeShipMap() {
     },
   ];
 
-  const spawn = { x: 17, y: 43 };   // Stern deck center
-  const exit = { x: 17, y: 44 };    // Bottom gangway
+  const spawn = { x: 17, y: 43 };
+  const exit = { x: 17, y: 44 };
 
   const roomBounds = {};
   for (const [id, bounds] of Object.entries(ROOM_BOUNDS)) {
@@ -355,12 +297,15 @@ export function composeShipMap() {
     tilesW: MAP_W,
     tilesH: MAP_H,
     tags: ['composed', 'ship'],
+    // Flag: walls use pixel coordinates, not tile coordinates
+    wallsInPixels: true,
     children,
     corridors,
     doorways,
     roomBounds,
     walls,
     obstacles,
+    occlusionZones,
     placeable,
     waterZones,
     portholes,

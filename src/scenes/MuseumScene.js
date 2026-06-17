@@ -411,14 +411,37 @@ export default class MuseumScene extends Phaser.Scene {
       //          这类装饰视觉很小，挡住走位会非常恼人
       this.walls = this.physics.add.staticGroup();
 
-      // —— 墙体：内缩 1 像素（消除外角卡顿） ——
-      const WALL_INSET = 1;
+      // —— 墙体：内缩使面积减小约15%（保持中心不变，各维度×0.92） ——
+      const WALL_SHRINK = Math.sqrt(0.85); // ~0.922, area reduction ~15%
+      const usePixelWalls = !!tpl.wallsInPixels;
+      // Image scale correction: annotations are in original image pixels (1070×1470),
+      // but the image is rendered at worldW×worldH (1088×1472).
+      const imgScaleX = usePixelWalls ? (worldW / 1070) : 1;
+      const imgScaleY = usePixelWalls ? (worldH / 1470) : 1;
+
       const addWall = (rx, ry, rw, rh) => {
-        const W = rw * TILE - WALL_INSET * 2;
-        const H = rh * TILE - WALL_INSET * 2;
+        let cx, cy, W, H;
+        if (usePixelWalls) {
+          // Pixel mode: rx,ry = top-left pixel in original image; rw,rh = pixel size
+          // Apply image scale to match rendered position
+          const sx = rx * imgScaleX;
+          const sy = ry * imgScaleY;
+          const sw = rw * imgScaleX;
+          const sh = rh * imgScaleY;
+          W = sw * WALL_SHRINK;
+          H = sh * WALL_SHRINK;
+          cx = sx + sw / 2;
+          cy = sy + sh / 2;
+        } else {
+          // Tile mode: rx,ry = tile coords; rw,rh = tile size
+          const fullW = rw * TILE;
+          const fullH = rh * TILE;
+          W = fullW * WALL_SHRINK;
+          H = fullH * WALL_SHRINK;
+          cx = rx * TILE + fullW / 2;
+          cy = ry * TILE + fullH / 2;
+        }
         if (W <= 0 || H <= 0) return;
-        const cx = rx * TILE + (rw * TILE) / 2;
-        const cy = ry * TILE + (rh * TILE) / 2;
         const rect = this.add.rectangle(cx, cy, W, H, 0xff0000, 0);
         this.physics.add.existing(rect, true);
         rect.body.updateFromGameObject();
@@ -427,17 +450,15 @@ export default class MuseumScene extends Phaser.Scene {
       };
       for (const r of (this._template.walls || [])) addWall(r.x, r.y, r.w || 1, r.h || 1);
 
-      // —— 障碍物：过滤小装饰 + 整体内缩 PAD ——
-      // 玩家 body 已经是 10×12 像素小盒，PAD=12 后墙厚仍剩 ~8 像素足以阻挡
-      const OBS_PAD = 12;
+      // —— 障碍物：过滤小装饰 + 面积缩小15%（保持中心不变） ——
       for (const r of (this._template.obstacles || [])) {
         const rw = r.w || 1;
         const rh = r.h || 1;
         // 过滤瘦小装饰：面积≤3 (1×1, 1×2, 2×1, 1×3, 3×1) 全跳过
         // 这些通常是立柱、单凳、香炉、小盆景，挡走位极不友好
         if (rw * rh <= 3) continue;
-        const w = Math.max(8, rw * TILE - OBS_PAD * 2);
-        const h = Math.max(8, rh * TILE - OBS_PAD * 2);
+        const w = Math.max(8, rw * TILE * WALL_SHRINK);
+        const h = Math.max(8, rh * TILE * WALL_SHRINK);
         const cx = r.x * TILE + (rw * TILE) / 2;
         const cy = r.y * TILE + (rh * TILE) / 2;
         const rect = this.add.rectangle(cx, cy, w, h, 0xff0000, 0);
@@ -478,11 +499,12 @@ export default class MuseumScene extends Phaser.Scene {
       const cx = s.x * TILE + TILE / 2;
       const cy = s.y * TILE + TILE / 2;
       // 展柜底座
-      const base = this.add.image(cx, cy, 'tex_case').setDepth(1);
+      const base = this.add.image(cx, cy, 'tex_case').setDepth(1).setScale(1.4);
       // 文物本体
       const r = this.relicGroup.create(cx, cy - 2, data.icon || 'tex_relic');
       r.setData('relic', data).setDepth(2);
-      r.body.setSize(12, 12);
+      r.setScale(1.4);  // ★ 文物图标增大 ★
+      r.body.setSize(16, 16);
       r.setData('basePos', { x: cx, y: cy - 2 });
       // 微微浮动呼吸
       this.tweens.add({
@@ -547,7 +569,7 @@ export default class MuseumScene extends Phaser.Scene {
     );
     this.player.setCollideWorldBounds(true);
     if (useHeroPlayer) {
-      this.player.body.setSize(18, 10).setOffset(23, 44);
+      this.player.body.setSize(24, 40).setOffset(20, 16);
     } else if (useLZPlayer) {
       // LimeZu 16×32 像素帧：脚部 body 居中
       this.player.body.setSize(10, 12).setOffset(3, 18);
@@ -631,17 +653,27 @@ export default class MuseumScene extends Phaser.Scene {
       H: Phaser.Input.Keyboard.KeyCodes.H,
       G: Phaser.Input.Keyboard.KeyCodes.G,
       V: Phaser.Input.Keyboard.KeyCodes.V,
+      F1: Phaser.Input.Keyboard.KeyCodes.F1,
       F2: Phaser.Input.Keyboard.KeyCodes.F2
     });
-    // 防止 Tab/Ctrl 默认行为（页面焦点切换 / 浏览器快捷键）
+    // 防止 Tab/Ctrl/F1/F2 默认行为（页面焦点切换 / 浏览器快捷键 / 帮助页面）
     this.input.keyboard.addCapture('TAB');
     this.input.keyboard.addCapture('CTRL');
-    this.input.keyboard.addCapture('F2');
+    this.input.keyboard.addCapture(Phaser.Input.Keyboard.KeyCodes.F1);
+    this.input.keyboard.addCapture(Phaser.Input.Keyboard.KeyCodes.F2);
     this.keys.TAB.on('down', () => this.toggleInventoryPanel());
     this.keys.H.on('down', () => this.useMedkit());
     this.keys.G.on('down', () => this.useSmokeBomb());
     this.keys.V.on('down', () => this.useQinggong());
-    this.keys.F2.on('down', () => this.toggleDebugColliders());
+    // F1/F2: toggle debug collision visualization
+    this.input.keyboard.on('keydown', (evt) => {
+      const code = evt.keyCode || evt.key;
+      if (code === Phaser.Input.Keyboard.KeyCodes.F1 || code === Phaser.Input.Keyboard.KeyCodes.F2 ||
+          code === 112 || code === 113) {
+        if (evt.preventDefault) evt.preventDefault();
+        this.toggleDebugColliders();
+      }
+    });
 
     // 鼠标左键 = 近战攻击（与 J 等价）；鼠标右键 = 远程攻击（装备远程武器时）
     this.input.on('pointerdown', (ptr) => {
@@ -771,7 +803,9 @@ export default class MuseumScene extends Phaser.Scene {
     const exit  = (tpl.special && tpl.special.exit)        || { x: Math.floor(W / 2), y: 1 };
 
     // 4) 文物刷新：从 placeable 列表中随机抽 N 个，加上保险箱（若有）
-    const relicCount = (this.biome && this.biome.relicCount) || 5;
+    // ★ 增加物资数量：relicCount 翻倍 ★
+    const baseRelicCount = (this.biome && this.biome.relicCount) || 5;
+    const relicCount = baseRelicCount * 2;
     const placeable = (tpl.placeable || []).slice();
     // 过滤掉与出生/撤离重叠的格子
     const occupied = new Set([k(spawn.x, spawn.y), k(exit.x, exit.y)]);
@@ -806,16 +840,16 @@ export default class MuseumScene extends Phaser.Scene {
       occupied.add(k(s.x, s.y));
     }
     for (const cell of placeable) {
-      if (containers.length >= 2 + (tpl.special && tpl.special.safe ? 1 : 0)) break;
+      if (containers.length >= 6 + (tpl.special && tpl.special.safe ? 1 : 0)) break;
       if (occupied.has(k(cell.x, cell.y))) continue;
-      // 30% 概率放普通木箱（含补给）
-      if (Math.random() < 0.3) {
+      // 50% 概率放普通木箱（含补给）— 增加物资密度
+      if (Math.random() < 0.5) {
         containers.push({ x: cell.x, y: cell.y, kind: 'plain', lootKind: 'medkit' });
         occupied.add(k(cell.x, cell.y));
       }
     }
 
-    // 6) 守卫巡逻路径：★ 按 roomId 分组，每个守卫只在自己的房间内巡逻，不会跑到走廊或别的房间 ★
+    // 6) 守卫巡逻路径
     const guardCount = (this.biome && this.biome.guardCount) || 2;
     const guardPaths = [];
     const guardBounds = []; // 与 guardPaths 同序，每条路径对应一个 room 矩形约束
@@ -834,8 +868,55 @@ export default class MuseumScene extends Phaser.Scene {
     const roomBoundsMap = (tpl.roomBounds) || {};
     const fallbackBounds = { x: 1, y: 1, w: W - 2, h: H - 2 };
 
-    if (buckets.size > 0) {
-      // 复合地图：每个有 placeable 的房间分配一个守卫（最多 guardCount 个）
+    const biomeId = this.biome && this.biome.id;
+
+    if (biomeId === 'ship' && buckets.size > 0) {
+      // ★ 走私船特殊模式：船员自由穿梭全船各区域 ★
+      // 每个船员的巡逻路径从不同区域随机抽取点，形成贯穿全船的长距离路线
+      const roomIds = Array.from(buckets.keys());
+      const allPoints = [];
+      for (const [, pts] of buckets) {
+        // Each room contributes its center point
+        const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+        const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+        allPoints.push({ x: Math.round(cx), y: Math.round(cy) });
+        // Also add individual points for variety
+        pts.forEach(p => allPoints.push({ x: p.x, y: p.y }));
+      }
+
+      for (let i = 0; i < guardCount; i++) {
+        // Build a path that visits 6-10 waypoints across different areas
+        const waypointCount = 6 + Math.floor(Math.random() * 5); // 6~10 waypoints
+        const path = [];
+        const usedIndices = new Set();
+
+        // Start from a different offset for each guard
+        const startOffset = Math.floor(i * allPoints.length / guardCount);
+
+        for (let w = 0; w < waypointCount; w++) {
+          // Pick points spread across the map, avoiding duplicates
+          let idx = (startOffset + Math.floor(w * allPoints.length / waypointCount)
+            + Math.floor(Math.random() * 3)) % allPoints.length;
+          // Find next unused index
+          let attempts = 0;
+          while (usedIndices.has(idx) && attempts < allPoints.length) {
+            idx = (idx + 1) % allPoints.length;
+            attempts++;
+          }
+          if (!usedIndices.has(idx)) {
+            usedIndices.add(idx);
+            path.push(allPoints[idx]);
+          }
+        }
+
+        if (path.length >= 2) {
+          guardPaths.push(path.map((p) => ({ x: p.x, y: p.y })));
+          // ★ No patrolBounds for ship crew — they roam freely ★
+          guardBounds.push(null);
+        }
+      }
+    } else if (buckets.size > 0) {
+      // 非走私船复合地图：每个有 placeable 的房间分配一个守卫（最多 guardCount 个）
       const roomIds = Array.from(buckets.keys());
       const pickCount = Math.min(guardCount, roomIds.length);
       for (let i = 0; i < pickCount; i++) {
@@ -890,6 +971,7 @@ export default class MuseumScene extends Phaser.Scene {
   //  调试模式：F2 切换碰撞箱可视化（红色半透明矩形 + 关键锚点）
   // ————————————————————————————————————————
   toggleDebugColliders() {
+    console.log('[DEBUG] toggleDebugColliders called, walls:', this.walls ? this.walls.getChildren().length : 'null');
     if (!this._dbgGfx) {
       this._dbgGfx = this.add.graphics().setDepth(200);
     }
@@ -932,7 +1014,7 @@ export default class MuseumScene extends Phaser.Scene {
     }
     // 提示
     this._dbgTexts = this._dbgTexts || [];
-    const tip = this.add.text(8, 8, 'DEBUG · F2 关闭 · 红:墙体  蓝点:巡逻  金点:文物  绿块:出生  青块:撤离',
+    const tip = this.add.text(8, 8, 'DEBUG · F1 关闭 · 红:墙体  蓝点:巡逻  金点:文物  绿块:出生  青块:撤离',
       { fontFamily: '"PingFang SC"', fontSize: '11px', color: '#ffeeaa', backgroundColor: '#000000aa', padding: { x: 4, y: 2 } })
       .setScrollFactor(0).setDepth(201);
     this._dbgTexts.push(tip);
@@ -968,6 +1050,15 @@ export default class MuseumScene extends Phaser.Scene {
       // 警觉拉满时通知附近同伴一起搜
       g.onAlarm = (caller, radius) => this.notifyNearbyGuards(caller, radius);
       this.guards.push(g);
+    }
+
+    // ★ 为所有守卫添加与墙壁的物理碰撞，防止穿墙 ★
+    if (this.walls) {
+      for (const g of this.guards) {
+        if (g.sprite && g.sprite.body) {
+          this.physics.add.collider(g.sprite, this.walls);
+        }
+      }
     }
 
     // —— 初始化安保摄像头 ——
@@ -1498,16 +1589,23 @@ export default class MuseumScene extends Phaser.Scene {
   }
 
   spawnWall(tx, ty, key = 'tex_wall') {
+    const WALL_SHRINK = Math.sqrt(0.85); // ~0.922, area reduction ~15%
     const w = this.walls.create(tx * TILE, ty * TILE, key).setOrigin(0, 0);
     w.refreshBody();
     // —— 区分外圈墙 / 内部墙的碰撞盒 ——
-    // 外圈墙（地图边界）保持完整 32x32 阻挡，防止玩家越界
-    // 内部墙体（房间分隔、装饰短墙等）缩小碰撞盒到中心 16x16，玩家可贴边擦过
-    // —— 中央水平大走廊那一整行内部墙也被识别为"内墙"，走廊穿行更顺滑
+    // 外圈墙（地图边界）保持完整阻挡（缩小15%），防止玩家越界
+    // 内部墙体（房间分隔、装饰短墙等）缩小碰撞盒，玩家可贴边擦过
     const isOuter = tx === 0 || ty === 0 || tx === MAP_W - 1 || ty === MAP_H - 1;
-    if (!isOuter) {
-      w.body.setSize(16, 16);
-      w.body.setOffset(8, 8);
+    if (isOuter) {
+      const sz = Math.round(TILE * WALL_SHRINK);
+      const off = Math.round((TILE - sz) / 2);
+      w.body.setSize(sz, sz);
+      w.body.setOffset(off, off);
+    } else {
+      const sz = Math.round(16 * WALL_SHRINK);
+      const off = Math.round((TILE - sz) / 2);
+      w.body.setSize(sz, sz);
+      w.body.setOffset(off, off);
     }
     w.setDepth(3);
     return w;
@@ -2600,9 +2698,9 @@ export default class MuseumScene extends Phaser.Scene {
       trap:   { fill: 0x3a1414, edge: 0xff8c42, glyph: '⚠' }
     };
     const col = colors[cd.kind] || colors.plain;
-    const box = this.add.rectangle(cx, cy, 24, 22, col.fill, 1).setDepth(2);
+    const box = this.add.rectangle(cx, cy, 30, 28, col.fill, 1).setDepth(2);
     box.setStrokeStyle(2, col.edge, 0.9);
-    const glyph = this.add.text(cx, cy - 1, col.glyph, { fontSize: '16px' }).setOrigin(0.5).setDepth(3);
+    const glyph = this.add.text(cx, cy - 1, col.glyph, { fontSize: '20px' }).setOrigin(0.5).setDepth(3);
     // 物理碰撞（与玩家的碰撞统一在玩家创建后挂到 containerGroup）
     const phys = this.physics.add.staticImage(cx, cy, 'tex_case').setDepth(2).setVisible(false);
     phys.body.setSize(20, 20);
