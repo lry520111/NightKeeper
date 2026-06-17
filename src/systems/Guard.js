@@ -22,7 +22,7 @@ const COLOR_YELLOW = 0xf2c14e;
 const COLOR_RED = 0xe54b4b;
 
 // ——— 战斗参数 ———
-const GUARD_MAX_HP = 3;          // 普通近战需 3 刀（从 2 提到 3）
+const GUARD_MAX_HP = 5;          // 普通近战需 5 刀（增强守卫耐久）
 const GUARD_STAGGER_MS = 320;    // 被打中硬直 — 略缩短，避免无限连
 const ATTACK_RANGE = 28;         // 守卫攻击距离
 const ATTACK_WINDUP_MS = 560;    // 蓄力时间 — 出招更快

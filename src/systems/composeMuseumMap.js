@@ -1,86 +1,168 @@
 // composeMuseumMap.js
 // ——————————————————————————————————————————————————
-// 关卡组装器：把多个房间模板紧致拼接成"垂直长条"复合地图
+// Cross-shaped museum map composer
 //
-// ★ 紧致化目标 ★：
-//   - 整张地图宽度 = 单房间宽度（20 瓦片），完全消除左右黑边
-//   - 房间之间用 8 格宽 × 6 格高 的"束腰走廊"连接（居中对齐房间门洞）
-//   - 地图最外圈封一道连续墙体 → 玩家任何情况下都无法越界（终极保险）
+// Layout (tile coordinates, 1 tile = 32px):
 //
-// —————————— 布局 ——————————
+//                        ┌──────────┐
+//                        │ room_06  │  Storage (target room, dead-end)
+//                        │  20×20   │
+//                        └────┬─────┘
+//                             │ corridor_N
+//   ┌───────────┐  ┌─────────┴──────────┐  ┌───────────┐
+//   │  room_07  ├──┤      room_03       ├──┤  room_08  │
+//   │  20×20    │  │   Compass Hall     │  │  25×18    │
+//   │ Study     │  │      20×20         │  │ Ritual    │
+//   └───────────┘  └─────────┬──────────┘  └───────────┘
+//                            │ corridor_S
+//   ┌───────────┐  ┌────────┴───────────┐  ┌───────────┐
+//   │  room_04  ├──┤      room_01       ├──┤  room_02  │
+//   │  25×18    │  │   Central Hall     │  │  25×18    │
+//   │ Parlor    │  │      20×20         │  │ Gallery   │
+//   └───────────┘  └────────┬───────────┘  └───────────┘
+//                           │ corridor_exit
+//                      ┌────┴────┐
+//                      │  EXIT   │
+//                      └─────────┘
 //
-//   X = 0~19（20 列）                                 Y
-//   ┌────────────────────┐                           0
-//   │     room_06        │   储藏间（最深处）
-//   │     20 × 20        │
-//   ├────────────────────┤                           20
-//   │  ▓▓▓▓ C2 ▓▓▓▓     │   走廊 8×6（X=6~13，中线 9~10 对齐房间 9~10 门洞）
-//   ├────────────────────┤                           26
-//   │     room_03        │   罗盘大厅（中转）
-//   │     20 × 20        │
-//   ├────────────────────┤                           46
-//   │  ▓▓▓▓ C1 ▓▓▓▓     │
-//   ├────────────────────┤                           52
-//   │     room_01        │   中央展柜（玩家出生）
-//   │     20 × 20        │
-//   ├────────────────────┤                           72
-//   │  ▓▓▓▓ C0 ▓▓▓▓     │   走廊尽头 = 撤离点
-//   └────────────────────┘                           78
+// Grid layout (in tiles):
+//   - Center column: X = 25 (room_07 width) + 6 (corridor) = 31 offset
+//   - Actually let's use a coordinate system:
 //
-//   总尺寸：20 × 78（640 × 2496 像素）— 高度跨度 ~3.5 屏，提供路径感
+//   Row 0 (top):     room_06 at center
+//   Row 1 (middle):  room_07 | corridor_W | room_03 | corridor_E | room_08
+//   Row 2 (bottom):  room_04 | corridor_W | room_01 | corridor_E | room_02
+//   Row 3 (exit):    exit corridor below room_01
+//
 // ——————————————————————————————————————————————————
 
 import { getRoomTemplate } from '../data/roomTemplates.js';
 
-// 房间放置（紧致：x=0 紧贴左边）
+// ===== Layout Constants =====
+// All rooms are placed on a grid. The center hub rooms (room_01, room_03) are 20×20.
+// Side rooms are 20×20 (room_07) or effectively treated as 20×18 (room_02, room_04, room_08 cropped to fit).
+// For simplicity, we standardize side rooms to 20 tiles wide (scale the 25-wide rooms down to 20).
+
+const ROOM_SIZE = 20;        // Standard room size (tiles)
+const CORRIDOR_W = 6;        // Corridor width (tiles)
+const CORRIDOR_H = 6;        // Corridor height (tiles)
+
+// Horizontal layout:
+// [side_room_left] [corridor_W] [center_room] [corridor_E] [side_room_right]
+// 20 + 6 + 20 + 6 + 20 = 72 tiles wide
+
+// Vertical layout:
+// [room_06] [corridor_N] [room_03_row] [corridor_S] [room_01_row] [corridor_exit]
+// 20 + 6 + 20 + 6 + 20 + 6 = 78 tiles tall (but room_06 is only in center column)
+
+// Origin coordinates for each room (top-left corner in tile coords)
+const LEFT_X = 0;
+const CENTER_X = 26;  // 20 (left room) + 6 (corridor) = 26
+const RIGHT_X = 52;   // 26 + 20 (center) + 6 (corridor) = 52
+
+const ROW_TOP_Y = 0;       // room_06 (only center column)
+const ROW_MID_Y = 26;      // room_07, room_03, room_08 (20 + 6 corridor = 26)
+const ROW_BOT_Y = 52;      // room_04, room_01, room_02 (26 + 20 + 6 = 52)
+const ROW_EXIT_Y = 72;     // exit corridor (52 + 20 = 72)
+
+// Room placements
 const PLACEMENTS = [
-  { id: 'room_06', origin: { x: 0, y: 0  } },  // 储藏间
-  { id: 'room_03', origin: { x: 0, y: 26 } },  // 罗盘大厅
-  { id: 'room_01', origin: { x: 0, y: 52 } }   // 中央展柜
+  // Top (dead-end target)
+  { id: 'room_06', origin: { x: CENTER_X, y: ROW_TOP_Y } },
+
+  // Middle row
+  { id: 'room_07', origin: { x: LEFT_X,   y: ROW_MID_Y } },   // Study (left)
+  { id: 'room_03', origin: { x: CENTER_X, y: ROW_MID_Y } },   // Compass Hall (center)
+  { id: 'room_08', origin: { x: RIGHT_X,  y: ROW_MID_Y } },   // Ritual Gallery (right)
+
+  // Bottom row
+  { id: 'room_04', origin: { x: LEFT_X,   y: ROW_BOT_Y } },   // Parlor (left)
+  { id: 'room_01', origin: { x: CENTER_X, y: ROW_BOT_Y } },   // Central Hall (center, spawn)
+  { id: 'room_02', origin: { x: RIGHT_X,  y: ROW_BOT_Y } },   // Long Gallery (right)
 ];
 
-// 走廊定义：6 格宽（X=7~12，中线 9~10 对齐房间门洞 tile 9~10）
-//   注：x=7,w=6 → 占 X=7,8,9,10,11,12，对齐感最好
-const CORRIDOR_X = 7;
-const CORRIDOR_W = 6;
+// Corridor definitions connecting rooms
+// Each corridor: { id, rect: {x,y,w,h}, walls: [...] }
+const CORRIDOR_TILE = 9; // Door position on 20-wide rooms (tile 9~10)
 
 const CORRIDORS = [
-  // C2: room_06 南门 ↔ room_03 北门（Y=20~25, 高 6）
+  // === Vertical corridors (center column) ===
+  // C_N: room_06 (south door) ↔ room_03 (north door)
   {
     id: 'c_06_03',
-    rect:  { x: CORRIDOR_X, y: 20, w: CORRIDOR_W, h: 6 },
+    rect: { x: CENTER_X + 7, y: ROW_TOP_Y + ROOM_SIZE, w: CORRIDOR_W, h: CORRIDOR_H },
     walls: [
-      { x: CORRIDOR_X - 1,        y: 20, w: 1, h: 6 }, // 西墙
-      { x: CORRIDOR_X + CORRIDOR_W, y: 20, w: 1, h: 6 } // 东墙
+      { x: CENTER_X + 7 - 1, y: ROW_TOP_Y + ROOM_SIZE, w: 1, h: CORRIDOR_H },
+      { x: CENTER_X + 7 + CORRIDOR_W, y: ROW_TOP_Y + ROOM_SIZE, w: 1, h: CORRIDOR_H },
     ]
   },
-  // C1: room_03 南门 ↔ room_01 北门（Y=46~51）
+  // C_S: room_03 (south door) ↔ room_01 (north door)
   {
     id: 'c_03_01',
-    rect:  { x: CORRIDOR_X, y: 46, w: CORRIDOR_W, h: 6 },
+    rect: { x: CENTER_X + 7, y: ROW_MID_Y + ROOM_SIZE, w: CORRIDOR_W, h: CORRIDOR_H },
     walls: [
-      { x: CORRIDOR_X - 1,        y: 46, w: 1, h: 6 },
-      { x: CORRIDOR_X + CORRIDOR_W, y: 46, w: 1, h: 6 }
+      { x: CENTER_X + 7 - 1, y: ROW_MID_Y + ROOM_SIZE, w: 1, h: CORRIDOR_H },
+      { x: CENTER_X + 7 + CORRIDOR_W, y: ROW_MID_Y + ROOM_SIZE, w: 1, h: CORRIDOR_H },
     ]
   },
-  // C0: room_01 南门 → 撤离点（Y=72~77，南端封死）
+  // C_EXIT: room_01 (south door) → exit
   {
     id: 'c_01_exit',
-    rect:  { x: CORRIDOR_X, y: 72, w: CORRIDOR_W, h: 6 },
+    rect: { x: CENTER_X + 7, y: ROW_BOT_Y + ROOM_SIZE, w: CORRIDOR_W, h: CORRIDOR_H },
     walls: [
-      { x: CORRIDOR_X - 1,        y: 72, w: 1, h: 6 },
-      { x: CORRIDOR_X + CORRIDOR_W, y: 72, w: 1, h: 6 },
-      { x: CORRIDOR_X,            y: 77, w: CORRIDOR_W, h: 1 } // 南端封板
+      { x: CENTER_X + 7 - 1, y: ROW_BOT_Y + ROOM_SIZE, w: 1, h: CORRIDOR_H },
+      { x: CENTER_X + 7 + CORRIDOR_W, y: ROW_BOT_Y + ROOM_SIZE, w: 1, h: CORRIDOR_H },
+      { x: CENTER_X + 7, y: ROW_BOT_Y + ROOM_SIZE + CORRIDOR_H - 1, w: CORRIDOR_W, h: 1 }, // south wall (dead end = exit)
     ]
-  }
+  },
+
+  // === Horizontal corridors (middle row) ===
+  // C_MW: room_07 (east door) ↔ room_03 (west door)
+  {
+    id: 'c_07_03',
+    rect: { x: LEFT_X + ROOM_SIZE, y: ROW_MID_Y + 7, w: CORRIDOR_W, h: CORRIDOR_W },
+    walls: [
+      { x: LEFT_X + ROOM_SIZE, y: ROW_MID_Y + 7 - 1, w: CORRIDOR_W, h: 1 },
+      { x: LEFT_X + ROOM_SIZE, y: ROW_MID_Y + 7 + CORRIDOR_W, w: CORRIDOR_W, h: 1 },
+    ]
+  },
+  // C_ME: room_03 (east door) ↔ room_08 (west door)
+  {
+    id: 'c_03_08',
+    rect: { x: CENTER_X + ROOM_SIZE, y: ROW_MID_Y + 7, w: CORRIDOR_W, h: CORRIDOR_W },
+    walls: [
+      { x: CENTER_X + ROOM_SIZE, y: ROW_MID_Y + 7 - 1, w: CORRIDOR_W, h: 1 },
+      { x: CENTER_X + ROOM_SIZE, y: ROW_MID_Y + 7 + CORRIDOR_W, w: CORRIDOR_W, h: 1 },
+    ]
+  },
+
+  // === Horizontal corridors (bottom row) ===
+  // C_BW: room_04 (east door) ↔ room_01 (west door)
+  {
+    id: 'c_04_01',
+    rect: { x: LEFT_X + ROOM_SIZE, y: ROW_BOT_Y + 7, w: CORRIDOR_W, h: CORRIDOR_W },
+    walls: [
+      { x: LEFT_X + ROOM_SIZE, y: ROW_BOT_Y + 7 - 1, w: CORRIDOR_W, h: 1 },
+      { x: LEFT_X + ROOM_SIZE, y: ROW_BOT_Y + 7 + CORRIDOR_W, w: CORRIDOR_W, h: 1 },
+    ]
+  },
+  // C_BE: room_01 (east door) ↔ room_02 (west door)
+  {
+    id: 'c_01_02',
+    rect: { x: CENTER_X + ROOM_SIZE, y: ROW_BOT_Y + 7, w: CORRIDOR_W, h: CORRIDOR_W },
+    walls: [
+      { x: CENTER_X + ROOM_SIZE, y: ROW_BOT_Y + 7 - 1, w: CORRIDOR_W, h: 1 },
+      { x: CENTER_X + ROOM_SIZE, y: ROW_BOT_Y + 7 + CORRIDOR_W, w: CORRIDOR_W, h: 1 },
+    ]
+  },
 ];
 
-// 复合地图整体尺寸
-const MAP_W = 20;
-const MAP_H = 78;
+// Map total size
+const MAP_W = 72;  // 20 + 6 + 20 + 6 + 20
+const MAP_H = 78;  // 20 + 6 + 20 + 6 + 20 + 6
 
 /**
- * 把房间模板的局部坐标平移到世界坐标
+ * Offset a list of rects/points by origin
  */
 function offsetList(list, origin) {
   if (!list) return [];
@@ -93,22 +175,73 @@ function offsetList(list, origin) {
 }
 
 /**
- * 添加地图最外圈"边界封死墙"——四面厚墙，玩家无论如何都越不出去（终极保险）
- *
- * @param {Array} walls  墙体收集数组
- * @param {number} W     地图宽（瓦片）
- * @param {number} H     地图高（瓦片）
+ * Add outer border walls (ultimate boundary)
  */
 function addOuterBorder(walls, W, H) {
-  const T = 1; // 厚度 1 格（够大约 32 像素，玩家 body 10 像素无法穿过）
-  walls.push({ x: 0,          y: 0,         w: W, h: T });          // 上边
-  walls.push({ x: 0,          y: H - T,     w: W, h: T });          // 下边
-  walls.push({ x: 0,          y: 0,         w: T, h: H });          // 左边
-  walls.push({ x: W - T,      y: 0,         w: T, h: H });          // 右边
+  const T = 1;
+  walls.push({ x: 0, y: 0, w: W, h: T });         // top
+  walls.push({ x: 0, y: H - T, w: W, h: T });     // bottom
+  walls.push({ x: 0, y: 0, w: T, h: H });         // left
+  walls.push({ x: W - T, y: 0, w: T, h: H });     // right
 }
 
 /**
- * 主入口：组装紧致化复合博物馆地图
+ * Fill dead zones (areas between rooms that are not corridors)
+ * These are solid walls preventing players from walking outside rooms/corridors
+ */
+function fillDeadZones(walls) {
+  // Top row: only center column has room_06, left and right are dead zones
+  // Left dead zone: X=0~25, Y=0~25
+  walls.push({ x: 0, y: ROW_TOP_Y, w: CENTER_X, h: ROOM_SIZE + CORRIDOR_H });
+  // Right dead zone: X=46~71, Y=0~25
+  walls.push({ x: CENTER_X + ROOM_SIZE, y: ROW_TOP_Y, w: MAP_W - (CENTER_X + ROOM_SIZE), h: ROOM_SIZE + CORRIDOR_H });
+
+  // Vertical corridor dead zones (areas beside vertical corridors in center column)
+  // Between room_06 and room_03 (Y=20~25): left of corridor and right of corridor within center column
+  const vcY1 = ROW_TOP_Y + ROOM_SIZE;
+  walls.push({ x: CENTER_X, y: vcY1, w: 7, h: CORRIDOR_H }); // left of corridor within center
+  walls.push({ x: CENTER_X + 7 + CORRIDOR_W, y: vcY1, w: ROOM_SIZE - 7 - CORRIDOR_W, h: CORRIDOR_H }); // right
+
+  // Between room_03 and room_01 (Y=46~51)
+  const vcY2 = ROW_MID_Y + ROOM_SIZE;
+  walls.push({ x: CENTER_X, y: vcY2, w: 7, h: CORRIDOR_H });
+  walls.push({ x: CENTER_X + 7 + CORRIDOR_W, y: vcY2, w: ROOM_SIZE - 7 - CORRIDOR_W, h: CORRIDOR_H });
+
+  // Exit corridor dead zones (Y=72~77)
+  const vcY3 = ROW_BOT_Y + ROOM_SIZE;
+  walls.push({ x: CENTER_X, y: vcY3, w: 7, h: CORRIDOR_H });
+  walls.push({ x: CENTER_X + 7 + CORRIDOR_W, y: vcY3, w: ROOM_SIZE - 7 - CORRIDOR_W, h: CORRIDOR_H });
+
+  // Horizontal corridor dead zones (middle row Y=26~45)
+  // Between left room and corridor_W: areas above/below the horizontal corridor
+  const hcMidY = ROW_MID_Y + 7;
+  // Left corridor area (X=20~25, Y=26~45): above corridor
+  walls.push({ x: LEFT_X + ROOM_SIZE, y: ROW_MID_Y, w: CORRIDOR_W, h: 7 - 1 });
+  // Left corridor area: below corridor
+  walls.push({ x: LEFT_X + ROOM_SIZE, y: hcMidY + CORRIDOR_W + 1, w: CORRIDOR_W, h: ROOM_SIZE - 7 - CORRIDOR_W - 1 });
+  // Right corridor area (X=46~51, Y=26~45): above corridor
+  walls.push({ x: CENTER_X + ROOM_SIZE, y: ROW_MID_Y, w: CORRIDOR_W, h: 7 - 1 });
+  // Right corridor area: below corridor
+  walls.push({ x: CENTER_X + ROOM_SIZE, y: hcMidY + CORRIDOR_W + 1, w: CORRIDOR_W, h: ROOM_SIZE - 7 - CORRIDOR_W - 1 });
+
+  // Horizontal corridor dead zones (bottom row Y=52~71)
+  const hcBotY = ROW_BOT_Y + 7;
+  // Left corridor area (X=20~25, Y=52~71): above corridor
+  walls.push({ x: LEFT_X + ROOM_SIZE, y: ROW_BOT_Y, w: CORRIDOR_W, h: 7 - 1 });
+  // Left corridor area: below corridor
+  walls.push({ x: LEFT_X + ROOM_SIZE, y: hcBotY + CORRIDOR_W + 1, w: CORRIDOR_W, h: ROOM_SIZE - 7 - CORRIDOR_W - 1 });
+  // Right corridor area (X=46~51, Y=52~71): above corridor
+  walls.push({ x: CENTER_X + ROOM_SIZE, y: ROW_BOT_Y, w: CORRIDOR_W, h: 7 - 1 });
+  // Right corridor area: below corridor
+  walls.push({ x: CENTER_X + ROOM_SIZE, y: hcBotY + CORRIDOR_W + 1, w: CORRIDOR_W, h: ROOM_SIZE - 7 - CORRIDOR_W - 1 });
+
+  // Exit corridor: left and right dead zones at bottom
+  walls.push({ x: 0, y: ROW_BOT_Y + ROOM_SIZE, w: CENTER_X, h: CORRIDOR_H });
+  walls.push({ x: CENTER_X + ROOM_SIZE, y: ROW_BOT_Y + ROOM_SIZE, w: MAP_W - (CENTER_X + ROOM_SIZE), h: CORRIDOR_H });
+}
+
+/**
+ * Main entry: compose cross-shaped museum map
  */
 export function composeMuseumMap() {
   const walls = [];
@@ -117,69 +250,82 @@ export function composeMuseumMap() {
   const children = [];
   let safe = null;
 
-  // —— 0) 最外圈封死墙（终极保险）——
+  // 0) Outer border
   addOuterBorder(walls, MAP_W, MAP_H);
 
-  // —— 1) 处理每个房间贴图 ——
+  // 1) Place each room
   for (const p of PLACEMENTS) {
     const tpl = getRoomTemplate(p.id);
     if (!tpl) continue;
+
+    // For rooms wider than 20 (room_02, room_04, room_08 are 25×18),
+    // we scale them to fit 20×20 slot. The image will be stretched.
+    const fitW = ROOM_SIZE;
+    const fitH = ROOM_SIZE;
+
     children.push({
       id: tpl.id,
       origin: p.origin,
-      tilesW: tpl.tilesW,
-      tilesH: tpl.tilesH
+      tilesW: fitW,
+      tilesH: fitH,
+      srcTilesW: tpl.tilesW,
+      srcTilesH: tpl.tilesH,
     });
-    walls.push(...offsetList(tpl.walls, p.origin));
-    obstacles.push(...offsetList(tpl.obstacles, p.origin));
-    // ★ 给 placeable 点加 roomId 标签，用于守卫巡逻分组（每个守卫只在自己房间内活动）
-    const roomPlaceable = offsetList(tpl.placeable, p.origin).map((pt) => ({
-      ...pt,
-      roomId: p.id
+
+    // Scale walls/obstacles from source room size to fit size
+    const scaleX = fitW / tpl.tilesW;
+    const scaleY = fitH / tpl.tilesH;
+
+    const scaledWalls = (tpl.walls || []).map(r => ({
+      x: Math.round(r.x * scaleX) + p.origin.x,
+      y: Math.round(r.y * scaleY) + p.origin.y,
+      w: Math.max(1, Math.round((r.w || 1) * scaleX)),
+      h: Math.max(1, Math.round((r.h || 1) * scaleY)),
     }));
-    placeable.push(...roomPlaceable);
+    walls.push(...scaledWalls);
+
+    const scaledObstacles = (tpl.obstacles || []).map(r => ({
+      x: Math.round(r.x * scaleX) + p.origin.x,
+      y: Math.round(r.y * scaleY) + p.origin.y,
+      w: Math.max(1, Math.round((r.w || 1) * scaleX)),
+      h: Math.max(1, Math.round((r.h || 1) * scaleY)),
+    }));
+    obstacles.push(...scaledObstacles);
+
+    const scaledPlaceable = (tpl.placeable || []).map(pt => ({
+      x: Math.round(pt.x * scaleX) + p.origin.x,
+      y: Math.round(pt.y * scaleY) + p.origin.y,
+      roomId: p.id,
+    }));
+    placeable.push(...scaledPlaceable);
+
     if (tpl.special && tpl.special.safe) {
-      safe = { x: tpl.special.safe.x + p.origin.x, y: tpl.special.safe.y + p.origin.y };
+      safe = {
+        x: Math.round(tpl.special.safe.x * scaleX) + p.origin.x,
+        y: Math.round(tpl.special.safe.y * scaleY) + p.origin.y,
+      };
     }
   }
 
-  // —— 2) 走廊：添加两侧墙体 + 候选格 + 房间外区域填墙 ——
+  // 2) Corridors: add walls + patrol points
   for (const c of CORRIDORS) {
     walls.push(...c.walls);
     const r = c.rect;
-    // 走廊范围两侧（X=0 ~ CORRIDOR_X-1 和 X=CORRIDOR_X+CORRIDOR_W+1 ~ MAP_W-1）
-    // 这两片在视觉上是地图外的"无房间"区域，补成实心墙挡住
-    // 走廊横向范围：CORRIDOR_X-1 (墙) ~ CORRIDOR_X+CORRIDOR_W (墙)
-    // 即 X=6 (墙) 和 X=13 (墙)，所以 X=0~5 和 X=14~19 是需要填实的死区
-    const yStart = r.y;
-    const yEnd = r.y + r.h;
-    // 左死区
-    if (CORRIDOR_X - 1 > 0) {
-      walls.push({ x: 0, y: yStart, w: CORRIDOR_X - 1, h: r.h });
-    }
-    // 右死区
-    const rightStart = CORRIDOR_X + CORRIDOR_W + 1; // = 14
-    if (rightStart < MAP_W) {
-      walls.push({ x: rightStart, y: yStart, w: MAP_W - rightStart, h: r.h });
-    }
-    // 走廊中线巡逻点（仅作为放置候选，不参与守卫巡逻 → roomId='__corridor__'）
+    // Patrol points in corridor center
     const midX = Math.floor(r.x + r.w / 2);
-    for (let yy = r.y + 1; yy < r.y + r.h - 1; yy += 2) {
-      placeable.push({ x: midX, y: yy, roomId: '__corridor__' });
-    }
+    const midY = Math.floor(r.y + r.h / 2);
+    placeable.push({ x: midX, y: midY, roomId: '__corridor__' });
   }
 
-  // —— 3) 玩家出生 / 撤离锚点 ——
-  const room01 = PLACEMENTS.find((p) => p.id === 'room_01');
-  const spawn = room01
-    ? { x: 10 + room01.origin.x, y: 17 + room01.origin.y }
-    : { x: 10, y: 65 };
+  // 3) Fill dead zones (solid walls in areas with no rooms/corridors)
+  fillDeadZones(walls);
 
-  // 撤离点设在 C0 走廊尽头（X=10, Y=76）
-  const exit = { x: 10, y: 76 };
+  // 4) Player spawn (center of room_01) and exit
+  const room01Origin = PLACEMENTS.find(p => p.id === 'room_01').origin;
+  const spawn = { x: room01Origin.x + 10, y: room01Origin.y + 17 };
+  const exit = { x: CENTER_X + 10, y: ROW_EXIT_Y + CORRIDOR_H - 2 };
 
-  // ★ 房间区域信息（供守卫巡逻硬约束使用）——每个房间是一个金牌区：
-  // 守卫只能在自己房间的矩形范围内移动，走出则被拉回。内缩 1 格避开墙到身体反弹卡额
+  // 5) Room bounds for guard patrol constraints
   const roomBounds = {};
   for (const p of PLACEMENTS) {
     const tpl = getRoomTemplate(p.id);
@@ -187,19 +333,39 @@ export function composeMuseumMap() {
     roomBounds[p.id] = {
       x: p.origin.x + 1,
       y: p.origin.y + 1,
-      w: tpl.tilesW - 2,
-      h: tpl.tilesH - 2
+      w: ROOM_SIZE - 2,
+      h: ROOM_SIZE - 2,
     };
+  }
+
+  // 6) Compute doorway positions for visual decoration (archways / door frames)
+  // Each doorway: { x, y, w, h, orientation: 'horizontal'|'vertical' }
+  // horizontal = door spans left-right (on N/S wall), vertical = door spans top-bottom (on W/E wall)
+  const doorways = [];
+  // Horizontal corridors connect left-right rooms (their doorways are vertical arches)
+  const horizontalCorridorIds = new Set(['c_07_03', 'c_03_08', 'c_04_01', 'c_01_02']);
+  for (const c of CORRIDORS) {
+    const r = c.rect;
+    if (horizontalCorridorIds.has(c.id)) {
+      // Horizontal corridor → vertical doorways at left and right ends (3 tiles wide for visibility)
+      doorways.push({ x: r.x - 1, y: r.y, w: 3, h: r.h, orientation: 'vertical' });
+      doorways.push({ x: r.x + r.w - 2, y: r.y, w: 3, h: r.h, orientation: 'vertical' });
+    } else {
+      // Vertical corridor → horizontal doorways at top and bottom ends (3 tiles tall)
+      doorways.push({ x: r.x, y: r.y - 1, w: r.w, h: 3, orientation: 'horizontal' });
+      doorways.push({ x: r.x, y: r.y + r.h - 2, w: r.w, h: 3, orientation: 'horizontal' });
+    }
   }
 
   return {
     id: 'composed_museum',
-    name: '夜行者复合博物馆',
+    name: 'NightKeeper Cross Museum',
     tilesW: MAP_W,
     tilesH: MAP_H,
     tags: ['composed', 'museum'],
     children,
-    corridors: CORRIDORS.map((c) => ({ ...c.rect })),
+    corridors: CORRIDORS.map(c => ({ ...c.rect, id: c.id })),
+    doorways,
     roomBounds,
     walls,
     obstacles,
@@ -207,8 +373,8 @@ export function composeMuseumMap() {
     special: {
       playerSpawn: spawn,
       exit,
-      ...(safe ? { safe } : {})
-    }
+      ...(safe ? { safe } : {}),
+    },
   };
 }
 

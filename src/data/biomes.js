@@ -24,7 +24,7 @@ export const BIOMES = {
     wallTopKey: 'tex_wall_top',
     darkness: 0x05060a,
     lampTint: 0xffd27a,
-    guardCount: 5,
+    guardCount: 8,
     relicCount: 7,
     guardStyle: 'museum'    // 经典守卫：青灰长褂 + 红缨
   },

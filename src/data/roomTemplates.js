@@ -46,25 +46,25 @@ const TEMPLATES = {
     tilesH: 20,
     tags: ['hub', 'gallery'],
     doors: [
-      { side: 'N', tile: 9, width: 2 },
-      { side: 'S', tile: 9, width: 2 },
-      { side: 'W', tile: 9, width: 2 },
-      { side: 'E', tile: 9, width: 2 }
+      { side: 'N', tile: 7, width: 6 },
+      { side: 'S', tile: 7, width: 6 },
+      { side: 'W', tile: 7, width: 6 },
+      { side: 'E', tile: 7, width: 6 }
     ],
     walls: [
-      // 外圈墙（带门洞断开）—— 全部以 1 格厚
-      // 北墙：左段 [0..8]、右段 [11..19]
-      { x: 0,  y: 0, w: 9,  h: 1 },
-      { x: 11, y: 0, w: 9,  h: 1 },
+      // 外圈墙（带 6 格宽门洞）—— 全部以 1 格厚
+      // 北墙：左段 [0..6]、右段 [13..19]
+      { x: 0,  y: 0, w: 7,  h: 1 },
+      { x: 13, y: 0, w: 7,  h: 1 },
       // 南墙
-      { x: 0,  y: 19, w: 9,  h: 1 },
-      { x: 11, y: 19, w: 9,  h: 1 },
-      // 西墙：上段 [0..8]、下段 [11..19]
-      { x: 0,  y: 0,  w: 1, h: 9 },
-      { x: 0,  y: 11, w: 1, h: 9 },
+      { x: 0,  y: 19, w: 7,  h: 1 },
+      { x: 13, y: 19, w: 7,  h: 1 },
+      // 西墙：上段 [0..6]、下段 [13..19]
+      { x: 0,  y: 0,  w: 1, h: 7 },
+      { x: 0,  y: 13, w: 1, h: 7 },
       // 东墙
-      { x: 19, y: 0,  w: 1, h: 9 },
-      { x: 19, y: 11, w: 1, h: 9 }
+      { x: 19, y: 0,  w: 1, h: 7 },
+      { x: 19, y: 13, w: 1, h: 7 }
     ],
     obstacles: [
       // 中央八角玉璧主展柜（约 4×4 格）
@@ -99,16 +99,17 @@ const TEMPLATES = {
     tilesH: 18,
     tags: ['gallery', 'corridor'],
     doors: [
-      { side: 'W', tile: 8,  width: 2 },
-      { side: 'E', tile: 8,  width: 2 }
+      { side: 'W', tile: 6, width: 7 },
+      { side: 'E', tile: 6, width: 7 }
     ],
     walls: [
       { x: 0,  y: 0,  w: 25, h: 1 },
       { x: 0,  y: 17, w: 25, h: 1 },
-      { x: 0,  y: 0,  w: 1,  h: 8 },
-      { x: 0,  y: 10, w: 1,  h: 8 },
-      { x: 24, y: 0,  w: 1,  h: 8 },
-      { x: 24, y: 10, w: 1,  h: 8 }
+      // 西墙带门洞（tile 6~12）
+      { x: 0,  y: 0,  w: 1,  h: 6 },
+      { x: 0,  y: 13, w: 1,  h: 5 },
+      // 东墙整段封死（右侧无房间）
+      { x: 24, y: 0,  w: 1,  h: 18 }
     ],
     obstacles: [
       // 中部一对玻璃展柜（约 1.5×1.5）
@@ -136,20 +137,20 @@ const TEMPLATES = {
     tilesH: 20,
     tags: ['hub', 'gallery'],
     doors: [
-      { side: 'N', tile: 9, width: 2 },
-      { side: 'S', tile: 9, width: 2 },
-      { side: 'W', tile: 9, width: 2 },
-      { side: 'E', tile: 9, width: 2 }
+      { side: 'N', tile: 7, width: 6 },
+      { side: 'S', tile: 7, width: 6 },
+      { side: 'W', tile: 7, width: 6 },
+      { side: 'E', tile: 7, width: 6 }
     ],
     walls: [
-      { x: 0,  y: 0,  w: 9,  h: 1 },
-      { x: 11, y: 0,  w: 9,  h: 1 },
-      { x: 0,  y: 19, w: 9,  h: 1 },
-      { x: 11, y: 19, w: 9,  h: 1 },
-      { x: 0,  y: 0,  w: 1,  h: 9 },
-      { x: 0,  y: 11, w: 1,  h: 9 },
-      { x: 19, y: 0,  w: 1,  h: 9 },
-      { x: 19, y: 11, w: 1,  h: 9 }
+      { x: 0,  y: 0,  w: 7,  h: 1 },
+      { x: 13, y: 0,  w: 7,  h: 1 },
+      { x: 0,  y: 19, w: 7,  h: 1 },
+      { x: 13, y: 19, w: 7,  h: 1 },
+      { x: 0,  y: 0,  w: 1,  h: 7 },
+      { x: 0,  y: 13, w: 1,  h: 7 },
+      { x: 19, y: 0,  w: 1,  h: 7 },
+      { x: 19, y: 13, w: 1,  h: 7 }
     ],
     obstacles: [
       // 中央罗盘地台（约 6×6，可踩，但中心抬高的雕花位 4×4 不可穿越）
@@ -179,16 +180,16 @@ const TEMPLATES = {
     tilesH: 18,
     tags: ['parlor', 'gallery'],
     doors: [
-      { side: 'W', tile: 8, width: 2 },
-      { side: 'E', tile: 8, width: 2 }
+      { side: 'E', tile: 6, width: 7 }
     ],
     walls: [
       { x: 0,  y: 0,  w: 25, h: 1 },
       { x: 0,  y: 17, w: 25, h: 1 },
-      { x: 0,  y: 0,  w: 1,  h: 8 },
-      { x: 0,  y: 10, w: 1,  h: 8 },
-      { x: 24, y: 0,  w: 1,  h: 8 },
-      { x: 24, y: 10, w: 1,  h: 8 }
+      // 西墙整段封死（左侧无房间）
+      { x: 0,  y: 0,  w: 1,  h: 18 },
+      // 东墙带门洞（tile 6~12）
+      { x: 24, y: 0,  w: 1,  h: 6 },
+      { x: 24, y: 13, w: 1,  h: 5 }
     ],
     obstacles: [
       // 底部茶台（约 6×2）
@@ -254,12 +255,16 @@ const TEMPLATES = {
     tilesH: 20,
     tags: ['storage', 'deadend'],
     doors: [
-      { side: 'N', tile: 9, width: 2 }
+      { side: 'N', tile: 7, width: 6 },
+      { side: 'S', tile: 7, width: 6 }
     ],
     walls: [
-      { x: 0,  y: 0,  w: 9,  h: 1 },
-      { x: 11, y: 0,  w: 9,  h: 1 },
-      { x: 0,  y: 19, w: 20, h: 1 },
+      // 北墙带门洞
+      { x: 0,  y: 0,  w: 7,  h: 1 },
+      { x: 13, y: 0,  w: 7,  h: 1 },
+      // 南墙带门洞（连接走廊到 room_03）
+      { x: 0,  y: 19, w: 7,  h: 1 },
+      { x: 13, y: 19, w: 7,  h: 1 },
       { x: 0,  y: 0,  w: 1,  h: 20 },
       { x: 19, y: 0,  w: 1,  h: 20 }
     ],
@@ -295,19 +300,21 @@ const TEMPLATES = {
     tilesH: 20,
     tags: ['study'],
     doors: [
-      { side: 'N', tile: 9, width: 2 },
-      { side: 'S', tile: 9, width: 2 },
-      { side: 'W', tile: 9, width: 2 }
+      { side: 'N', tile: 7, width: 6 },
+      { side: 'S', tile: 7, width: 6 },
+      { side: 'W', tile: 7, width: 6 },
+      { side: 'E', tile: 7, width: 6 }
     ],
     walls: [
-      { x: 0,  y: 0,  w: 9,  h: 1 },
-      { x: 11, y: 0,  w: 9,  h: 1 },
-      { x: 0,  y: 19, w: 9,  h: 1 },
-      { x: 11, y: 19, w: 9,  h: 1 },
-      { x: 0,  y: 0,  w: 1,  h: 9 },
-      { x: 0,  y: 11, w: 1,  h: 9 },
-      // 东墙整段封死
-      { x: 19, y: 0,  w: 1,  h: 20 }
+      { x: 0,  y: 0,  w: 7,  h: 1 },
+      { x: 13, y: 0,  w: 7,  h: 1 },
+      { x: 0,  y: 19, w: 7,  h: 1 },
+      { x: 13, y: 19, w: 7,  h: 1 },
+      // 西墙整段封死（左侧无房间）
+      { x: 0,  y: 0,  w: 1,  h: 20 },
+      // 东墙带门洞（tile 7~12）连接中央走廊
+      { x: 19, y: 0,  w: 1,  h: 7 },
+      { x: 19, y: 13, w: 1,  h: 7 }
     ],
     obstacles: [
       // 左上书架（约 5×3）
@@ -339,16 +346,19 @@ const TEMPLATES = {
     tilesH: 18,
     tags: ['gallery'],
     doors: [
-      { side: 'N', tile: 12, width: 2 },
-      { side: 'E', tile: 8,  width: 2 }
+      { side: 'N', tile: 10, width: 6 },
+      { side: 'W', tile: 6,  width: 7 }
     ],
     walls: [
-      { x: 0,  y: 0,  w: 12, h: 1 },
-      { x: 14, y: 0,  w: 11, h: 1 },
+      // 北墙带门洞（tile 10~15）
+      { x: 0,  y: 0,  w: 10, h: 1 },
+      { x: 16, y: 0,  w: 9,  h: 1 },
       { x: 0,  y: 17, w: 25, h: 1 },
-      { x: 0,  y: 0,  w: 1,  h: 18 },
-      { x: 24, y: 0,  w: 1,  h: 8 },
-      { x: 24, y: 10, w: 1,  h: 8 }
+      // 西墙带门洞（tile 6~12）连接中央走廊
+      { x: 0,  y: 0,  w: 1,  h: 6 },
+      { x: 0,  y: 13, w: 1,  h: 5 },
+      // 东墙整段封死（右侧无房间）
+      { x: 24, y: 0,  w: 1,  h: 18 }
     ],
     obstacles: [
       // 左侧凤凰浮雕墙 + 盆景（约 2×8）

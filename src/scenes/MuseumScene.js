@@ -12,6 +12,8 @@ import SaveData from '../systems/SaveData.js';
 import { getBiome } from '../data/biomes.js';
 import { getRoomTemplate } from '../data/roomTemplates.js';
 import { composeMuseumMap } from '../systems/composeMuseumMap.js';
+import SecurityCamera from '../systems/SecurityCamera.js';
+import SpikeTrap from '../systems/SpikeTrap.js';
 
 const TILE = 32;
 const MAP_W = 30; // 30 * 32 = 960
@@ -150,26 +152,198 @@ export default class MuseumScene extends Phaser.Scene {
       const tpl = this._template;
       if (tpl.children && tpl.children.length) {
         // 复合模式：先铺走廊地板色，再铺各房间贴图
-        // 走廊地板：暗红地砖色调，与博物馆整体一致
+        // 走廊装饰：地砖纹理 + 墙壁边框 + 灯具
         if (tpl.corridors && tpl.corridors.length) {
+          const hCorridorIds = new Set(['c_07_03', 'c_03_08', 'c_04_01', 'c_01_02']);
           for (const c of tpl.corridors) {
-            const corridorBg = this.add.rectangle(
-              c.x * TILE,
-              c.y * TILE,
-              c.w * TILE,
-              c.h * TILE,
-              0x2a1a14 // 暗红木地板
-            ).setOrigin(0, 0).setDepth(0);
-            // 走廊纹理：叠一层略亮的格栅条
-            const stripe = this.add.rectangle(
-              c.x * TILE + TILE,
-              c.y * TILE + TILE,
-              c.w * TILE - TILE * 2,
-              c.h * TILE - TILE * 2,
-              0x3a2a20
-            ).setOrigin(0, 0).setDepth(0.05).setAlpha(0.6);
-            this._roomBgs.push(corridorBg, stripe);
+            const cx = c.x * TILE;
+            const cy = c.y * TILE;
+            const cw = c.w * TILE;
+            const ch = c.h * TILE;
+            const isHorizontal = hCorridorIds.has(c.id);
+
+            // 1) 走廊底色（深色石板）
+            const corridorBg = this.add.rectangle(cx, cy, cw, ch, 0x1a1210)
+              .setOrigin(0, 0).setDepth(0);
+            this._roomBgs.push(corridorBg);
+
+            // 2) 棋盘格地砖纹理
+            const gfxFloor = this.add.graphics().setDepth(0.02);
+            for (let ty = 0; ty < c.h; ty++) {
+              for (let tx = 0; tx < c.w; tx++) {
+                const dark = (tx + ty) % 2 === 0;
+                gfxFloor.fillStyle(dark ? 0x2a1a14 : 0x3a2820, dark ? 0.9 : 0.7);
+                gfxFloor.fillRect(cx + tx * TILE, cy + ty * TILE, TILE, TILE);
+                // tile border (subtle grout lines)
+                gfxFloor.lineStyle(1, 0x0f0a08, 0.5);
+                gfxFloor.strokeRect(cx + tx * TILE, cy + ty * TILE, TILE, TILE);
+              }
+            }
+            this._roomBgs.push(gfxFloor);
+
+            // 3) 走廊两侧墙壁装饰条（暗金色边框模拟墙裙）
+            const gfxWalls = this.add.graphics().setDepth(0.08);
+            if (isHorizontal) {
+              // 上下墙壁装饰
+              // 上墙：深色基底 + 金色线条
+              gfxWalls.fillStyle(0x1a1008, 0.95);
+              gfxWalls.fillRect(cx, cy - TILE * 0.3, cw, TILE * 0.3);
+              gfxWalls.lineStyle(2, 0x8b6914, 0.8);
+              gfxWalls.lineBetween(cx, cy, cx + cw, cy);
+              // 下墙
+              gfxWalls.fillStyle(0x1a1008, 0.95);
+              gfxWalls.fillRect(cx, cy + ch, cw, TILE * 0.3);
+              gfxWalls.lineStyle(2, 0x8b6914, 0.8);
+              gfxWalls.lineBetween(cx, cy + ch, cx + cw, cy + ch);
+              // 中间红色地毯条
+              const carpetW = cw * 0.3;
+              const carpetX = cx + (cw - carpetW) / 2;
+              gfxWalls.fillStyle(0x6b1a1a, 0.5);
+              gfxWalls.fillRect(carpetX, cy + TILE * 0.5, carpetW, ch - TILE);
+              gfxWalls.lineStyle(1, 0x8b3030, 0.4);
+              gfxWalls.strokeRect(carpetX, cy + TILE * 0.5, carpetW, ch - TILE);
+            } else {
+              // 左右墙壁装饰
+              gfxWalls.fillStyle(0x1a1008, 0.95);
+              gfxWalls.fillRect(cx - TILE * 0.3, cy, TILE * 0.3, ch);
+              gfxWalls.lineStyle(2, 0x8b6914, 0.8);
+              gfxWalls.lineBetween(cx, cy, cx, cy + ch);
+              gfxWalls.fillStyle(0x1a1008, 0.95);
+              gfxWalls.fillRect(cx + cw, cy, TILE * 0.3, ch);
+              gfxWalls.lineStyle(2, 0x8b6914, 0.8);
+              gfxWalls.lineBetween(cx + cw, cy, cx + cw, cy + ch);
+              // 中间红色地毯条
+              const carpetH = ch * 0.3;
+              const carpetY = cy + (ch - carpetH) / 2;
+              gfxWalls.fillStyle(0x6b1a1a, 0.5);
+              gfxWalls.fillRect(cx + TILE * 0.5, carpetY, cw - TILE, carpetH);
+              gfxWalls.lineStyle(1, 0x8b3030, 0.4);
+              gfxWalls.strokeRect(cx + TILE * 0.5, carpetY, cw - TILE, carpetH);
+            }
+            this._roomBgs.push(gfxWalls);
+
+            // 4) 走廊灯具（壁灯效果）
+            const lampCount = Math.max(1, Math.floor(Math.max(c.w, c.h) / 3));
+            for (let i = 0; i < lampCount; i++) {
+              const t = (i + 0.5) / lampCount;
+              let lx, ly;
+              if (isHorizontal) {
+                lx = cx + t * cw;
+                ly = cy + 2; // top wall
+              } else {
+                lx = cx + 2;
+                ly = cy + t * ch;
+              }
+              // lamp glow (warm circle)
+              const glow = this.add.circle(lx, ly, 12, 0xffaa44, 0.15).setDepth(0.09);
+              // lamp fixture (small rectangle)
+              const fixture = this.add.rectangle(lx, ly, 6, 6, 0xd4a030).setDepth(0.1).setAlpha(0.8);
+              this._roomBgs.push(glow, fixture);
+            }
           }
+        }
+
+        // 5) 门洞拱门装饰（标识入口）— 大尺寸明显门框
+        if (tpl.doorways && tpl.doorways.length) {
+          const gfxDoors = this.add.graphics().setDepth(0.15);
+          for (const dw of tpl.doorways) {
+            const dx = dw.x * TILE;
+            const dy = dw.y * TILE;
+            const dwW = dw.w * TILE;
+            const dwH = dw.h * TILE;
+
+            if (dw.orientation === 'vertical') {
+              // Vertical doorway: tall door on W/E wall
+              const doorW = dwW;  // full width of doorway tile
+              const doorH = dwH;
+              const doorX = dx;
+              const doorY = dy;
+
+              // Dark opening background (makes it look like a passage)
+              gfxDoors.fillStyle(0x0a0a0a, 0.85);
+              gfxDoors.fillRect(doorX + 8, doorY + 8, doorW - 16, doorH - 16);
+
+              // Thick door frame (outer)
+              gfxDoors.lineStyle(4, 0x6b4c2a, 1.0);
+              gfxDoors.strokeRect(doorX + 4, doorY + 4, doorW - 8, doorH - 8);
+
+              // Inner gold trim
+              gfxDoors.lineStyle(2, 0xc9a84c, 0.9);
+              gfxDoors.strokeRect(doorX + 8, doorY + 8, doorW - 16, doorH - 16);
+
+              // Door panel lines (simulate wooden door planks)
+              gfxDoors.lineStyle(1, 0x3d2b1a, 0.6);
+              const panelX1 = doorX + doorW * 0.35;
+              const panelX2 = doorX + doorW * 0.65;
+              gfxDoors.lineBetween(panelX1, doorY + 12, panelX1, doorY + doorH - 12);
+              gfxDoors.lineBetween(panelX2, doorY + 12, panelX2, doorY + doorH - 12);
+
+              // Top arch decoration
+              gfxDoors.fillStyle(0x7a5c3a, 0.95);
+              gfxDoors.fillRect(doorX + 2, doorY, doorW - 4, 8);
+              gfxDoors.fillRect(doorX + 2, doorY + doorH - 8, doorW - 4, 8);
+
+              // Gold corner ornaments
+              gfxDoors.fillStyle(0xd4af37, 0.8);
+              gfxDoors.fillRect(doorX + 4, doorY + 4, 6, 6);
+              gfxDoors.fillRect(doorX + doorW - 10, doorY + 4, 6, 6);
+              gfxDoors.fillRect(doorX + 4, doorY + doorH - 10, 6, 6);
+              gfxDoors.fillRect(doorX + doorW - 10, doorY + doorH - 10, 6, 6);
+
+              // Center diamond ornament
+              const midY = doorY + doorH / 2;
+              const midX = doorX + doorW / 2;
+              gfxDoors.fillStyle(0xd4af37, 0.7);
+              gfxDoors.fillTriangle(midX, midY - 10, midX - 6, midY, midX + 6, midY);
+              gfxDoors.fillTriangle(midX, midY + 10, midX - 6, midY, midX + 6, midY);
+
+            } else {
+              // Horizontal doorway: wide door on N/S wall
+              const doorW = dwW;
+              const doorH = dwH;
+              const doorX = dx;
+              const doorY = dy;
+
+              // Dark opening background
+              gfxDoors.fillStyle(0x0a0a0a, 0.85);
+              gfxDoors.fillRect(doorX + 8, doorY + 8, doorW - 16, doorH - 16);
+
+              // Thick door frame (outer)
+              gfxDoors.lineStyle(4, 0x6b4c2a, 1.0);
+              gfxDoors.strokeRect(doorX + 4, doorY + 4, doorW - 8, doorH - 8);
+
+              // Inner gold trim
+              gfxDoors.lineStyle(2, 0xc9a84c, 0.9);
+              gfxDoors.strokeRect(doorX + 8, doorY + 8, doorW - 16, doorH - 16);
+
+              // Door panel lines (horizontal planks)
+              gfxDoors.lineStyle(1, 0x3d2b1a, 0.6);
+              const panelY1 = doorY + doorH * 0.35;
+              const panelY2 = doorY + doorH * 0.65;
+              gfxDoors.lineBetween(doorX + 12, panelY1, doorX + doorW - 12, panelY1);
+              gfxDoors.lineBetween(doorX + 12, panelY2, doorX + doorW - 12, panelY2);
+
+              // Side pillars
+              gfxDoors.fillStyle(0x7a5c3a, 0.95);
+              gfxDoors.fillRect(doorX, doorY + 2, 8, doorH - 4);
+              gfxDoors.fillRect(doorX + doorW - 8, doorY + 2, 8, doorH - 4);
+
+              // Gold corner ornaments
+              gfxDoors.fillStyle(0xd4af37, 0.8);
+              gfxDoors.fillRect(doorX + 4, doorY + 4, 6, 6);
+              gfxDoors.fillRect(doorX + doorW - 10, doorY + 4, 6, 6);
+              gfxDoors.fillRect(doorX + 4, doorY + doorH - 10, 6, 6);
+              gfxDoors.fillRect(doorX + doorW - 10, doorY + doorH - 10, 6, 6);
+
+              // Center diamond ornament
+              const midX = doorX + doorW / 2;
+              const midY = doorY + doorH / 2;
+              gfxDoors.fillStyle(0xd4af37, 0.7);
+              gfxDoors.fillTriangle(midX, midY - 6, midX - 10, midY, midX + 10, midY);
+              gfxDoors.fillTriangle(midX, midY + 6, midX - 10, midY, midX + 10, midY);
+            }
+          }
+          this._roomBgs.push(gfxDoors);
         }
         // 各房间贴图
         for (const child of tpl.children) {
@@ -769,6 +943,13 @@ export default class MuseumScene extends Phaser.Scene {
       g.onAlarm = (caller, radius) => this.notifyNearbyGuards(caller, radius);
       this.guards.push(g);
     }
+
+    // —— 初始化安保摄像头 ——
+    this._setupSecurityCameras();
+    // —— 初始化地刺陷阱 ——
+    this._setupSpikeTraps();
+    // —— 红色警报特效（进入博物馆即触发） ——
+    this._triggerAlarmEffect();
   }
 
   // ——————————————————————————————————————
@@ -784,6 +965,165 @@ export default class MuseumScene extends Phaser.Scene {
       if (dx * dx + dy * dy > r2) continue;
       other.receiveAlarm(caller);
     }
+  }
+
+  // ——————————————————————————————————————
+  //  Security Cameras: rotating beam that detects player
+  // ——————————————————————————————————————
+  _setupSecurityCameras() {
+    this._cameras = [];
+    if (!this._template || !this._template.children) return;
+    const TILE_PX = TILE;
+    // Place cameras at room corners (2 per large room, 1 per small room)
+    const children = this._template.children;
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      const ox = child.origin.x * TILE_PX;
+      const oy = child.origin.y * TILE_PX;
+      const rw = child.tilesW * TILE_PX;
+      const rh = child.tilesH * TILE_PX;
+
+      // Top-left corner camera pointing down-right
+      const cam1 = new SecurityCamera(this, ox + 32, oy + 32, Math.PI / 4);
+      cam1.onAlarm = () => this._onCameraAlarm();
+      this._cameras.push(cam1);
+
+      // Bottom-right corner camera pointing up-left (only for larger rooms)
+      if (child.tilesW >= 20 && child.tilesH >= 20) {
+        const cam2 = new SecurityCamera(this, ox + rw - 32, oy + rh - 32, -Math.PI * 3 / 4);
+        cam2.onAlarm = () => this._onCameraAlarm();
+        this._cameras.push(cam2);
+      }
+    }
+  }
+
+  _updateSecurityCameras(delta) {
+    if (!this._cameras || !this.player) return;
+    for (const cam of this._cameras) {
+      cam.update(delta, this.player);
+    }
+  }
+
+  _onCameraAlarm() {
+    // Alert all guards when camera detects player
+    if (this.guards) {
+      for (const g of this.guards) {
+        if (!g.dead) {
+          g.alert = 100;
+          g.state = 'chase';
+        }
+      }
+    }
+    this._runStats.alerts++;
+    this.showBubble(this.player, '被摄像头发现了！', { color: '#ff4444', fontSize: '14px', duration: 2000, dy: -30 });
+  }
+
+  // ——————————————————————————————————————
+  //  Spike Traps: random floor spikes that pop up periodically
+  // ——————————————————————————————————————
+  _setupSpikeTraps() {
+    this._spikeTraps = [];
+    if (!this._level || !this._level.floors) return;
+    const floors = this._level.floors;
+    // Place 8~12 spike traps on random floor tiles (avoid spawn/exit)
+    const spawn = this._level.spawn;
+    const exit = this._level.exit;
+    const candidates = floors.filter(f => {
+      if (f.x === spawn.x && f.y === spawn.y) return false;
+      if (f.x === exit.x && f.y === exit.y) return false;
+      return true;
+    });
+    // Shuffle and pick
+    const count = Math.min(10, Math.floor(candidates.length * 0.005) + 5);
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+    }
+    for (let i = 0; i < count && i < candidates.length; i++) {
+      const cell = candidates[i];
+      const trap = new SpikeTrap(this, cell.x * TILE + TILE / 2, cell.y * TILE + TILE / 2);
+      trap.onHitPlayer = () => {
+        const ps = this.playerState;
+        const now = this.time.now;
+        if (now > ps.invulnUntil) {
+          this.applyPlayerDamage(1, null, '踩到地刺！');
+        }
+      };
+      this._spikeTraps.push(trap);
+    }
+  }
+
+  _updateSpikeTraps(delta) {
+    if (!this._spikeTraps || !this.player) return;
+    for (const trap of this._spikeTraps) {
+      trap.update(delta, this.player);
+    }
+  }
+
+  // ——————————————————————————————————————
+  //  Red Alert Effect: triggered immediately when entering museum
+  // ——————————————————————————————————————
+  _triggerAlarmEffect() {
+    // Red flash overlay
+    const { width, height } = this.cameras.main;
+    this._alarmOverlay = this.add.rectangle(
+      this.cameras.main.scrollX + width / 2,
+      this.cameras.main.scrollY + height / 2,
+      width * 3, height * 3,
+      0xff0000, 0
+    ).setDepth(150).setScrollFactor(0);
+
+    // Alarm sequence: flash red 3 times then fade
+    this.tweens.add({
+      targets: this._alarmOverlay,
+      alpha: { from: 0, to: 0.3 },
+      duration: 200,
+      yoyo: true,
+      repeat: 4,
+      onComplete: () => {
+        // After flashing, keep a subtle red tint pulsing
+        this.tweens.add({
+          targets: this._alarmOverlay,
+          alpha: { from: 0, to: 0.08 },
+          duration: 1500,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+      }
+    });
+
+    // Alarm text
+    this.time.delayedCall(300, () => {
+      const alarmText = this.add.text(640, 200, '⚠ 警报触发 ⚠', {
+        fontFamily: 'monospace',
+        fontSize: '28px',
+        color: '#ff2222',
+        stroke: '#000000',
+        strokeThickness: 4,
+        shadow: { offsetX: 2, offsetY: 2, color: '#ff0000', blur: 8, fill: true }
+      }).setOrigin(0.5).setDepth(160).setScrollFactor(0).setAlpha(0);
+
+      this.tweens.add({
+        targets: alarmText,
+        alpha: { from: 0, to: 1 },
+        duration: 400,
+        yoyo: true,
+        hold: 1500,
+        onComplete: () => alarmText.destroy()
+      });
+    });
+
+    // Alert all guards slightly (they know intruder is here)
+    this.time.delayedCall(1000, () => {
+      if (this.guards) {
+        for (const g of this.guards) {
+          if (!g.dead) {
+            g.alert = Math.max(g.alert, 30); // Raise baseline alertness
+          }
+        }
+      }
+    });
   }
 
   spawnWall(tx, ty, key = 'tex_wall') {
@@ -1590,6 +1930,11 @@ export default class MuseumScene extends Phaser.Scene {
       }
     }
     this.updateAlertBar(maxAlert);
+
+    // —— 安保摄像头更新 ——
+    this._updateSecurityCameras(dtSec * 1000);
+    // —— 地刺陷阱更新 ——
+    this._updateSpikeTraps(dtSec * 1000);
 
     // —— 心跳：警觉越高越快；完全安全时停止 ——
     this.updateHeartbeat(maxAlert);
