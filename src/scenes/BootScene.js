@@ -86,6 +86,12 @@ export default class BootScene extends Phaser.Scene {
     for (const id of bmRooms) {
       this.load.image(id, `assets/rooms/blackmarket/${id}.png`);
     }
+    this.load.image('blackmarket_map', 'assets/maps/blackmarket/undermarket1.jpg');
+    this.load.image('blackmarket_object', 'assets/maps/blackmarket/undermarket1_object.png');
+    this.load.image('safe_closed', 'assets/props/safe/close.png');
+    this.load.image('safe_open1', 'assets/props/safe/open1.png');
+    this.load.image('safe_open2', 'assets/props/safe/open2.png');
+    this.load.image('safe_open3', 'assets/props/safe/open3.png');
 
     // —— 走私船 (Smuggler Ship) 完整地图 ——
     this.load.image('ship_full', 'assets/rooms/ship_full.png');
