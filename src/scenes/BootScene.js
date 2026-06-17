@@ -87,7 +87,9 @@ export default class BootScene extends Phaser.Scene {
       this.load.image(id, `assets/rooms/blackmarket/${id}.png`);
     }
 
-    // —— 走私船 (Smuggler Ship) 8 张房间贴图 ——
+    // —— 走私船 (Smuggler Ship) 完整地图 ——
+    this.load.image('ship_full', 'assets/rooms/ship_full.png');
+    // Legacy: 8 张分块房间贴图（保留兼容）
     const ssRooms = ['ss_01', 'ss_02', 'ss_03', 'ss_04', 'ss_05', 'ss_06', 'ss_07', 'ss_08'];
     for (const id of ssRooms) {
       this.load.image(id, `assets/rooms/ship/${id}.png`);

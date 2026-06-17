@@ -1078,6 +1078,9 @@ export default class MuseumScene extends Phaser.Scene {
 
   // Decorate ship rooms with metal plates and portholes
   _decorateShipRoom(child, cx, cy, cw, ch) {
+    // Skip decoration for full-map PNG (artwork already contains visual details)
+    if (child.id === 'ship_full') return;
+
     const gfx = this.add.graphics().setDepth(0.15);
 
     // Steel plate seams
@@ -1116,8 +1119,37 @@ export default class MuseumScene extends Phaser.Scene {
     this._cameras = [];
     if (!this._template || !this._template.children) return;
     const TILE_PX = TILE;
-    // Place cameras at room corners (2 per large room, 1 per small room)
+
+    // For full-map mode (single child covering entire map), use roomBounds instead
     const children = this._template.children;
+    if (children.length === 1 && children[0].id === 'ship_full' && this._template.roomBounds) {
+      const bounds = this._template.roomBounds;
+      // Place cameras in key rooms: vault, operations, cargo_hold
+      const cameraRooms = ['vault_main', 'operations', 'cargo_hold', 'engine_room'];
+      for (const roomId of cameraRooms) {
+        const rb = bounds[roomId];
+        if (!rb) continue;
+        const ox = rb.x * TILE_PX;
+        const oy = rb.y * TILE_PX;
+        const rw = rb.w * TILE_PX;
+        const rh = rb.h * TILE_PX;
+
+        // Top-left corner camera
+        const cam1 = new SecurityCamera(this, ox + 32, oy + 32, Math.PI / 4);
+        cam1.onAlarm = () => this._onCameraAlarm();
+        this._cameras.push(cam1);
+
+        // Bottom-right corner camera for larger rooms
+        if (rb.w >= 10 && rb.h >= 8) {
+          const cam2 = new SecurityCamera(this, ox + rw - 32, oy + rh - 32, -Math.PI * 3 / 4);
+          cam2.onAlarm = () => this._onCameraAlarm();
+          this._cameras.push(cam2);
+        }
+      }
+      return;
+    }
+
+    // Legacy: Place cameras at room corners (2 per large room, 1 per small room)
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
       const ox = child.origin.x * TILE_PX;
