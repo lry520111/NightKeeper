@@ -12,6 +12,8 @@ import SaveData from '../systems/SaveData.js';
 import { getBiome } from '../data/biomes.js';
 import { getRoomTemplate } from '../data/roomTemplates.js';
 import { composeMuseumMap } from '../systems/composeMuseumMap.js';
+import { composeBlackmarketMap } from '../systems/composeBlackmarketMap.js';
+import { composeShipMap } from '../systems/composeShipMap.js';
 import SecurityCamera from '../systems/SecurityCamera.js';
 import SpikeTrap from '../systems/SpikeTrap.js';
 
@@ -49,13 +51,20 @@ export default class MuseumScene extends Phaser.Scene {
     this.useTemplate = !this.useComposed
       && ((data && data.useTemplate !== undefined) ? !!data.useTemplate : true);
 
-    if (this.useComposed && this.biome && this.biome.id === 'museum') {
-      // 复合模式：把 composeMuseumMap 的输出当作"超级模板"喂给下游
+    if (this.useComposed) {
+      // 复合模式：根据 biome 选择对应的地图组合器
       try {
-        this._template = composeMuseumMap();
+        const biomeId = this.biome && this.biome.id;
+        if (biomeId === 'blackmarket') {
+          this._template = composeBlackmarketMap();
+        } else if (biomeId === 'ship') {
+          this._template = composeShipMap();
+        } else {
+          this._template = composeMuseumMap();
+        }
         this.templateId = this._template.id;
       } catch (err) {
-        console.warn('[MuseumScene] composeMuseumMap failed, fallback to single room:', err);
+        console.warn('[MuseumScene] compose map failed, fallback to single room:', err);
         this.useComposed = false;
         this.useTemplate = true;
       }
@@ -154,16 +163,22 @@ export default class MuseumScene extends Phaser.Scene {
         // 复合模式：先铺走廊地板色，再铺各房间贴图
         // 走廊装饰：地砖纹理 + 墙壁边框 + 灯具
         if (tpl.corridors && tpl.corridors.length) {
-          const hCorridorIds = new Set(['c_07_03', 'c_03_08', 'c_04_01', 'c_01_02']);
           for (const c of tpl.corridors) {
             const cx = c.x * TILE;
             const cy = c.y * TILE;
             const cw = c.w * TILE;
             const ch = c.h * TILE;
-            const isHorizontal = hCorridorIds.has(c.id);
+            // Determine orientation by aspect ratio (wider = horizontal)
+            const isHorizontal = c.w > c.h;
 
-            // 1) 走廊底色（深色石板）
-            const corridorBg = this.add.rectangle(cx, cy, cw, ch, 0x1a1210)
+            // 1) 走廊底色（根据 biome 调整）
+            const biomeId = this.biome && this.biome.id;
+            const corridorColors = biomeId === 'blackmarket'
+              ? { bg: 0x0a0712, dark: 0x181420, light: 0x241a30, grout: 0x050308, accent: 0xc070ff }
+              : biomeId === 'ship'
+              ? { bg: 0x1a2a38, dark: 0x2a1c10, light: 0x3a2818, grout: 0x0a1420, accent: 0x7ad8ff }
+              : { bg: 0x1a1210, dark: 0x2a1a14, light: 0x3a2820, grout: 0x0f0a08, accent: 0x8b6914 };
+            const corridorBg = this.add.rectangle(cx, cy, cw, ch, corridorColors.bg)
               .setOrigin(0, 0).setDepth(0);
             this._roomBgs.push(corridorBg);
 
@@ -172,52 +187,57 @@ export default class MuseumScene extends Phaser.Scene {
             for (let ty = 0; ty < c.h; ty++) {
               for (let tx = 0; tx < c.w; tx++) {
                 const dark = (tx + ty) % 2 === 0;
-                gfxFloor.fillStyle(dark ? 0x2a1a14 : 0x3a2820, dark ? 0.9 : 0.7);
+                gfxFloor.fillStyle(dark ? corridorColors.dark : corridorColors.light, dark ? 0.9 : 0.7);
                 gfxFloor.fillRect(cx + tx * TILE, cy + ty * TILE, TILE, TILE);
                 // tile border (subtle grout lines)
-                gfxFloor.lineStyle(1, 0x0f0a08, 0.5);
+                gfxFloor.lineStyle(1, corridorColors.grout, 0.5);
                 gfxFloor.strokeRect(cx + tx * TILE, cy + ty * TILE, TILE, TILE);
               }
             }
             this._roomBgs.push(gfxFloor);
 
-            // 3) 走廊两侧墙壁装饰条（暗金色边框模拟墙裙）
+
+            // 3) 走廊两侧墙壁装饰条
+            const wallBaseColor = biomeId === 'blackmarket' ? 0x0a0810 :
+                                  biomeId === 'ship' ? 0x0a1420 : 0x1a1008;
+            const carpetColor = biomeId === 'blackmarket' ? 0x3a1050 :
+                                biomeId === 'ship' ? 0x1a384a : 0x6b1a1a;
+            const carpetBorder = biomeId === 'blackmarket' ? 0x6030a0 :
+                                 biomeId === 'ship' ? 0x3a6888 : 0x8b3030;
             const gfxWalls = this.add.graphics().setDepth(0.08);
             if (isHorizontal) {
               // 上下墙壁装饰
-              // 上墙：深色基底 + 金色线条
-              gfxWalls.fillStyle(0x1a1008, 0.95);
+              gfxWalls.fillStyle(wallBaseColor, 0.95);
               gfxWalls.fillRect(cx, cy - TILE * 0.3, cw, TILE * 0.3);
-              gfxWalls.lineStyle(2, 0x8b6914, 0.8);
+              gfxWalls.lineStyle(2, corridorColors.accent, 0.8);
               gfxWalls.lineBetween(cx, cy, cx + cw, cy);
-              // 下墙
-              gfxWalls.fillStyle(0x1a1008, 0.95);
+              gfxWalls.fillStyle(wallBaseColor, 0.95);
               gfxWalls.fillRect(cx, cy + ch, cw, TILE * 0.3);
-              gfxWalls.lineStyle(2, 0x8b6914, 0.8);
+              gfxWalls.lineStyle(2, corridorColors.accent, 0.8);
               gfxWalls.lineBetween(cx, cy + ch, cx + cw, cy + ch);
-              // 中间红色地毯条
+              // 中间地毯/管道条
               const carpetW = cw * 0.3;
               const carpetX = cx + (cw - carpetW) / 2;
-              gfxWalls.fillStyle(0x6b1a1a, 0.5);
+              gfxWalls.fillStyle(carpetColor, 0.5);
               gfxWalls.fillRect(carpetX, cy + TILE * 0.5, carpetW, ch - TILE);
-              gfxWalls.lineStyle(1, 0x8b3030, 0.4);
+              gfxWalls.lineStyle(1, carpetBorder, 0.4);
               gfxWalls.strokeRect(carpetX, cy + TILE * 0.5, carpetW, ch - TILE);
             } else {
               // 左右墙壁装饰
-              gfxWalls.fillStyle(0x1a1008, 0.95);
+              gfxWalls.fillStyle(wallBaseColor, 0.95);
               gfxWalls.fillRect(cx - TILE * 0.3, cy, TILE * 0.3, ch);
-              gfxWalls.lineStyle(2, 0x8b6914, 0.8);
+              gfxWalls.lineStyle(2, corridorColors.accent, 0.8);
               gfxWalls.lineBetween(cx, cy, cx, cy + ch);
-              gfxWalls.fillStyle(0x1a1008, 0.95);
+              gfxWalls.fillStyle(wallBaseColor, 0.95);
               gfxWalls.fillRect(cx + cw, cy, TILE * 0.3, ch);
-              gfxWalls.lineStyle(2, 0x8b6914, 0.8);
+              gfxWalls.lineStyle(2, corridorColors.accent, 0.8);
               gfxWalls.lineBetween(cx + cw, cy, cx + cw, cy + ch);
-              // 中间红色地毯条
+              // 中间地毯/管道条
               const carpetH = ch * 0.3;
               const carpetY = cy + (ch - carpetH) / 2;
-              gfxWalls.fillStyle(0x6b1a1a, 0.5);
+              gfxWalls.fillStyle(carpetColor, 0.5);
               gfxWalls.fillRect(cx + TILE * 0.5, carpetY, cw - TILE, carpetH);
-              gfxWalls.lineStyle(1, 0x8b3030, 0.4);
+              gfxWalls.lineStyle(1, carpetBorder, 0.4);
               gfxWalls.strokeRect(cx + TILE * 0.5, carpetY, cw - TILE, carpetH);
             }
             this._roomBgs.push(gfxWalls);
@@ -345,20 +365,26 @@ export default class MuseumScene extends Phaser.Scene {
           }
           this._roomBgs.push(gfxDoors);
         }
-        // 各房间贴图
+        // 各房间贴图 / 程序化地板
         for (const child of tpl.children) {
           const cw = child.tilesW * TILE;
           const ch = child.tilesH * TILE;
           const cx = child.origin.x * TILE;
           const cy = child.origin.y * TILE;
-          const bg = this.add.image(cx, cy, child.id)
-            .setOrigin(0, 0)
-            .setDepth(0.1);
-          // 把贴图缩放到房间逻辑尺寸
-          if (bg.width > 0 && bg.height > 0) {
-            bg.setScale(cw / bg.width, ch / bg.height);
+
+          if (child.procedural) {
+            // Procedural room: render with biome floor tiles
+            this._renderProceduralRoom(child, cx, cy, cw, ch);
+          } else {
+            // Image-based room: use room texture
+            const bg = this.add.image(cx, cy, child.id)
+              .setOrigin(0, 0)
+              .setDepth(0.1);
+            if (bg.width > 0 && bg.height > 0) {
+              bg.setScale(cw / bg.width, ch / bg.height);
+            }
+            this._roomBgs.push(bg);
           }
-          this._roomBgs.push(bg);
         }
       } else {
         // 单房间模式：保留原行为
@@ -948,8 +974,21 @@ export default class MuseumScene extends Phaser.Scene {
     this._setupSecurityCameras();
     // —— 初始化地刺陷阱 ——
     this._setupSpikeTraps();
-    // —— 红色警报特效（进入博物馆即触发） ——
-    this._triggerAlarmEffect();
+
+    // —— Biome 特色机制 ——
+    const biomeId = this.biome && this.biome.id;
+    if (biomeId === 'museum') {
+      // 红色警报特效（进入博物馆即触发）
+      this._triggerAlarmEffect();
+    } else if (biomeId === 'blackmarket') {
+      // 黑市特色：霓虹灯光 + 暗门提示
+      this._setupNeonLights();
+      this._setupBlackmarketAmbience();
+    } else if (biomeId === 'ship') {
+      // 走私船特色：船体摇晃 + 水淹区域
+      this._setupShipSway();
+      this._setupWaterZones();
+    }
   }
 
   // ——————————————————————————————————————
@@ -965,6 +1004,109 @@ export default class MuseumScene extends Phaser.Scene {
       if (dx * dx + dy * dy > r2) continue;
       other.receiveAlarm(caller);
     }
+  }
+
+
+  // ——————————————————————————————————————
+  //  Procedural Room Rendering: render rooms using biome floor/wall textures
+  // ——————————————————————————————————————
+  _renderProceduralRoom(child, cx, cy, cw, ch) {
+    const floorKeys = (this.biome && this.biome.floorKeys) || ['tex_floor'];
+    const wallKey = (this.biome && this.biome.wallKey) || 'tex_wall';
+
+    // Background fill
+    const bgColor = this.biome && this.biome.id === 'ship' ? 0x2a1c10 : 0x181420;
+    const bg = this.add.rectangle(cx + cw / 2, cy + ch / 2, cw, ch, bgColor)
+      .setOrigin(0.5, 0.5).setDepth(0.05);
+    this._roomBgs.push(bg);
+
+    // Floor tiles
+    const gfx = this.add.graphics().setDepth(0.1);
+    for (let ty = 0; ty < child.tilesH; ty++) {
+      for (let tx = 0; tx < child.tilesW; tx++) {
+        const px = cx + tx * TILE;
+        const py = cy + ty * TILE;
+        // Use biome floor texture if available, otherwise draw colored tiles
+        const floorKey = floorKeys[(tx + ty * 3) % floorKeys.length];
+        if (this.textures.exists(floorKey)) {
+          const tile = this.add.image(px, py, floorKey).setOrigin(0, 0).setDepth(0.1);
+          tile.setDisplaySize(TILE, TILE);
+          this._roomBgs.push(tile);
+        } else {
+          // Fallback: colored tile pattern
+          const dark = (tx + ty) % 2 === 0;
+          gfx.fillStyle(dark ? bgColor : (bgColor + 0x111111), 0.9);
+          gfx.fillRect(px, py, TILE, TILE);
+        }
+      }
+    }
+    this._roomBgs.push(gfx);
+
+    // Room-specific decorations based on biome
+    if (this.biome && this.biome.id === 'blackmarket') {
+      this._decorateBlackmarketRoom(child, cx, cy, cw, ch);
+    } else if (this.biome && this.biome.id === 'ship') {
+      this._decorateShipRoom(child, cx, cy, cw, ch);
+    }
+  }
+
+  // Decorate black market rooms with neon accents and grime
+  _decorateBlackmarketRoom(child, cx, cy, cw, ch) {
+    const gfx = this.add.graphics().setDepth(0.15);
+
+    // Neon border glow (purple/pink)
+    const neonColor = child.id.includes('hub') ? 0xc070ff :
+                      child.id.includes('den') ? 0x40ff70 :
+                      child.id.includes('alley') ? 0xff4070 : 0xffaa30;
+    gfx.lineStyle(2, neonColor, 0.6);
+    gfx.strokeRect(cx + 4, cy + 4, cw - 8, ch - 8);
+
+    // Inner glow effect
+    gfx.lineStyle(1, neonColor, 0.3);
+    gfx.strokeRect(cx + 8, cy + 8, cw - 16, ch - 16);
+
+    // Random grime spots
+    gfx.fillStyle(0x0a0712, 0.4);
+    for (let i = 0; i < 5; i++) {
+      const gx = cx + 20 + Math.floor(Math.random() * (cw - 40));
+      const gy = cy + 20 + Math.floor(Math.random() * (ch - 40));
+      gfx.fillCircle(gx, gy, 8 + Math.random() * 12);
+    }
+
+    this._roomBgs.push(gfx);
+  }
+
+  // Decorate ship rooms with metal plates and portholes
+  _decorateShipRoom(child, cx, cy, cw, ch) {
+    const gfx = this.add.graphics().setDepth(0.15);
+
+    // Steel plate seams
+    gfx.lineStyle(1, 0x0a1420, 0.6);
+    const seamSpacing = TILE * 3;
+    for (let sx = cx + seamSpacing; sx < cx + cw; sx += seamSpacing) {
+      gfx.lineBetween(sx, cy + 4, sx, cy + ch - 4);
+    }
+    for (let sy = cy + seamSpacing; sy < cy + ch; sy += seamSpacing) {
+      gfx.lineBetween(cx + 4, sy, cx + cw - 4, sy);
+    }
+
+    // Rivets at intersections
+    gfx.fillStyle(0x6a8aa8, 0.7);
+    for (let sx = cx + seamSpacing; sx < cx + cw; sx += seamSpacing) {
+      for (let sy = cy + seamSpacing; sy < cy + ch; sy += seamSpacing) {
+        gfx.fillCircle(sx, sy, 2);
+      }
+    }
+
+    // Rust stains
+    gfx.fillStyle(0x5a3018, 0.3);
+    for (let i = 0; i < 3; i++) {
+      const rx = cx + 30 + Math.floor(Math.random() * (cw - 60));
+      const ry = cy + 30 + Math.floor(Math.random() * (ch - 60));
+      gfx.fillEllipse(rx, ry, 15 + Math.random() * 20, 8 + Math.random() * 10);
+    }
+
+    this._roomBgs.push(gfx);
   }
 
   // ——————————————————————————————————————
@@ -1124,6 +1266,203 @@ export default class MuseumScene extends Phaser.Scene {
         }
       }
     });
+  }
+
+  // ——————————————————————————————————————
+  //  Black Market: Neon lights and ambience
+  // ——————————————————————————————————————
+  _setupNeonLights() {
+    if (!this._template || !this._template.neonLights) return;
+    this._neonGraphics = [];
+
+    for (const neon of this._template.neonLights) {
+      const px = neon.x * TILE;
+      const py = neon.y * TILE;
+      const color = neon.color || 0xc070ff;
+
+      // Neon sign glow
+      const glow = this.add.graphics().setDepth(12);
+      glow.fillStyle(color, 0.15);
+      glow.fillCircle(px, py, 60);
+      glow.fillStyle(color, 0.08);
+      glow.fillCircle(px, py, 100);
+
+      // Neon text
+      if (neon.text) {
+        const txt = this.add.text(px, py - 10, neon.text, {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#' + color.toString(16).padStart(6, '0'),
+          stroke: '#000000',
+          strokeThickness: 2,
+        }).setOrigin(0.5).setDepth(13);
+
+        // Flickering effect
+        this.tweens.add({
+          targets: txt,
+          alpha: { from: 0.7, to: 1 },
+          duration: 800 + Math.random() * 400,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+        this._neonGraphics.push(txt);
+      }
+
+      // Pulsing glow
+      this.tweens.add({
+        targets: glow,
+        alpha: { from: 0.6, to: 1 },
+        duration: 1200 + Math.random() * 600,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+      this._neonGraphics.push(glow);
+    }
+  }
+
+  _setupBlackmarketAmbience() {
+    // Purple ambient overlay (very subtle)
+    const { width, height } = this.cameras.main;
+    this._bmOverlay = this.add.rectangle(
+      width / 2, height / 2,
+      width * 3, height * 3,
+      0x200030, 0.05
+    ).setDepth(140).setScrollFactor(0);
+
+    // Subtle purple pulse
+    this.tweens.add({
+      targets: this._bmOverlay,
+      alpha: { from: 0.03, to: 0.08 },
+      duration: 3000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    // Entry text
+    this.time.delayedCall(500, () => {
+      const entryText = this.add.text(640, 280, '欢迎来到地下黑市', {
+        fontFamily: 'monospace',
+        fontSize: '22px',
+        color: '#c084fc',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(160).setScrollFactor(0).setAlpha(0);
+
+      this.tweens.add({
+        targets: entryText,
+        alpha: { from: 0, to: 1 },
+        duration: 600,
+        yoyo: true,
+        hold: 2000,
+        onComplete: () => entryText.destroy()
+      });
+    });
+  }
+
+  // ——————————————————————————————————————
+  //  Ship: Sway effect and water zones
+  // ——————————————————————————————————————
+  _setupShipSway() {
+    // Gentle camera sway to simulate ship rocking
+    this._shipSwayTime = 0;
+    this._shipSwayEnabled = true;
+
+    // Entry text
+    this.time.delayedCall(500, () => {
+      const entryText = this.add.text(640, 280, '登上「沉鲸号」', {
+        fontFamily: 'monospace',
+        fontSize: '22px',
+        color: '#7ad8ff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(160).setScrollFactor(0).setAlpha(0);
+
+      this.tweens.add({
+        targets: entryText,
+        alpha: { from: 0, to: 1 },
+        duration: 600,
+        yoyo: true,
+        hold: 2000,
+        onComplete: () => entryText.destroy()
+      });
+    });
+
+    // Ocean ambient overlay (blue tint)
+    const { width, height } = this.cameras.main;
+    this._shipOverlay = this.add.rectangle(
+      width / 2, height / 2,
+      width * 3, height * 3,
+      0x001830, 0.04
+    ).setDepth(140).setScrollFactor(0);
+
+    this.tweens.add({
+      targets: this._shipOverlay,
+      alpha: { from: 0.02, to: 0.06 },
+      duration: 4000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  }
+
+  _setupWaterZones() {
+    if (!this._template || !this._template.waterZones) return;
+    this._waterZones = [];
+
+    for (const zone of this._template.waterZones) {
+      const px = zone.x * TILE;
+      const py = zone.y * TILE;
+      const pw = zone.w * TILE;
+      const ph = zone.h * TILE;
+
+      // Water visual
+      const gfx = this.add.graphics().setDepth(0.2);
+      gfx.fillStyle(0x1a384a, 0.5);
+      gfx.fillRect(px, py, pw, ph);
+      // Water ripple lines
+      gfx.lineStyle(1, 0x5a8aa8, 0.4);
+      for (let wy = py + 8; wy < py + ph; wy += 12) {
+        const waveOffset = Math.sin(wy * 0.1) * 4;
+        gfx.lineBetween(px + 4 + waveOffset, wy, px + pw - 4 + waveOffset, wy);
+      }
+
+      this._waterZones.push({
+        rect: new Phaser.Geom.Rectangle(px, py, pw, ph),
+        graphics: gfx,
+      });
+    }
+  }
+
+  _updateShipSway(dtSec) {
+    if (!this._shipSwayEnabled) return;
+    this._shipSwayTime = (this._shipSwayTime || 0) + dtSec;
+    // Gentle rotation sway (±1 degree)
+    const angle = Math.sin(this._shipSwayTime * 0.8) * 0.008;
+    this.cameras.main.setRotation(angle);
+  }
+
+  _updateWaterZones() {
+    if (!this._waterZones || !this.player) return;
+    let inWater = false;
+    for (const zone of this._waterZones) {
+      if (zone.rect.contains(this.player.x, this.player.y)) {
+        inWater = true;
+        break;
+      }
+    }
+    // Slow player in water
+    if (inWater && !this._playerInWater) {
+      this._playerInWater = true;
+      // Visual feedback: blue tint on player
+      if (this.player.setTint) this.player.setTint(0x7ad8ff);
+    } else if (!inWater && this._playerInWater) {
+      this._playerInWater = false;
+      if (this.player.clearTint) this.player.clearTint();
+    }
+    // Speed modifier is applied in movement code via this._playerInWater flag
   }
 
   spawnWall(tx, ty, key = 'tex_wall') {
@@ -1720,6 +2059,8 @@ export default class MuseumScene extends Phaser.Scene {
     if (now < ps.attackUntil) speed *= 0.45;
     // 轻功符：期间统一乘以 qinggongMul（覆盖静步压低、同时与疾跑叠加）
     if (now < ps.qinggongUntil) speed = Math.max(speed, 230) * (ps.qinggongMul || 1.7);
+    // 水域减速（走私船特色）
+    if (this._playerInWater) speed *= 0.55;
 
     // —— 受击僵直：保留击退速度，禁止键盘接管，逐帧衰减 ——
     let vx = 0;
@@ -1935,6 +2276,10 @@ export default class MuseumScene extends Phaser.Scene {
     this._updateSecurityCameras(dtSec * 1000);
     // —— 地刺陷阱更新 ——
     this._updateSpikeTraps(dtSec * 1000);
+    // —— 船体摇晃更新 ——
+    this._updateShipSway(dtSec);
+    // —— 水域减速检测 ——
+    this._updateWaterZones();
 
     // —— 心跳：警觉越高越快；完全安全时停止 ——
     this.updateHeartbeat(maxAlert);

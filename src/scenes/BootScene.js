@@ -41,6 +41,23 @@ export default class BootScene extends Phaser.Scene {
       frameHeight: 64
     });
 
+    // —— 高质量敌人 spritesheet（229×229 每帧，5列×6行）——
+    // Row 1: walk_down, Row 2: walk_right, Row 3: walk_up, Row 4: walk_left, Row 5: attack, Row 6: hurt
+    const enemyDir = 'assets/characters/enemies/';
+    this.load.spritesheet('enemy_guard', enemyDir + 'gaurds.png', {
+      frameWidth: 229,
+      frameHeight: 229
+    });
+    this.load.spritesheet('enemy_thug', enemyDir + 'fighters.png', {
+      frameWidth: 229,
+      frameHeight: 229
+    });
+    this.load.spritesheet('enemy_sailor', enemyDir + 'pirates_processed.png', {
+      frameWidth: 229,
+      frameHeight: 229
+    });
+
+    // —— TX 像素艺术贴图集
     // —— TX 像素艺术贴图集（用于 HubScene 大厅地面/墙体的真实贴图替换） ——
     // 仅作为切图来源，运行时不直接当作图像使用
     const tilesDir = 'assets/tiles/Texture/';
@@ -62,6 +79,18 @@ export default class BootScene extends Phaser.Scene {
     for (let i = 1; i <= 8; i++) {
       const id = i.toString().padStart(2, '0');
       this.load.image(`room_${id}`, `assets/rooms/${id}.png`);
+    }
+
+    // —— 黑市 (Black Market) 6 张房间贴图 ——
+    const bmRooms = ['bm_01', 'bm_02', 'bm_03', 'bm_04', 'bm_05', 'bm_06'];
+    for (const id of bmRooms) {
+      this.load.image(id, `assets/rooms/blackmarket/${id}.png`);
+    }
+
+    // —— 走私船 (Smuggler Ship) 8 张房间贴图 ——
+    const ssRooms = ['ss_01', 'ss_02', 'ss_03', 'ss_04', 'ss_05', 'ss_06', 'ss_07', 'ss_08'];
+    for (const id of ssRooms) {
+      this.load.image(id, `assets/rooms/ship/${id}.png`);
     }
   }
 
@@ -144,6 +173,7 @@ export default class BootScene extends Phaser.Scene {
     // —— 注册 LimeZu 角色动画（供 HubScene/对话使用）——
     this.registerLZAnims();
     this.registerHeroAnims();
+    this.registerEnemyAnims();
 
     // —— 像素美术保护：所有像素纹理（tex_* / lz_*）强制 NEAREST 过滤 ——
     // 全局 pixelArt 已关（让 UI 文字高清），像素纹理需要在此单独设置，否则会被 LINEAR 模糊
@@ -151,7 +181,7 @@ export default class BootScene extends Phaser.Scene {
     const Filter = Phaser.Textures.FilterMode || { NEAREST: 0 };
     const NEAREST = (Filter.NEAREST !== undefined) ? Filter.NEAREST : 0;
     Object.keys(this.textures.list).forEach((key) => {
-      if (key.startsWith('tex_') || key.startsWith('lz_') || key.startsWith('hero_')) {
+      if (key.startsWith('tex_') || key.startsWith('lz_') || key.startsWith('hero_') || key.startsWith('enemy_')) {
         const t = this.textures.get(key);
         if (t && typeof t.setFilter === 'function') t.setFilter(NEAREST);
       }
@@ -1696,6 +1726,70 @@ export default class BootScene extends Phaser.Scene {
     makeAnim('hero_walk_up', 10, 14, 10);
     makeAnim('hero_attack', 15, 19, 12, 0);
     makeAnim('hero_hurt_down', 20, 24, 8, 0);
+  }
+
+  // High-quality enemy spritesheet animations (229×229 per frame, 5 cols × 6 rows).
+  // Layout: Row1=walk_down, Row2=walk_right, Row3=walk_up, Row4=walk_left, Row5=attack, Row6=hurt
+  registerEnemyAnims() {
+    const sheets = [
+      { key: 'enemy_guard', prefix: 'guard' },
+      { key: 'enemy_thug',  prefix: 'thug'  },
+      { key: 'enemy_sailor', prefix: 'sailor' }
+    ];
+    const dirs = [
+      { name: 'down',  row: 0 },
+      { name: 'right', row: 1 },
+      { name: 'up',    row: 2 },
+      { name: 'left',  row: 3 }
+    ];
+    for (const { key, prefix } of sheets) {
+      if (!this.textures.exists(key)) continue;
+      // Walk animations (4 directions, 5 frames each)
+      for (const { name, row } of dirs) {
+        const start = row * 5;
+        const end = start + 4;
+        // idle = first frame of walk direction
+        const idleKey = `${prefix}_idle_${name}`;
+        if (!this.anims.exists(idleKey)) {
+          this.anims.create({
+            key: idleKey,
+            frames: this.anims.generateFrameNumbers(key, { start, end: start }),
+            frameRate: 1,
+            repeat: -1
+          });
+        }
+        // walk/run animation
+        const walkKey = `${prefix}_walk_${name}`;
+        if (!this.anims.exists(walkKey)) {
+          this.anims.create({
+            key: walkKey,
+            frames: this.anims.generateFrameNumbers(key, { start, end }),
+            frameRate: 10,
+            repeat: -1
+          });
+        }
+      }
+      // Attack animation (row 5, frames 20-24)
+      const atkKey = `${prefix}_attack`;
+      if (!this.anims.exists(atkKey)) {
+        this.anims.create({
+          key: atkKey,
+          frames: this.anims.generateFrameNumbers(key, { start: 20, end: 24 }),
+          frameRate: 12,
+          repeat: 0
+        });
+      }
+      // Hurt animation (row 6, frames 25-29)
+      const hurtKey = `${prefix}_hurt`;
+      if (!this.anims.exists(hurtKey)) {
+        this.anims.create({
+          key: hurtKey,
+          frames: this.anims.generateFrameNumbers(key, { start: 25, end: 29 }),
+          frameRate: 8,
+          repeat: 0
+        });
+      }
+    }
   }
 
   // LimeZu character animations.

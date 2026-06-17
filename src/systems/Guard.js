@@ -46,7 +46,20 @@ export default class Guard {
     this.texWalk = style === 'thug' ? 'tex_guard_thug_walk'
       : style === 'sailor' ? 'tex_guard_sailor_walk'
       : 'tex_guard_walk';
-    // —— LimeZu 精美贴图配置（按风格分配不同 LimeZu 角色） ——
+
+    // —— 高质量 spritesheet 贴图（优先级最高） ——
+    //   museum → enemy_guard (gaurds.png)
+    //   thug   → enemy_thug  (fighters.png)
+    //   sailor → enemy_sailor (pirates_processed.png)
+    this.hqKey = style === 'thug' ? 'enemy_thug'
+      : style === 'sailor' ? 'enemy_sailor'
+      : 'enemy_guard';
+    this.hqAnimPrefix = style === 'thug' ? 'thug'
+      : style === 'sailor' ? 'sailor'
+      : 'guard';
+    this.useHQ = scene.textures && scene.textures.exists(this.hqKey);
+
+    // —— LimeZu 精美贴图配置（按风格分配不同 LimeZu 角色）——
     //   thug   → Bob   （粗犷打手）
     //   sailor → Alex  （海军风）
     //   default→ Amelia（女守卫）
@@ -56,7 +69,7 @@ export default class Guard {
     this.lzAnimPrefix = style === 'thug' ? 'bob'
       : style === 'sailor' ? 'alex'
       : 'amelia';
-    this.useLZ = scene.textures && scene.textures.exists(this.lzKey);
+    this.useLZ = !this.useHQ && scene.textures && scene.textures.exists(this.lzKey);
     this.wpIdx = 0;
     this.alert = 0;
     this.state = 'patrol'; // patrol | suspicious | chase
@@ -89,20 +102,37 @@ export default class Guard {
     const startIdx = waypoints.length >= 2 ? Math.floor(waypoints.length / 2) : 0;
     const startPos = waypoints[startIdx];
     this.wpIdx = (startIdx + 1) % waypoints.length;
-    this.sprite = scene.physics.add.sprite(startPos.x, startPos.y, this.useLZ ? this.lzKey : this.texIdle, this.useLZ ? 18 : 0);
+    // —— 创建 sprite：优先 HQ spritesheet，其次 LimeZu，最后旧 canvas 贴图 ——
+    const initTex = this.useHQ ? this.hqKey
+      : this.useLZ ? this.lzKey
+      : this.texIdle;
+    const initFrame = this.useHQ ? 0 : (this.useLZ ? 18 : 0);
+    this.sprite = scene.physics.add.sprite(startPos.x, startPos.y, initTex, initFrame);
     this.sprite.setCollideWorldBounds(true);
-    if (this.useLZ) {
+    if (this.useHQ) {
+      // HQ 229×229 帧：碰撞体设为中下部分（脚部区域）
+      // sailor 贴图角色较小，需要更大的碰撞体偏移调整
+      if (this.style === 'sailor') {
+        this.sprite.body.setSize(50, 40).setOffset(90, 170);
+      } else {
+        this.sprite.body.setSize(60, 50).setOffset(85, 160);
+      }
+    } else if (this.useLZ) {
       // LimeZu 16×32 像素帧：脚部 body 居中（与玩家一致）
       this.sprite.body.setSize(10, 12).setOffset(3, 18);
     } else {
       this.sprite.body.setSize(12, 18).setOffset(2, 4);
     }
     this.sprite.setDepth(5);
-    // LimeZu 像素帧放大 1.5 倍 → 视觉高度 ~48px，比玩家略矮一点
-    this.sprite.setScale(this.useLZ ? 1.5 : 1.7);
-    // 当前 4 方向（LimeZu 模式使用）
+    // HQ 229px 帧缩放：sailor 贴图中角色较小，需要更大的 scale 补偿
+    const hqScale = this.style === 'sailor' ? 0.28 : 0.21;
+    this.sprite.setScale(this.useHQ ? hqScale : (this.useLZ ? 1.5 : 1.7));
+    // 当前 4 方向
     this._dir4 = 'down';
-    if (this.useLZ) {
+    if (this.useHQ) {
+      const animKey = `${this.hqAnimPrefix}_idle_down`;
+      if (scene.anims.exists(animKey)) this.sprite.play(animKey);
+    } else if (this.useLZ) {
       const animKey = `${this.lzAnimPrefix}_idle_down`;
       if (scene.anims.exists(animKey)) this.sprite.play(animKey);
     }
@@ -185,6 +215,11 @@ export default class Guard {
     // 击退（加大力度，击中手感更明显）
     if (this.sprite.body) {
       this.sprite.setVelocity(knockX * 200, knockY * 200);
+    }
+    // HQ hurt animation
+    if (this.useHQ) {
+      const hurtKey = `${this.hqAnimPrefix}_hurt`;
+      if (this.scene.anims.exists(hurtKey)) this.sprite.play(hurtKey);
     }
     // 闪红
     this.sprite.setTint(0xff5555);
@@ -301,6 +336,40 @@ export default class Guard {
     const moved = Math.hypot(dx, dy);
     this._lastX = this.sprite.x;
     this._lastY = this.sprite.y;
+
+    if (this.useHQ) {
+      // —— HQ spritesheet 4方向动画 ——
+      let dir = this._dir4 || 'down';
+      if (moved > 0.4) {
+        if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? 'right' : 'left';
+        else dir = dy > 0 ? 'down' : 'up';
+      } else if (typeof this.facing === 'number') {
+        const fx = Math.cos(this.facing);
+        const fy = Math.sin(this.facing);
+        if (Math.abs(fx) > Math.abs(fy)) dir = fx > 0 ? 'right' : 'left';
+        else dir = fy > 0 ? 'down' : 'up';
+      }
+      this._dir4 = dir;
+      const moving = moved > 0.4;
+      // Attack animation takes priority during windup/recover
+      if (this.attackPhase === 'windup' || this.attackPhase === 'recover') {
+        const atkKey = `${this.hqAnimPrefix}_attack`;
+        if (this.scene.anims.exists(atkKey)) {
+          const cur = this.sprite.anims.currentAnim;
+          if (!cur || cur.key !== atkKey) this.sprite.play(atkKey);
+        }
+      } else {
+        const animKey = moving
+          ? `${this.hqAnimPrefix}_walk_${dir}`
+          : `${this.hqAnimPrefix}_idle_${dir}`;
+        if (this.scene.anims.exists(animKey)) {
+          const cur = this.sprite.anims.currentAnim;
+          if (!cur || cur.key !== animKey) this.sprite.play(animKey);
+        }
+      }
+      this.sprite.setFlipX(false);
+      return;
+    }
 
     if (this.useLZ) {
       // —— LimeZu 4方向动画 ——
