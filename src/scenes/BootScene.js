@@ -63,6 +63,8 @@ export default class BootScene extends Phaser.Scene {
       const id = i.toString().padStart(2, '0');
       this.load.image(`room_${id}`, `assets/rooms/${id}.png`);
     }
+    this.load.image('blackmarket_map', 'assets/maps/blackmarket/undermarket1.jpg');
+    this.load.image('blackmarket_object', 'assets/maps/blackmarket/undermarket1_object.png');
   }
 
   create() {

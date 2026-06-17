@@ -11,6 +11,7 @@ import AICompanion, { quipForPickup } from '../systems/AICompanion.js';
 import SaveData from '../systems/SaveData.js';
 import { getBiome } from '../data/biomes.js';
 import { getRoomTemplate } from '../data/roomTemplates.js';
+import BLACKMARKET_TEMPLATE from '../data/blackmarketLayout.js';
 import { composeMuseumMap } from '../systems/composeMuseumMap.js';
 import SecurityCamera from '../systems/SecurityCamera.js';
 import SpikeTrap from '../systems/SpikeTrap.js';
@@ -48,6 +49,14 @@ export default class MuseumScene extends Phaser.Scene {
       : (!data || data.template === undefined); // 没显式传 template 时默认走复合
     this.useTemplate = !this.useComposed
       && ((data && data.useTemplate !== undefined) ? !!data.useTemplate : true);
+
+    if (this.biome && this.biome.id === 'blackmarket') {
+      this.useComposed = false;
+      this.useTemplate = true;
+      this._template = BLACKMARKET_TEMPLATE;
+      this.templateId = BLACKMARKET_TEMPLATE.id;
+      return;
+    }
 
     if (this.useComposed && this.biome && this.biome.id === 'museum') {
       // 复合模式：把 composeMuseumMap 的输出当作"超级模板"喂给下游
@@ -372,6 +381,16 @@ export default class MuseumScene extends Phaser.Scene {
           bg.setScale(worldW / srcW, worldH / srcH);
         }
         this._roomBgs.push(bg);
+        if (tpl.objectLayer && this.textures.exists(tpl.objectLayer)) {
+          const objectLayer = this.add.image(0, 0, tpl.objectLayer)
+            .setOrigin(0, 0)
+            .setDepth(6);
+          if (objectLayer.width > 0 && objectLayer.height > 0) {
+            objectLayer.setScale(worldW / objectLayer.width, worldH / objectLayer.height);
+          }
+          this._templateObjectLayer = objectLayer;
+          this._templateObjectDepth = 6;
+        }
         this._roomBg = bg; // 兼容旧引用
       }
 
@@ -418,6 +437,16 @@ export default class MuseumScene extends Phaser.Scene {
         this.physics.add.existing(rect, true);
         rect.body.updateFromGameObject();
         rect._dbgTag = 'obstacle';
+        this.walls.add(rect);
+      }
+
+      for (const r of (this._template.pixelColliders || [])) {
+        const w = Math.max(1, r.w || 1);
+        const h = Math.max(1, r.h || 1);
+        const rect = this.add.rectangle(r.x + w / 2, r.y + h / 2, w, h, 0xff0000, 0);
+        this.physics.add.existing(rect, true);
+        rect.body.updateFromGameObject();
+        rect._dbgTag = r.tag || 'pixelCollider';
         this.walls.add(rect);
       }
     } else {
@@ -529,6 +558,11 @@ export default class MuseumScene extends Phaser.Scene {
       this.player.body.setSize(12, 18).setOffset(2, 4);
     }
     this.player.setDepth(5);
+    if (this._templateObjectLayer) {
+      this._playerFrontDepth = 7;
+      this._playerBackDepth = 5;
+      this.player.setDepth(this._playerFrontDepth);
+    }
     this.player.setScale(useHeroPlayer ? 0.85 : 1.7);
     // 标记：后续切换动画时用
     this._useHeroPlayer = useHeroPlayer;
@@ -863,6 +897,24 @@ export default class MuseumScene extends Phaser.Scene {
   // ————————————————————————————————————————
   //  调试模式：F2 切换碰撞箱可视化（红色半透明矩形 + 关键锚点）
   // ————————————————————————————————————————
+  updateTemplateObjectDepth() {
+    if (!this.player || !this._templateObjectLayer || !this._template) return;
+    const regions = this._template.adjustRegions || [];
+    if (!regions.length) {
+      this.player.setDepth(this._playerFrontDepth || 7);
+      return;
+    }
+
+    const body = this.player.body;
+    const px = body ? body.center.x : this.player.x;
+    const py = body ? body.bottom : this.player.y;
+    const behindObject = regions.some((r) =>
+      px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h
+    );
+
+    this.player.setDepth(behindObject ? (this._playerBackDepth || 5) : (this._playerFrontDepth || 7));
+  }
+
   toggleDebugColliders() {
     if (!this._dbgGfx) {
       this._dbgGfx = this.add.graphics().setDepth(200);
@@ -884,6 +936,14 @@ export default class MuseumScene extends Phaser.Scene {
         g.fillRect(b.x, b.y, b.width, b.height);
         g.strokeRect(b.x, b.y, b.width, b.height);
       });
+    }
+    if (this._template && this._template.adjustRegions) {
+      g.fillStyle(0x7a3eb1, 0.28);
+      g.lineStyle(1, 0xc084fc, 0.95);
+      for (const r of this._template.adjustRegions) {
+        g.fillRect(r.x, r.y, r.w, r.h);
+        g.strokeRect(r.x, r.y, r.w, r.h);
+      }
     }
     // 画守卫巡逻点
     if (this.guards) {
@@ -1849,6 +1909,7 @@ export default class MuseumScene extends Phaser.Scene {
       // up/down 时保留上一帧水平朝向，避免突变
       this.player.setFlipX(this._playerFacingX < 0);
     }
+    this.updateTemplateObjectDepth();
 
     // —— 体力（疾跑消耗、格挡消耗、其余恢复） ——
     const isMoving = vx !== 0 || vy !== 0;
