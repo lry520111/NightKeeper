@@ -92,6 +92,10 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('safe_open1', 'assets/props/safe/open1.png');
     this.load.image('safe_open2', 'assets/props/safe/open2.png');
     this.load.image('safe_open3', 'assets/props/safe/open3.png');
+    this.load.image('chest_closed', 'assets/props/chest/close.png');
+    this.load.image('chest_open1', 'assets/props/chest/open1.png');
+    this.load.image('chest_open2', 'assets/props/chest/open2.png');
+    this.load.image('chest_open3', 'assets/props/chest/open3.png');
 
     // —— 走私船 (Smuggler Ship) 完整地图 ——
     this.load.image('ship_full', 'assets/rooms/ship_full.png');
@@ -1329,28 +1333,63 @@ export default class BootScene extends Phaser.Scene {
 
   // 鼎：三足两耳
   makeRelicDing() {
-    this.makeCanvasTexture('tex_relic_ding', 16, 16, (ctx) => {
-      // 双耳
-      ctx.fillStyle = '#3a2818';
-      ctx.fillRect(2, 3, 2, 4);
-      ctx.fillRect(12, 3, 2, 4);
-      // 鼎身
-      ctx.fillStyle = '#5a4028';
-      ctx.fillRect(3, 5, 10, 7);
-      // 高光
-      ctx.fillStyle = '#8a6438';
-      ctx.fillRect(3, 5, 10, 1);
-      ctx.fillRect(3, 5, 1, 6);
-      // 纹饰（饕餮）
-      ctx.fillStyle = '#d4af37';
-      ctx.fillRect(6, 8, 1, 1);
-      ctx.fillRect(9, 8, 1, 1);
-      ctx.fillRect(7, 10, 2, 1);
-      // 三足
-      ctx.fillStyle = '#3a2818';
-      ctx.fillRect(3, 12, 2, 3);
-      ctx.fillRect(7, 12, 2, 3);
-      ctx.fillRect(11, 12, 2, 3);
+    this.makeCanvasTexture('tex_relic_ding', 32, 32, (ctx) => {
+      const p = (x, y, w, h, c) => {
+        ctx.fillStyle = c;
+        ctx.fillRect(x, y, w, h);
+      };
+      const outline = '#172522';
+      const dark = '#29382f';
+      const bronze = '#52684f';
+      const mid = '#6f805f';
+      const light = '#9daf83';
+      const patina = '#74bdb5';
+      const patina2 = '#b7ece6';
+      const shadow = '#1a201f';
+
+      p(6, 4, 4, 8, outline);
+      p(22, 4, 4, 8, outline);
+      p(7, 5, 2, 6, patina);
+      p(23, 5, 2, 6, patina);
+      p(8, 7, 3, 2, patina2);
+      p(21, 7, 3, 2, patina2);
+
+      p(9, 6, 14, 2, outline);
+      p(8, 8, 16, 2, outline);
+      p(10, 7, 12, 1, patina2);
+      p(9, 8, 14, 1, patina);
+
+      p(7, 10, 18, 2, outline);
+      p(6, 12, 20, 3, outline);
+      p(5, 15, 22, 6, outline);
+      p(6, 21, 20, 2, outline);
+      p(8, 23, 16, 2, outline);
+
+      p(8, 11, 16, 2, mid);
+      p(7, 13, 18, 3, bronze);
+      p(6, 16, 20, 4, bronze);
+      p(7, 20, 18, 2, dark);
+      p(9, 22, 14, 1, shadow);
+      p(9, 12, 13, 1, light);
+      p(7, 14, 2, 5, mid);
+      p(23, 14, 2, 5, dark);
+
+      p(11, 14, 3, 1, light);
+      p(18, 14, 3, 1, light);
+      p(10, 16, 2, 2, dark);
+      p(14, 16, 4, 1, light);
+      p(20, 16, 2, 2, dark);
+      p(12, 19, 8, 1, light);
+
+      p(7, 23, 3, 6, outline);
+      p(15, 23, 3, 7, outline);
+      p(23, 23, 3, 6, outline);
+      p(8, 23, 1, 5, mid);
+      p(16, 23, 1, 6, mid);
+      p(24, 23, 1, 5, mid);
+      p(6, 29, 5, 1, patina);
+      p(14, 30, 5, 1, patina);
+      p(22, 29, 5, 1, patina);
     });
   }
 

@@ -530,9 +530,10 @@ export default class MuseumScene extends Phaser.Scene {
       // 展柜底座
       const base = this.add.image(cx, cy, 'tex_case').setDepth(1).setScale(1.4);
       // 文物本体
-      const r = this.relicGroup.create(cx, cy - 2, data.icon || 'tex_relic');
+      const iconKey = data.icon || 'tex_relic';
+      const r = this.relicGroup.create(cx, cy - 2, iconKey);
       r.setData('relic', data).setDepth(2);
-      r.setScale(1.4);  // ★ 文物图标增大 ★
+      this._fitRelicSprite(r, iconKey);
       r.body.setSize(16, 16);
       r.setData('basePos', { x: cx, y: cy - 2 });
       // 微微浮动呼吸
@@ -2763,6 +2764,8 @@ export default class MuseumScene extends Phaser.Scene {
     let glyph = null;
     if (cd.kind === 'safe' && this.textures.exists('safe_closed')) {
       box = this.add.image(cx, cy, 'safe_closed').setDepth(2);
+    } else if (cd.kind === 'plain' && this.textures.exists('chest_closed')) {
+      box = this.add.image(cx, cy, 'chest_closed').setDepth(2);
     } else {
       box = this.add.rectangle(cx, cy, 30, 28, col.fill, 1).setDepth(2);
       box.setStrokeStyle(2, col.edge, 0.9);
@@ -2884,6 +2887,21 @@ export default class MuseumScene extends Phaser.Scene {
     });
   }
 
+  _playChestOpenAnimation(c) {
+    if (!c || !c.sprite || !this.textures.exists('chest_open1')) return;
+    c.sprite.setTexture('chest_open1');
+    this.time.delayedCall(90, () => {
+      if (c.sprite && c.sprite.active && this.textures.exists('chest_open2')) {
+        c.sprite.setTexture('chest_open2');
+      }
+    });
+    this.time.delayedCall(180, () => {
+      if (c.sprite && c.sprite.active && this.textures.exists('chest_open3')) {
+        c.sprite.setTexture('chest_open3');
+      }
+    });
+  }
+
   _finishOpenContainer(c) {
     c.opening = false;
     c.opened = true;
@@ -2891,6 +2909,8 @@ export default class MuseumScene extends Phaser.Scene {
     // 视觉：箱子变暗
     if (k === 'safe') {
       this._playSafeOpenAnimation(c);
+    } else if (k === 'plain') {
+      this._playChestOpenAnimation(c);
     } else {
       c.sprite.setFillStyle(0x222018, 0.6);
       if (c.glyph) c.glyph.setAlpha(0.35).setText('·');
@@ -2930,10 +2950,19 @@ export default class MuseumScene extends Phaser.Scene {
     }
   }
 
+  _fitRelicSprite(sprite, iconKey) {
+    if (!sprite || !iconKey || !this.textures.exists(iconKey)) return;
+    const tex = this.textures.get(iconKey).getSourceImage();
+    const scale = Math.min(22 / tex.width, 22 / tex.height, 1.4);
+    sprite.setScale(scale);
+  }
+
   /** 把文物作为可拾取物投到 (x,y) */
   _dropRelicAt(x, y, data) {
-    const r = this.relicGroup.create(x, y, data.icon || 'tex_relic');
+    const iconKey = data.icon || 'tex_relic';
+    const r = this.relicGroup.create(x, y, iconKey);
     r.setData('relic', data).setDepth(2);
+    this._fitRelicSprite(r, iconKey);
     if (r.body) r.body.setSize(12, 12);
     r.setData('basePos', { x, y });
     // 弹跳动画
