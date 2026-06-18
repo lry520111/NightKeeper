@@ -1,0 +1,1120 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://PixelworkMapStitch/museum_full_20260618_170226_387/museum_full_20260618_170226_387_runtime.gd" id="script_runtime"]
+
+[node name="museum_full_20260618_170226_387" type="Node2D"]
+
+script = ExtResource("script_runtime")
+enable_runtime_regions = false
+map_display_mode = 0
+metadata/map_stitch_manifest_path = "res://PixelworkMapStitch/museum_full_20260618_170226_387/museum_full_20260618_170226_387_godot.json"
+
+[node name="overall" type="Node2D" parent="."]
+visible = true
+z_index = -10
+
+[node name="Annotations" type="Node2D" parent="."]
+visible = false
+
+[node name="collision" type="Node2D" parent="Annotations"]
+z_index = 110
+
+[node name="collision_1" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_1"]
+polygon = PackedVector2Array(572, 1272, 585, 1272, 585, 1397, 572, 1397)
+
+[node name="collision_2" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_2"]
+polygon = PackedVector2Array(496, 1270, 509, 1270, 509, 1400, 496, 1400)
+
+[node name="collision_3" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_3"]
+polygon = PackedVector2Array(452, 1223, 470, 1223, 470, 1251, 452, 1251)
+
+[node name="collision_4" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_4"]
+polygon = PackedVector2Array(611, 1225, 627, 1225, 627, 1246, 611, 1246)
+
+[node name="collision_5" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_5"]
+polygon = PackedVector2Array(447, 1275, 494, 1275, 494, 1314, 447, 1314)
+
+[node name="collision_6" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_6"]
+polygon = PackedVector2Array(322, 1254, 426, 1254, 426, 1290, 322, 1290)
+
+[node name="collision_7" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_7"]
+polygon = PackedVector2Array(423, 1264, 436, 1264, 436, 1301, 423, 1301)
+
+[node name="collision_8" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_8"]
+polygon = PackedVector2Array(436, 1272, 449, 1272, 449, 1301, 436, 1301)
+
+[node name="collision_9" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_9"]
+polygon = PackedVector2Array(275, 1118, 290, 1118, 290, 1228, 275, 1228)
+
+[node name="collision_10" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_10"]
+polygon = PackedVector2Array(277, 1223, 290, 1223, 290, 1249, 277, 1249)
+
+[node name="collision_11" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_11"]
+polygon = PackedVector2Array(290, 1233, 298, 1233, 298, 1264, 290, 1264)
+
+[node name="collision_12" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_12"]
+polygon = PackedVector2Array(298, 1241, 308, 1241, 308, 1275, 298, 1275)
+
+[node name="collision_13" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_13"]
+polygon = PackedVector2Array(306, 1254, 322, 1254, 322, 1285, 306, 1285)
+
+[node name="collision_14" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_14"]
+polygon = PackedVector2Array(441, 1124, 462, 1124, 462, 1160, 441, 1160)
+
+[node name="collision_15" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_15"]
+polygon = PackedVector2Array(621, 1124, 640, 1124, 640, 1160, 621, 1160)
+
+[node name="collision_16" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_16"]
+polygon = PackedVector2Array(585, 1277, 629, 1277, 629, 1317, 585, 1317)
+
+[node name="collision_17" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_17"]
+polygon = PackedVector2Array(629, 1267, 640, 1267, 640, 1306, 629, 1306)
+
+[node name="collision_18" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_18"]
+polygon = PackedVector2Array(640, 1259, 653, 1259, 653, 1296, 640, 1296)
+
+[node name="collision_19" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_19"]
+polygon = PackedVector2Array(655, 1249, 770, 1249, 770, 1262, 655, 1262)
+
+[node name="collision_20" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_20"]
+polygon = PackedVector2Array(770, 1238, 796, 1238, 796, 1270, 770, 1270)
+
+[node name="collision_21" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_21"]
+polygon = PackedVector2Array(786, 1134, 807, 1134, 807, 1249, 786, 1249)
+
+[node name="collision_22" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_22"]
+polygon = PackedVector2Array(288, 1176, 308, 1176, 308, 1217, 288, 1217)
+
+[node name="collision_23" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_23"]
+polygon = PackedVector2Array(767, 1178, 788, 1178, 788, 1212, 767, 1212)
+
+[node name="collision_24" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_24"]
+polygon = PackedVector2Array(405, 1087, 509, 1087, 509, 1142, 405, 1142)
+
+[node name="collision_25" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_25"]
+polygon = PackedVector2Array(574, 1090, 687, 1090, 687, 1147, 574, 1147)
+
+[node name="collision_26" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_26"]
+polygon = PackedVector2Array(734, 1090, 822, 1090, 822, 1144, 734, 1144)
+
+[node name="collision_27" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_27"]
+polygon = PackedVector2Array(235, 1090, 350, 1090, 350, 1134, 235, 1134)
+
+[node name="collision_28" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_28"]
+polygon = PackedVector2Array(230, 871, 264, 871, 264, 1100, 230, 1100)
+
+[node name="collision_29" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_29"]
+polygon = PackedVector2Array(481, 873, 494, 873, 494, 936, 481, 936)
+
+[node name="collision_30" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_30"]
+polygon = PackedVector2Array(483, 1011, 499, 1011, 499, 1092, 483, 1092)
+
+[node name="collision_31" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_31"]
+polygon = PackedVector2Array(587, 1011, 601, 1011, 601, 1098, 587, 1098)
+
+[node name="collision_32" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_32"]
+polygon = PackedVector2Array(593, 876, 606, 876, 606, 938, 593, 938)
+
+[node name="collision_33" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_33"]
+polygon = PackedVector2Array(807, 868, 825, 868, 825, 1111, 807, 1111)
+
+[node name="collision_34" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_34"]
+polygon = PackedVector2Array(504, 566, 577, 566, 577, 738, 504, 738)
+
+[node name="collision_35" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_35"]
+polygon = PackedVector2Array(454, 605, 621, 605, 621, 691, 454, 691)
+
+[node name="collision_36" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_36"]
+polygon = PackedVector2Array(481, 586, 603, 586, 603, 712, 481, 712)
+
+[node name="collision_37" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_37"]
+polygon = PackedVector2Array(603, 871, 687, 871, 687, 910, 603, 910)
+
+[node name="collision_38" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_38"]
+polygon = PackedVector2Array(739, 871, 817, 871, 817, 905, 739, 905)
+
+[node name="collision_39" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_39"]
+polygon = PackedVector2Array(259, 871, 348, 871, 348, 907, 259, 907)
+
+[node name="collision_40" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_40"]
+polygon = PackedVector2Array(395, 871, 483, 871, 483, 912, 395, 912)
+
+[node name="collision_41" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_41"]
+polygon = PackedVector2Array(853, 435, 869, 435, 869, 566, 853, 566)
+
+[node name="collision_42" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_42"]
+polygon = PackedVector2Array(587, 813, 765, 813, 765, 829, 587, 829)
+
+[node name="collision_43" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_43"]
+polygon = PackedVector2Array(754, 772, 770, 772, 770, 832, 754, 832)
+
+[node name="collision_44" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_44"]
+polygon = PackedVector2Array(345, 779, 361, 779, 361, 834, 345, 834)
+
+[node name="collision_45" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_45"]
+polygon = PackedVector2Array(348, 819, 481, 819, 481, 834, 348, 834)
+
+[node name="collision_46" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_46"]
+polygon = PackedVector2Array(275, 805, 288, 805, 288, 881, 275, 881)
+
+[node name="collision_47" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_47"]
+polygon = PackedVector2Array(272, 586, 285, 586, 285, 761, 272, 761)
+
+[node name="collision_48" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_48"]
+polygon = PackedVector2Array(22, 618, 269, 618, 269, 639, 22, 639)
+
+[node name="collision_49" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_49"]
+polygon = PackedVector2Array(97, 639, 212, 639, 212, 730, 97, 730)
+
+[node name="collision_50" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_50"]
+polygon = PackedVector2Array(19, 631, 35, 631, 35, 868, 19, 868)
+
+[node name="collision_51" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_51"]
+polygon = PackedVector2Array(19, 868, 251, 868, 251, 894, 19, 894)
+
+[node name="collision_52" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_52"]
+polygon = PackedVector2Array(27, 430, 45, 430, 45, 618, 27, 618)
+
+[node name="collision_53" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_53"]
+polygon = PackedVector2Array(37, 433, 285, 433, 285, 474, 37, 474)
+
+[node name="collision_54" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_54"]
+polygon = PackedVector2Array(267, 467, 285, 467, 285, 529, 267, 529)
+
+[node name="collision_55" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_55"]
+polygon = PackedVector2Array(280, 427, 301, 427, 301, 529, 280, 529)
+
+[node name="collision_56" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_56"]
+polygon = PackedVector2Array(335, 414, 350, 414, 350, 534, 335, 534)
+
+[node name="collision_57" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_57"]
+polygon = PackedVector2Array(342, 414, 423, 414, 423, 469, 342, 469)
+
+[node name="collision_58" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_58"]
+polygon = PackedVector2Array(567, 420, 676, 420, 676, 474, 567, 474)
+
+[node name="collision_59" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_59"]
+polygon = PackedVector2Array(765, 427, 788, 427, 788, 584, 765, 584)
+
+[node name="collision_60" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_60"]
+polygon = PackedVector2Array(827, 417, 853, 417, 853, 558, 827, 558)
+
+[node name="collision_61" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_61"]
+polygon = PackedVector2Array(846, 558, 866, 558, 866, 620, 846, 620)
+
+[node name="collision_62" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_62"]
+polygon = PackedVector2Array(853, 691, 866, 691, 866, 761, 853, 761)
+
+[node name="collision_63" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_63"]
+polygon = PackedVector2Array(848, 746, 921, 746, 921, 777, 848, 777)
+
+[node name="collision_64" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_64"]
+polygon = PackedVector2Array(864, 766, 882, 766, 882, 821, 864, 821)
+
+[node name="collision_65" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_65"]
+polygon = PackedVector2Array(817, 858, 874, 858, 874, 873, 817, 873)
+
+[node name="collision_66" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_66"]
+polygon = PackedVector2Array(861, 863, 880, 863, 880, 952, 861, 952)
+
+[node name="collision_67" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_67"]
+polygon = PackedVector2Array(869, 944, 950, 944, 950, 978, 869, 978)
+
+[node name="collision_68" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_68"]
+polygon = PackedVector2Array(942, 941, 1088, 941, 1088, 978, 942, 978)
+
+[node name="collision_69" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_69"]
+polygon = PackedVector2Array(1070, 759, 1091, 759, 1091, 941, 1070, 941)
+
+[node name="collision_70" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_70"]
+polygon = PackedVector2Array(968, 743, 1086, 743, 1086, 779, 968, 779)
+
+[node name="collision_71" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_71"]
+polygon = PackedVector2Array(1059, 571, 1093, 571, 1093, 756, 1059, 756)
+
+[node name="collision_72" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_72"]
+polygon = PackedVector2Array(866, 435, 1067, 435, 1067, 477, 866, 477)
+
+[node name="collision_73" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_73"]
+polygon = PackedVector2Array(1052, 435, 1072, 435, 1072, 581, 1052, 581)
+
+[node name="collision_74" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_74"]
+polygon = PackedVector2Array(932, 558, 1046, 558, 1046, 594, 932, 594)
+
+[node name="collision_75" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_75"]
+polygon = PackedVector2Array(864, 558, 887, 558, 887, 599, 864, 599)
+
+[node name="collision_76" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_76"]
+polygon = PackedVector2Array(958, 686, 1005, 686, 1005, 706, 958, 706)
+
+[node name="collision_77" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_77"]
+polygon = PackedVector2Array(160, 5, 186, 5, 186, 430, 160, 430)
+
+[node name="collision_78" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_78"]
+polygon = PackedVector2Array(1059, 2, 1086, 2, 1086, 347, 1059, 347)
+
+[node name="collision_79" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_79"]
+polygon = PackedVector2Array(181, 0, 861, 0, 861, 68, 181, 68)
+
+[node name="collision_80" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_80"]
+polygon = PackedVector2Array(859, 0, 1052, 0, 1052, 28, 859, 28)
+
+[node name="collision_81" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_81"]
+polygon = PackedVector2Array(950, 253, 973, 253, 973, 433, 950, 433)
+
+[node name="collision_82" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_82"]
+polygon = PackedVector2Array(966, 313, 1078, 313, 1078, 354, 966, 354)
+
+[node name="collision_83" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_83"]
+polygon = PackedVector2Array(853, 130, 872, 130, 872, 237, 853, 237)
+
+[node name="collision_84" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_84"]
+polygon = PackedVector2Array(859, 237, 890, 237, 890, 274, 859, 274)
+
+[node name="collision_85" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_85"]
+polygon = PackedVector2Array(885, 258, 968, 258, 968, 284, 885, 284)
+
+[node name="collision_86" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_86"]
+polygon = PackedVector2Array(945, 88, 1023, 88, 1023, 151, 945, 151)
+
+[node name="collision_87" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_87"]
+polygon = PackedVector2Array(189, 331, 246, 331, 246, 365, 189, 365)
+
+[node name="collision_88" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_88"]
+polygon = PackedVector2Array(301, 336, 457, 336, 457, 370, 301, 370)
+
+[node name="collision_89" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_89"]
+polygon = PackedVector2Array(512, 339, 681, 339, 681, 378, 512, 378)
+
+[node name="collision_90" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_90"]
+polygon = PackedVector2Array(744, 341, 822, 341, 822, 375, 744, 375)
+
+[node name="collision_91" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_91"]
+polygon = PackedVector2Array(606, 133, 624, 133, 624, 347, 606, 347)
+
+[node name="collision_92" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_92"]
+polygon = PackedVector2Array(796, 128, 817, 128, 817, 352, 796, 352)
+
+[node name="collision_93" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_93"]
+polygon = PackedVector2Array(358, 128, 381, 128, 381, 347, 358, 347)
+
+[node name="collision_94" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_94"]
+polygon = PackedVector2Array(181, 130, 251, 130, 251, 164, 181, 164)
+
+[node name="collision_95" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_95"]
+polygon = PackedVector2Array(306, 133, 452, 133, 452, 167, 306, 167)
+
+[node name="collision_96" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_96"]
+polygon = PackedVector2Array(525, 130, 668, 130, 668, 174, 525, 174)
+
+[node name="collision_97" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_97"]
+polygon = PackedVector2Array(739, 135, 793, 135, 793, 169, 739, 169)
+
+[node name="collision_98" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_98"]
+polygon = PackedVector2Array(872, 334, 958, 334, 958, 367, 872, 367)
+
+[node name="collision_99" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_99"]
+polygon = PackedVector2Array(916, 396, 971, 396, 971, 435, 916, 435)
+
+[node name="collision_100" type="StaticBody2D" parent="Annotations/collision"]
+collision_layer = 0
+collision_mask = 0
+metadata/mode = "rectangle"
+metadata/map_stitch_tile_key = "0,0"
+metadata/map_stitch_collision_layer = 1
+metadata/map_stitch_collision_mask = 1
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Annotations/collision/collision_100"]
+polygon = PackedVector2Array(853, 417, 924, 417, 924, 433, 853, 433)

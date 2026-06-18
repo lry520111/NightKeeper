@@ -97,6 +97,9 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('chest_open2', 'assets/props/chest/open2.png');
     this.load.image('chest_open3', 'assets/props/chest/open3.png');
 
+    // —— 博物馆 (Museum) 完整地图 ——
+    this.load.image('museum_full', 'assets/rooms/museum_full.png');
+
     // —— 走私船 (Smuggler Ship) 完整地图 ——
     this.load.image('ship_full', 'assets/rooms/ship_full.png');
     // Legacy: 8 张分块房间贴图（保留兼容）
@@ -104,9 +107,18 @@ export default class BootScene extends Phaser.Scene {
     for (const id of ssRooms) {
       this.load.image(id, `assets/rooms/ship/${id}.png`);
     }
+
+    // —— 文物高清贴图 (Relic PNG sprites) ——
+    const relicPngs = ['head', 'bell', 'bluewhite', 'jade', 'mask', 'scroll', 'seal', 'vase'];
+    for (const name of relicPngs) {
+      this.load.image(`tex_relic_${name}`, `assets/relics/relic_${name}.png`);
+    }
   }
 
   create() {
+    // —— Remove white background from relic PNG textures ——
+    this._removeRelicPngBackground();
+
     // —— 角色 / 物件贴图 ——
     this.makePlayerTexture();
     this.makePlayerWalkTexture();    // 玩家行走第二帧（双腿换位）
@@ -204,10 +216,89 @@ export default class BootScene extends Phaser.Scene {
 
   // ——————————— 通用工具 ———————————
 
+
+  /**
+   * Remove white/light background from relic PNG textures using flood-fill from edges.
+   * This ensures only the connected background region is removed, preserving interior details.
+   */
+  _removeRelicPngBackground() {
+    const relicKeys = ['tex_relic_head', 'tex_relic_bell', 'tex_relic_bluewhite',
+      'tex_relic_jade', 'tex_relic_mask', 'tex_relic_scroll', 'tex_relic_seal', 'tex_relic_vase'];
+    // Tolerance: how different a pixel can be from "white" and still count as background
+    const tolerance = 60; // allows removal of light grays (RGB ~195+)
+
+    for (const key of relicKeys) {
+      if (!this.textures.exists(key)) continue;
+      const src = this.textures.get(key).getSourceImage();
+      const w = src.width;
+      const h = src.height;
+
+      // Draw source image onto a temporary canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(src, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const data = imageData.data;
+      const visited = new Uint8Array(w * h);
+
+      // Check if a pixel is "background-like" (close to white/light gray)
+      const isBgPixel = (idx) => {
+        const r = data[idx], g = data[idx + 1], b = data[idx + 2], a = data[idx + 3];
+        if (a === 0) return true; // already transparent
+        // Check if pixel is light enough (close to white)
+        return r >= (255 - tolerance) && g >= (255 - tolerance) && b >= (255 - tolerance);
+      };
+
+      // Flood fill from edges to mark connected background pixels
+      const queue = [];
+      // Seed from all edge pixels
+      for (let x = 0; x < w; x++) {
+        queue.push(x); // top row
+        queue.push((h - 1) * w + x); // bottom row
+      }
+      for (let y = 1; y < h - 1; y++) {
+        queue.push(y * w); // left column
+        queue.push(y * w + (w - 1)); // right column
+      }
+
+      // BFS flood fill
+      let head = 0;
+      while (head < queue.length) {
+        const pos = queue[head++];
+        if (pos < 0 || pos >= w * h) continue;
+        if (visited[pos]) continue;
+        const idx = pos * 4;
+        if (!isBgPixel(idx)) continue;
+
+        visited[pos] = 1;
+        data[idx + 3] = 0; // make transparent
+
+        const x = pos % w;
+        const y = (pos - x) / w;
+        // 4-connected neighbors
+        if (x > 0) queue.push(pos - 1);
+        if (x < w - 1) queue.push(pos + 1);
+        if (y > 0) queue.push(pos - w);
+        if (y < h - 1) queue.push(pos + w);
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      // Remove old texture and re-add with processed canvas
+      this.textures.remove(key);
+      this.textures.addCanvas(key, canvas);
+    }
+  }
+
   /**
    * 用 canvas 创建并注册一张贴图
    */
   makeCanvasTexture(key, w, h, draw) {
+    // Skip if texture already loaded (e.g. PNG from preload overrides canvas fallback)
+    if (this.textures.exists(key)) return;
     const tex = this.textures.createCanvas(key, w, h);
     const ctx = tex.getContext();
     ctx.imageSmoothingEnabled = false;

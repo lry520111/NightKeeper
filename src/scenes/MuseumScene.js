@@ -13,6 +13,7 @@ import { getBiome } from '../data/biomes.js';
 import { getRoomTemplate } from '../data/roomTemplates.js';
 import BLACKMARKET_TEMPLATE from '../data/blackmarketLayout.js';
 import { composeMuseumMap } from '../systems/composeMuseumMap.js';
+import { composeMuseumFullMap } from '../systems/composeMuseumFullMap.js';
 import { composeBlackmarketMap } from '../systems/composeBlackmarketMap.js';
 import { composeShipMap } from '../systems/composeShipMap.js';
 import SecurityCamera from '../systems/SecurityCamera.js';
@@ -69,7 +70,7 @@ export default class MuseumScene extends Phaser.Scene {
         } else if (biomeId === 'ship') {
           this._template = composeShipMap();
         } else {
-          this._template = composeMuseumMap();
+          this._template = composeMuseumFullMap();
         }
         this.templateId = this._template.id;
       } catch (err) {
@@ -177,7 +178,8 @@ export default class MuseumScene extends Phaser.Scene {
       if (tpl.children && tpl.children.length) {
         // 复合模式：先铺走廊地板色，再铺各房间贴图
         // 走廊装饰：地砖纹理 + 墙壁边框 + 灯具
-        if (tpl.corridors && tpl.corridors.length) {
+        // Skip corridor/doorway decorations for full-map PNG (artwork already has them)
+        if (tpl.corridors && tpl.corridors.length && !tpl.wallsInPixels) {
           for (const c of tpl.corridors) {
             const cx = c.x * TILE;
             const cy = c.y * TILE;
@@ -279,7 +281,8 @@ export default class MuseumScene extends Phaser.Scene {
         }
 
         // 5) 门洞拱门装饰（标识入口）— 大尺寸明显门框
-        if (tpl.doorways && tpl.doorways.length) {
+        // Skip for full-map PNG (artwork already contains door visuals)
+        if (tpl.doorways && tpl.doorways.length && !tpl.wallsInPixels) {
           const gfxDoors = this.add.graphics().setDepth(0.15);
           for (const dw of tpl.doorways) {
             const dx = dw.x * TILE;
@@ -439,10 +442,13 @@ export default class MuseumScene extends Phaser.Scene {
       // —— 墙体：内缩使面积减小约15%（保持中心不变，各维度×0.92） ——
       const WALL_SHRINK = Math.sqrt(0.85); // ~0.922, area reduction ~15%
       const usePixelWalls = !!tpl.wallsInPixels;
-      // Image scale correction: annotations are in original image pixels (1070×1470),
-      // but the image is rendered at worldW×worldH (1088×1472).
-      const imgScaleX = usePixelWalls ? (worldW / 1070) : 1;
-      const imgScaleY = usePixelWalls ? (worldH / 1470) : 1;
+      // Image scale correction: annotations are in original image pixels,
+      // but the image is rendered at worldW×worldH.
+      // Use template's imageWidth/imageHeight if available, fallback to legacy ship dims.
+      const imgW = (tpl.imageWidth) || 1070;
+      const imgH = (tpl.imageHeight) || 1470;
+      const imgScaleX = usePixelWalls ? (worldW / imgW) : 1;
+      const imgScaleY = usePixelWalls ? (worldH / imgH) : 1;
 
       const addWall = (rx, ry, rw, rh) => {
         let cx, cy, W, H;
@@ -868,7 +874,7 @@ export default class MuseumScene extends Phaser.Scene {
       occupied.add(k(cell.x, cell.y));
     }
 
-    // 5) 容器：保险箱（07 号专用）+ 其他普通木箱（从未被使用的 placeable 中再挑 1~2 个）
+    // 5) 容器：保险箱（07 号专用）+ 其他普通木箱
     const containers = [];
     if (tpl.special && tpl.special.safe) {
       const s = tpl.special.safe;
@@ -880,13 +886,39 @@ export default class MuseumScene extends Phaser.Scene {
       containers.push({ x: s.x, y: s.y, kind: 'safe', relicIdx: safeRelicIdx });
       occupied.add(k(s.x, s.y));
     }
-    for (const cell of placeable) {
-      if (containers.length >= 6 + (tpl.special && tpl.special.safe ? 1 : 0)) break;
-      if (occupied.has(k(cell.x, cell.y))) continue;
-      // 50% 概率放普通木箱（含补给）— 增加物资密度
-      if (Math.random() < 0.5) {
-        containers.push({ x: cell.x, y: cell.y, kind: 'plain', lootKind: 'medkit' });
-        occupied.add(k(cell.x, cell.y));
+
+    // For full-map PNG mode (wallsInPixels), pick container positions from walkable
+    // floors OUTSIDE the relic display zones to avoid visual overlap with relics.
+    if (tpl.wallsInPixels) {
+      // Build a set of tiles used by placeable (relic zones) to exclude them
+      const relicZoneTiles = new Set();
+      for (const cell of placeable) relicZoneTiles.add(k(cell.x, cell.y));
+      // Candidate tiles: walkable floors that are NOT in relic zones and NOT occupied
+      const containerCandidates = floors.filter(f =>
+        !relicZoneTiles.has(k(f.x, f.y)) && !occupied.has(k(f.x, f.y))
+      );
+      // Shuffle candidates
+      for (let i = containerCandidates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [containerCandidates[i], containerCandidates[j]] = [containerCandidates[j], containerCandidates[i]];
+      }
+      const maxContainers = 6 + (tpl.special && tpl.special.safe ? 1 : 0);
+      for (const cell of containerCandidates) {
+        if (containers.length >= maxContainers) break;
+        if (Math.random() < 0.5) {
+          containers.push({ x: cell.x, y: cell.y, kind: 'plain', lootKind: 'medkit' });
+          occupied.add(k(cell.x, cell.y));
+        }
+      }
+    } else {
+      for (const cell of placeable) {
+        if (containers.length >= 6 + (tpl.special && tpl.special.safe ? 1 : 0)) break;
+        if (occupied.has(k(cell.x, cell.y))) continue;
+        // 50% 概率放普通木箱（含补给）— 增加物资密度
+        if (Math.random() < 0.5) {
+          containers.push({ x: cell.x, y: cell.y, kind: 'plain', lootKind: 'medkit' });
+          occupied.add(k(cell.x, cell.y));
+        }
       }
     }
 
@@ -1237,7 +1269,7 @@ export default class MuseumScene extends Phaser.Scene {
   // Decorate ship rooms with metal plates and portholes
   _decorateShipRoom(child, cx, cy, cw, ch) {
     // Skip decoration for full-map PNG (artwork already contains visual details)
-    if (child.id === 'ship_full') return;
+    if (child.id === 'ship_full' || child.id === 'museum_full') return;
 
     const gfx = this.add.graphics().setDepth(0.15);
 
@@ -1280,7 +1312,7 @@ export default class MuseumScene extends Phaser.Scene {
 
     // For full-map mode (single child covering entire map), use roomBounds instead
     const children = this._template.children;
-    if (children.length === 1 && children[0].id === 'ship_full' && this._template.roomBounds) {
+    if (children.length === 1 && (children[0].id === 'ship_full' || children[0].id === 'museum_full') && this._template.roomBounds) {
       const bounds = this._template.roomBounds;
       // Place cameras in key rooms: vault, operations, cargo_hold
       const cameraRooms = ['vault_main', 'operations', 'cargo_hold', 'engine_room'];
@@ -2959,7 +2991,9 @@ export default class MuseumScene extends Phaser.Scene {
   _fitRelicSprite(sprite, iconKey) {
     if (!sprite || !iconKey || !this.textures.exists(iconKey)) return;
     const tex = this.textures.get(iconKey).getSourceImage();
-    const scale = Math.min(22 / tex.width, 22 / tex.height, 1.4);
+    // PNG relic textures can be very large (512px+), scale to fit 24x24 game pixels
+    const targetSize = 24;
+    const scale = Math.min(targetSize / tex.width, targetSize / tex.height);
     sprite.setScale(scale);
   }
 
