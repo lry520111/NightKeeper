@@ -27,11 +27,14 @@ function cacheStorageKey() { return SaveSlots.slotKey(BASE_CACHE_KEY); }
 const LLM_CONFIG = {
   enabled: true,                     // Hunyuan API enabled
   provider: 'hunyuan',               // 'hunyuan' | 'mock'
-  endpoint: 'https://tokenhub.tencentmaas.com/v1',  // Hunyuan tokenhub endpoint
+  endpoint: 'https://tokenhub.tencentmaas.com/v1',  // Hunyuan tokenhub endpoint (local dev)
+  proxyEndpoint: '/api/chat',        // Vercel serverless proxy (production)
   apiKey: import.meta.env.VITE_HUNYUAN_KEY || '',  // Auto-read from .env or runtime inject
   model: 'hy3-preview',               // hy3 preview model
   timeoutMs: 15000,
-  maxTokens: 600
+  maxTokens: 600,
+  // Auto-detect: use proxy in production (no VITE key exposed), direct in local dev
+  useProxy: !import.meta.env.VITE_HUNYUAN_KEY && import.meta.env.PROD
 };
 
 // ——————————————————————————————————————————————
@@ -189,12 +192,25 @@ function buildPrompt(scenario, context) {
 // ——————————————————————————————————————————————
 async function _hunyuanFetch(prompt, opts = {}) {
   const messages = opts.messages || [{ role: 'user', content: prompt }];
-  const resp = await fetch(`${LLM_CONFIG.endpoint}/chat/completions`, {
-    method: 'POST',
-    headers: {
+  const useProxy = LLM_CONFIG.useProxy || (!LLM_CONFIG.apiKey && LLM_CONFIG.proxyEndpoint);
+
+  let url, headers;
+  if (useProxy) {
+    // Production: route through Vercel serverless proxy (no API key in frontend)
+    url = LLM_CONFIG.proxyEndpoint;
+    headers = { 'Content-Type': 'application/json' };
+  } else {
+    // Local dev: direct call to Hunyuan API
+    url = `${LLM_CONFIG.endpoint}/chat/completions`;
+    headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${LLM_CONFIG.apiKey}`
-    },
+    };
+  }
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers,
     body: JSON.stringify({
       model: opts.model || LLM_CONFIG.model,
       messages,
@@ -298,7 +314,8 @@ const LLM = {
    * @returns {Promise<{ text: string, source: 'llm'|'fallback' }>}
    */
   async chat({ relic, history = [], userMessage, fallback = '' } = {}) {
-    if (!LLM_CONFIG.enabled || !LLM_CONFIG.apiKey) {
+    const canCall = LLM_CONFIG.enabled && (LLM_CONFIG.apiKey || LLM_CONFIG.useProxy || (!LLM_CONFIG.apiKey && LLM_CONFIG.proxyEndpoint));
+    if (!canCall) {
       return { text: fallback || '（大模型未启用，请先配置 API Key）', source: 'fallback' };
     }
 
