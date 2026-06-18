@@ -23,6 +23,8 @@ export const BIOMES = {
     wallKey: 'tex_wall',
     wallTopKey: 'tex_wall_top',
     darkness: 0x05060a,
+    fogColor: 0x2b3142,
+    fogAlpha: 0.22,
     lampTint: 0xffd27a,
     guardCount: 8,
     relicCount: 7,
@@ -36,6 +38,8 @@ export const BIOMES = {
     wallKey: 'tex_wall_bm',
     wallTopKey: 'tex_wall_bm_top',
     darkness: 0x070310,
+    fogColor: 0x24152f,
+    fogAlpha: 0.20,
     lampTint: 0xc070ff,     // 紫色霓虹
     guardCount: 6,          // 黑市治安"严"——多 1 个打手
     relicCount: 7,
@@ -49,6 +53,8 @@ export const BIOMES = {
     wallKey: 'tex_wall_sp',
     wallTopKey: 'tex_wall_sp_top',
     darkness: 0x020a14,     // 海蓝偏黑
+    fogColor: 0x17324a,
+    fogAlpha: 0.18,
     lampTint: 0x7ad8ff,     // 冷白海灯
     guardCount: 6,          // 船员多
     relicCount: 7,

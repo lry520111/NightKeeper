@@ -40,6 +40,10 @@ export default class BootScene extends Phaser.Scene {
       frameWidth: 64,
       frameHeight: 64
     });
+    this.load.spritesheet('curator_idle', 'assets/characters/curator/curator_idle.png', {
+      frameWidth: 148,
+      frameHeight: 287
+    });
 
     // —— 高质量敌人 spritesheet（229×229 每帧，5列×6行）——
     // Row 1: walk_down, Row 2: walk_right, Row 3: walk_up, Row 4: walk_left, Row 5: attack, Row 6: hurt
@@ -181,10 +185,12 @@ export default class BootScene extends Phaser.Scene {
     this.makeGlowRingTexture();     // 撤离门光环
     this.makeFootstepTexture();     // 脚印拖痕
     this.makeVignetteTexture();     // 屏幕暗角（周边压暗）
+    this.makeFogTexture();          // 动态薄雾纹理
 
     // —— 注册 LimeZu 角色动画（供 HubScene/对话使用）——
     this.registerLZAnims();
     this.registerHeroAnims();
+    this.registerCuratorAnims();
     this.registerEnemyAnims();
 
     // —— 像素美术保护：所有像素纹理（tex_* / lz_*）强制 NEAREST 过滤 ——
@@ -1726,6 +1732,39 @@ export default class BootScene extends Phaser.Scene {
   }
 
   // 疾跑图标（>>）
+  makeFogTexture() {
+    this.makeCanvasTexture('fx_fog', 512, 512, (ctx, w, h) => {
+      ctx.clearRect(0, 0, w, h);
+      const blobs = [
+        [72, 110, 150, 0.16], [210, 80, 190, 0.12], [385, 125, 170, 0.13],
+        [120, 265, 210, 0.11], [310, 300, 240, 0.15], [455, 360, 165, 0.10],
+        [62, 430, 180, 0.12], [245, 470, 210, 0.10]
+      ];
+      for (const [x, y, r, a] of blobs) {
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, `rgba(210,230,220,${a})`);
+        grad.addColorStop(0.45, `rgba(170,210,205,${a * 0.55})`);
+        grad.addColorStop(1, 'rgba(170,210,205,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      ctx.globalAlpha = 0.13;
+      ctx.strokeStyle = 'rgba(220,240,230,0.55)';
+      ctx.lineWidth = 18;
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 7; i++) {
+        const y = 46 + i * 67;
+        ctx.beginPath();
+        ctx.moveTo(-40, y);
+        for (let x = -40; x <= w + 40; x += 64) {
+          ctx.lineTo(x, y + Math.sin((x + i * 43) * 0.018) * 18);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    });
+  }
+
   makeSprintIconTexture() {
     this.makeCanvasTexture('tex_icon_sprint', 14, 14, (ctx) => {
       ctx.fillStyle = '#f2c14e';
@@ -1773,6 +1812,16 @@ export default class BootScene extends Phaser.Scene {
     makeAnim('hero_walk_up', 10, 14, 10);
     makeAnim('hero_attack', 15, 19, 12, 0);
     makeAnim('hero_hurt_down', 20, 24, 8, 0);
+  }
+
+  registerCuratorAnims() {
+    if (!this.textures.exists('curator_idle') || this.anims.exists('curator_idle_down')) return;
+    this.anims.create({
+      key: 'curator_idle_down',
+      frames: this.anims.generateFrameNumbers('curator_idle', { start: 0, end: 3 }),
+      frameRate: 4,
+      repeat: -1
+    });
   }
 
   // High-quality enemy spritesheet animations (229×229 per frame, 5 cols × 6 rows).

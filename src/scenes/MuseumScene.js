@@ -100,6 +100,7 @@ export default class MuseumScene extends Phaser.Scene {
     // —— 视口：与 HubScene 保持一致，使用 1280×720 全画布，避免任务房出现大黑边。
     //   HUD/遮罩/线索面板等屏幕固定元素，统一以 SCREEN_W/SCREEN_H 为锚点。
     this.cameras.main.setViewport(0, 0, 1280, 720);
+    this.cameras.main.setRotation(0);
     this.cameras.main.fadeIn(500, 0, 0, 0);
     this.inventory = new Inventory();
     this._ended = false;
@@ -742,6 +743,7 @@ export default class MuseumScene extends Phaser.Scene {
 
     // —— 8. 光照系统 ——
     this.createLightSystem(relicSpawns);
+    this.createAtmosphereFog();
 
     // —— 9. HUD ——
     this.createHUD();
@@ -1552,7 +1554,7 @@ export default class MuseumScene extends Phaser.Scene {
   _setupShipSway() {
     // Gentle camera sway to simulate ship rocking
     this._shipSwayTime = 0;
-    this._shipSwayEnabled = true;
+    this._shipSwayEnabled = false;
 
     // Entry text
     this.time.delayedCall(500, () => {
@@ -1823,6 +1825,39 @@ export default class MuseumScene extends Phaser.Scene {
     });
   }
 
+  createAtmosphereFog() {
+    if (!this.textures.exists('fx_fog')) return;
+    const fogAlpha = Math.max(0.04, Math.min(0.18, ((this.biome && this.biome.fogAlpha) || 0.2) * 0.45));
+    const fogTint = (this.biome && this.biome.fogColor) || 0xb8d8d2;
+    this.fogLayers = [
+      this.add.tileSprite(640, 360, 1280, 720, 'fx_fog')
+        .setScrollFactor(0)
+        .setDepth(88)
+        .setAlpha(fogAlpha)
+        .setTint(fogTint),
+      this.add.tileSprite(640, 360, 1280, 720, 'fx_fog')
+        .setScrollFactor(0)
+        .setDepth(89)
+        .setAlpha(fogAlpha * 0.55)
+        .setTint(0xdde9df)
+    ];
+    this.fogLayers[0].tileScaleX = 1.35;
+    this.fogLayers[0].tileScaleY = 0.82;
+    this.fogLayers[1].tileScaleX = 1.85;
+    this.fogLayers[1].tileScaleY = 1.15;
+    this._fogTime = 0;
+  }
+
+  updateAtmosphereFog(dtSec) {
+    if (!this.fogLayers || this.fogLayers.length < 2) return;
+    this._fogTime = (this._fogTime || 0) + dtSec;
+    const cam = this.cameras.main;
+    this.fogLayers[0].tilePositionX = cam.scrollX * 0.08 + this._fogTime * 8;
+    this.fogLayers[0].tilePositionY = cam.scrollY * 0.05 + Math.sin(this._fogTime * 0.35) * 18;
+    this.fogLayers[1].tilePositionX = cam.scrollX * -0.04 - this._fogTime * 5;
+    this.fogLayers[1].tilePositionY = cam.scrollY * 0.07 + this._fogTime * 3;
+  }
+
   // ——————————————————————————————————————
   //  守卫提灯光晕：每帧动态加入光照
   // ——————————————————————————————————————
@@ -1842,9 +1877,12 @@ export default class MuseumScene extends Phaser.Scene {
     if (!this.darkness) return;
     const rt = this.darkness;
 
-    // 1. 重新填充黑暗（不透明，让 erase 形成清晰光斑）
+    // 1. 重新填充薄雾。以前这里是不透明黑幕，会导致玩家只看见一小圈视野；
+    //    现在改成低透明彩色雾，让地图始终可读，灯光只负责营造氛围。
     rt.clear();
-    rt.fill(this.biome && this.biome.darkness ? this.biome.darkness : DARKNESS, 1);
+    const fogColor = (this.biome && this.biome.fogColor) || (this.biome && this.biome.darkness) || DARKNESS;
+    const fogAlpha = (this.biome && typeof this.biome.fogAlpha === 'number') ? this.biome.fogAlpha : 0.22;
+    rt.fill(fogColor, fogAlpha);
 
     const px = this.player.x;
     const py = this.player.y;
@@ -1901,8 +1939,8 @@ export default class MuseumScene extends Phaser.Scene {
     // 5. 守卫提灯光晕
     this.drawGuardLights(rt);
 
-    // 6. 让暗部稍微透出一点世界色（避免完全死黑）
-    rt.setAlpha(0.94);
+    // 6. 雾层本身已经带透明度，这里保持原样叠加。
+    rt.setAlpha(1);
   }
 
   /**
@@ -2489,6 +2527,9 @@ export default class MuseumScene extends Phaser.Scene {
 
     // —— 剧情碎片交互 ——
     this.updateClueInteraction();
+
+    // —— 动态薄雾漂移 ——
+    this.updateAtmosphereFog(dtSec);
 
     // —— 光照刷新 ——
     this.updateLighting();

@@ -35,7 +35,7 @@ const STATIONS = [
 ];
 
 // 馆长 NPC
-const CURATOR = { ...HUB_ANCHORS.curator, name: '林默 · 馆长', sub: '总部负责人', portraitKey: 'lz_adam_idle', portraitFrame: 18, portraitTint: 0xc8a26a };
+const CURATOR = { ...HUB_ANCHORS.curator, name: '林默 · 馆长', sub: '总部负责人', portraitKey: 'curator_idle', portraitFrame: 0 };
 
 export default class HubScene extends Phaser.Scene {
   constructor() {
@@ -105,6 +105,7 @@ export default class HubScene extends Phaser.Scene {
 
     // 与碰撞墙做物理碰撞
     this.physics.add.collider(this.player, this.colliderGroup);
+    this.physics.add.collider(this.player, this.curator.sprite);
 
     this._playerDir = 'down';
     if (this.anims.exists('hero_idle_down')) this.player.play('hero_idle_down');
@@ -234,17 +235,14 @@ export default class HubScene extends Phaser.Scene {
   createCurator(cur) {
     // 复用主角精灵表（LimeZu 16×32，down 起始帧 = 18）
     // 通过暖金色 tint 与主角及守卫做视觉区分（资深 / 西装感）
-    const sprite = this.physics.add.sprite(cur.x, cur.y, 'lz_adam_idle', 18);
-    sprite.setScale(1.6);
+    const sprite = this.physics.add.sprite(cur.x, cur.y, 'curator_idle', 0);
+    sprite.setScale(0.22);
     sprite.setDepth(9);
-    sprite.body.setSize(10, 12).setOffset(3, 18);
+    sprite.body.setSize(60, 44).setOffset(44, 230);
     sprite.body.setImmovable(true);
     sprite.body.moves = false;
-    sprite.setTint(0xc8a26a); // 暖金棕：长者气质，与主角的冷白和守卫绿军装区分
-    if (this.anims.exists('adam_idle_down')) sprite.play('adam_idle_down');
+    if (this.anims.exists('curator_idle_down')) sprite.play('curator_idle_down');
 
-    // 玩家不能穿过馆长
-    this.physics.add.collider(this.player ?? sprite, sprite);
 
     // 暖光光晕
     const halo = this.add
