@@ -13,6 +13,10 @@ export default class TitleScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
+    // —— BGM: title screen music ——
+    Audio.init();
+    Audio.bgm.play('bgm_title', { loop: true, fade: 1000, volume: 0.35 });
+
     // 背景
     this.add.rectangle(0, 0, width, height, 0x0a0a0a).setOrigin(0, 0);
 

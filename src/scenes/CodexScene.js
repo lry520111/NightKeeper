@@ -302,8 +302,13 @@ export default class CodexScene extends Phaser.Scene {
         if (!this._detailLayer || !bodyTexts[sec.key] || !bodyTexts[sec.key].active) return;
         bodyTexts[sec.key].setText(res.text);
         if (LLM.isEnabled()) {
-          srcTip.setText(res.source === 'llm' ? '· 由腾讯混元生成 ·' :
-                          res.source === 'cache' ? '· 来自缓存 ·' : '· 兜底文案 ·');
+          if (res.source === 'llm') {
+            srcTip.setText('✦ 由腾讯混元生成 ✦');
+            srcTip.setColor('#f5d97f');
+            srcTip.setShadow(0, 0, '#d4af37', 4, false, true);
+          } else {
+            srcTip.setText(res.source === 'cache' ? '· 来自缓存 ·' : '· 兜底文案 ·');
+          }
         }
       } catch {
         if (this._detailLayer && bodyTexts[sec.key] && bodyTexts[sec.key].active) {

@@ -255,6 +255,113 @@ function stopAmbience() {
   ambienceNode = null;
 }
 
+// ============================================================
+//  BGM 管理模块（基于 HTML5 Audio，支持淡入淡出 + 场景切换）
+// ============================================================
+let bgmAudio = null;       // current HTMLAudioElement
+let bgmKey = null;         // current playing key (e.g. 'bgm_hub')
+let bgmFadeTimer = null;   // fade interval handle
+let bgmVolume = 0.45;      // target volume for BGM
+
+const bgm = {
+  /**
+   * Play a BGM track. If the same track is already playing, do nothing.
+   * @param {string} key - asset key registered via Phaser loader (e.g. 'bgm_hub')
+   * @param {object} opts - { loop: true, fade: 800, volume: 0.45 }
+   */
+  play(key, opts = {}) {
+    if (!key) return;
+    const loop = opts.loop !== undefined ? opts.loop : true;
+    const fade = opts.fade !== undefined ? opts.fade : 800;
+    const vol = opts.volume !== undefined ? opts.volume : bgmVolume;
+
+    // Same track already playing → skip
+    if (bgmKey === key && bgmAudio && !bgmAudio.paused) return;
+
+    // Stop previous track with crossfade
+    if (bgmAudio && !bgmAudio.paused) {
+      this._fadeOut(bgmAudio, Math.min(fade, 600), () => {});
+    }
+
+    // Create new audio element
+    const audio = new window.Audio(`assets/audio/${key}.mp3`);
+    audio.loop = loop;
+    audio.volume = 0;
+    audio.play().catch(() => {});
+
+    bgmAudio = audio;
+    bgmKey = key;
+
+    // Fade in
+    this._fadeIn(audio, fade, vol);
+  },
+
+  /** Stop current BGM with fade out */
+  stop(fade = 600) {
+    if (!bgmAudio) return;
+    const ref = bgmAudio;
+    bgmKey = null;
+    bgmAudio = null;
+    this._fadeOut(ref, fade, () => {
+      ref.pause();
+      ref.src = '';
+    });
+  },
+
+  /** Switch to a different BGM (convenience wrapper) */
+  switchTo(key, opts = {}) {
+    if (bgmKey === key && bgmAudio && !bgmAudio.paused) return;
+    this.play(key, opts);
+  },
+
+  /** Set BGM volume (0~1) */
+  setVolume(v) {
+    bgmVolume = Math.max(0, Math.min(1, v));
+    if (bgmAudio && !bgmAudio.paused) {
+      bgmAudio.volume = bgmVolume;
+    }
+  },
+
+  /** Get current playing key */
+  currentKey() { return bgmKey; },
+
+  /** Internal: fade in */
+  _fadeIn(audio, duration, targetVol) {
+    const steps = 20;
+    const interval = duration / steps;
+    const increment = targetVol / steps;
+    let current = 0;
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= targetVol) {
+        audio.volume = targetVol;
+        clearInterval(timer);
+      } else {
+        audio.volume = current;
+      }
+    }, interval);
+  },
+
+  /** Internal: fade out */
+  _fadeOut(audio, duration, onComplete) {
+    const steps = 20;
+    const interval = duration / steps;
+    const startVol = audio.volume;
+    const decrement = startVol / steps;
+    let current = startVol;
+    const timer = setInterval(() => {
+      current -= decrement;
+      if (current <= 0) {
+        audio.volume = 0;
+        clearInterval(timer);
+        if (onComplete) onComplete();
+      } else {
+        audio.volume = current;
+      }
+    }, interval);
+  }
+};
+
 const Audio = {
   /** 在用户首次交互时调用，激活 AudioContext */
   init() {
@@ -269,6 +376,7 @@ const Audio = {
   },
   sfx,
   heartbeat,
+  bgm,
   startAmbience,
   stopAmbience,
   isReady() { return !!ctx; }

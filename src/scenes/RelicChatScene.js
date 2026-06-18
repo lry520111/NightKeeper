@@ -507,11 +507,18 @@ export default class RelicChatScene extends Phaser.Scene {
       this._addMessage('assistant', result.text);
       this._chatHistory.push({ role: 'assistant', content: result.text });
 
-      // Update status
-      this._statusText.setText(
-        result.source === 'llm' ? '· 由腾讯混元生成 ·' :
-        result.source === 'cache' ? '· 来自缓存 ·' : '· 本地回复 ·'
-      );
+      // Update status with highlight for LLM-generated content
+      if (result.source === 'llm') {
+        this._statusText.setText('✦ 由腾讯混元生成 ✦');
+        this._statusText.setColor('#f5d97f');
+        this._statusText.setShadow(0, 0, '#d4af37', 4, false, true);
+      } else {
+        this._statusText.setText(
+          result.source === 'cache' ? '· 来自缓存 ·' : '· 本地回复 ·'
+        );
+        this._statusText.setColor('#6b5824');
+        this._statusText.setShadow(0, 0, 'transparent', 0);
+      }
     } catch (err) {
       this._removeTypingIndicator(typingMsg);
       this._addMessage('assistant', '……通讯似乎出了些问题，稍后再试。');

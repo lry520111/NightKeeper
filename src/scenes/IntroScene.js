@@ -79,6 +79,9 @@ export default class IntroScene extends Phaser.Scene {
   create() {
     Audio.init();
 
+    // —— BGM: intro music (no loop, plays once during the cinematic) ——
+    Audio.bgm.play('bgm_intro', { loop: false, fade: 1200, volume: 0.5 });
+
     // —— 0. 黑色幕布 ——
     this.add.rectangle(0, 0, W, H, 0x000000).setOrigin(0, 0).setDepth(-100);
 
@@ -359,6 +362,8 @@ export default class IntroScene extends Phaser.Scene {
 
   finish() {
     try { localStorage.setItem(SaveSlots.slotKey('nightkeeper:seenIntro'), '1'); } catch (e) { /* ignore */ }
+    // Stop intro BGM and switch to hub BGM for seamless transition
+    Audio.bgm.switchTo('bgm_hub', { loop: true, fade: 1000, volume: 0.4 });
     // 卷轴合上 → 黑屏 → 进 Hub
     this.tweens.add({
       targets: [this.scrollTop, this.scrollBot],

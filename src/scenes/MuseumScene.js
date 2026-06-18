@@ -101,6 +101,12 @@ export default class MuseumScene extends Phaser.Scene {
     //   HUD/遮罩/线索面板等屏幕固定元素，统一以 SCREEN_W/SCREEN_H 为锚点。
     this.cameras.main.setViewport(0, 0, 1280, 720);
     this.cameras.main.fadeIn(500, 0, 0, 0);
+
+    // —— BGM: play biome-specific music (loop, no state-based switching) ——
+    const bgmMap = { museum: 'bgm_museum', blackmarket: 'bgm_blackmarket', ship: 'bgm_ship' };
+    const bgmKey = bgmMap[this.biome.id] || 'bgm_museum';
+    Audio.bgm.play(bgmKey, { loop: true, fade: 1000, volume: 0.4 });
+
     this.inventory = new Inventory();
     this._ended = false;
     // 局内统计（上送给 ResultScene 计入 SaveData.stats，用于多结局判定）
