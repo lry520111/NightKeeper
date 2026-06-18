@@ -22,6 +22,7 @@ export const HUB_ANCHORS = {
   loadout:  { x: 1042, y: 295 },
   vault:    { x: 256, y: 540 },
   depart:   { x: 1045, y: 616 },
+  training: { x: 770, y: 568 },
   curator:  { x: 640, y: 427 },
   player:   { x: 650, y: 527 },
 };

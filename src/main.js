@@ -16,6 +16,7 @@ import EndingPreviewScene from './scenes/EndingPreviewScene.js';
 import SaveSlotsScene from './scenes/SaveSlotsScene.js';
 import RelicChatScene from './scenes/RelicChatScene.js';
 import CuratorMenuScene from './scenes/CuratorMenuScene.js';
+import TrainingScene from './scenes/TrainingScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -67,7 +68,8 @@ const config = {
     EndingPreviewScene,
     SaveSlotsScene,
     RelicChatScene,
-    CuratorMenuScene
+    CuratorMenuScene,
+    TrainingScene
   ]
 };
 

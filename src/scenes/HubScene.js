@@ -32,10 +32,11 @@ const STATIONS = [
   { id: 'loadout',  name: '配装台', sub: '配置装备与技能', ...HUB_ANCHORS.loadout,  color: 0x7ae8e8, target: 'LoadoutScene' },
   { id: 'vault',    name: '保险柜', sub: '存放守夜藏品',   ...HUB_ANCHORS.vault,    color: 0xc084fc, target: 'VaultScene' },
   { id: 'depart',   name: '任务门', sub: '进入夜行任务',   ...HUB_ANCHORS.depart,   color: 0xff8c42, target: 'MuseumScene' },
+  { id: 'training', name: '训练场', sub: '测试攻击与连段', ...HUB_ANCHORS.training, color: 0x78d7ff, target: 'TrainingScene' },
 ];
 
 // 馆长 NPC
-const CURATOR = { ...HUB_ANCHORS.curator, name: '林默 · 馆长', sub: '总部负责人', portraitKey: 'lz_adam_idle', portraitFrame: 18, portraitTint: 0xc8a26a };
+const CURATOR = { ...HUB_ANCHORS.curator, name: '林默 · 馆长', sub: '总部负责人', portraitKey: 'curator_idle', portraitFrame: 0 };
 
 export default class HubScene extends Phaser.Scene {
   constructor() {
@@ -93,9 +94,22 @@ export default class HubScene extends Phaser.Scene {
     this.curator = this.createCurator(CURATOR);
 
     // —— 6. 玩家（hero_hongfa：64×64 五行动作表，脚底物理盒）——
-    this.player = this.physics.add.sprite(HUB_ANCHORS.player.x, HUB_ANCHORS.player.y, 'hero_hongfa', 0);
-    this.player.setScale(1.1);
-    this.player.body.setSize(22, 12).setOffset(21, 48);
+    const useSwordHero = this.textures.exists('hero_sword');
+    this.player = this.physics.add.sprite(
+      HUB_ANCHORS.player.x,
+      HUB_ANCHORS.player.y,
+      useSwordHero ? 'hero_sword' : 'hero_hongfa',
+      0
+    );
+    this._useSwordHero = useSwordHero;
+    this._heroAnimPrefix = useSwordHero ? 'hero_sword' : 'hero';
+    if (useSwordHero) {
+      this.player.setScale(0.43);
+      this.player.body.setSize(52, 28).setOffset(46, 124);
+    } else {
+      this.player.setScale(1.1);
+      this.player.body.setSize(22, 12).setOffset(21, 48);
+    }
     this.player.setDepth(30);
 
     // 物理边界
@@ -107,9 +121,11 @@ export default class HubScene extends Phaser.Scene {
 
     // 与碰撞墙做物理碰撞
     this.physics.add.collider(this.player, this.colliderGroup);
+    this.physics.add.collider(this.player, this.curator.sprite);
 
     this._playerDir = 'down';
-    if (this.anims.exists('hero_idle_down')) this.player.play('hero_idle_down');
+    const idleDown = `${this._heroAnimPrefix}_idle_down`;
+    if (this.anims.exists(idleDown)) this.player.play(idleDown);
 
     // —— 7. 当前委托提示（左下角小字）——
     const tipBg = this.add.rectangle(15, ROOM_H - 60, 380, 56, 0x000000, 0.65)
@@ -236,17 +252,13 @@ export default class HubScene extends Phaser.Scene {
   createCurator(cur) {
     // 复用主角精灵表（LimeZu 16×32，down 起始帧 = 18）
     // 通过暖金色 tint 与主角及守卫做视觉区分（资深 / 西装感）
-    const sprite = this.physics.add.sprite(cur.x, cur.y, 'lz_adam_idle', 18);
-    sprite.setScale(1.6);
+    const sprite = this.physics.add.sprite(cur.x, cur.y, 'curator_idle', 0);
+    sprite.setScale(0.22);
     sprite.setDepth(9);
-    sprite.body.setSize(10, 12).setOffset(3, 18);
+    sprite.body.setSize(60, 44).setOffset(44, 230);
     sprite.body.setImmovable(true);
     sprite.body.moves = false;
-    sprite.setTint(0xc8a26a); // 暖金棕：长者气质，与主角的冷白和守卫绿军装区分
-    if (this.anims.exists('adam_idle_down')) sprite.play('adam_idle_down');
-
-    // 玩家不能穿过馆长
-    this.physics.add.collider(this.player ?? sprite, sprite);
+    if (this.anims.exists('curator_idle_down')) sprite.play('curator_idle_down');
 
     // 暖光光晕
     const halo = this.add
@@ -375,13 +387,15 @@ export default class HubScene extends Phaser.Scene {
       if (Math.abs(vx) > Math.abs(vy)) dir = vx > 0 ? 'right' : 'left';
       else dir = vy > 0 ? 'down' : 'up';
     }
-    const animDir = dir === 'left' ? 'right' : dir;
-    const wantAnim = moving ? `hero_walk_${animDir}` : `hero_idle_${animDir}`;
+    const animDir = this._useSwordHero ? dir : (dir === 'left' ? 'right' : dir);
+    const wantAnim = moving
+      ? `${this._heroAnimPrefix}_walk_${animDir}`
+      : `${this._heroAnimPrefix}_idle_${animDir}`;
     if (this.anims.exists(wantAnim) &&
         (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== wantAnim)) {
       this.player.play(wantAnim);
     }
-    this.player.setFlipX(dir === 'left');
+    this.player.setFlipX(!this._useSwordHero && dir === 'left');
     this._playerDir = dir;
     this._updatePlayerOcclusionDepth();
 

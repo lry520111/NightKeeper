@@ -40,6 +40,22 @@ export default class BootScene extends Phaser.Scene {
       frameWidth: 64,
       frameHeight: 64
     });
+    this.load.spritesheet('hero_sword', 'assets/characters/hero/hongfa_sword.png', {
+      frameWidth: 145,
+      frameHeight: 181
+    });
+    this.load.spritesheet('hero_blade_skill', 'assets/effects/hero_blade_skill.png', {
+      frameWidth: 772,
+      frameHeight: 230
+    });
+    this.load.spritesheet('hero_blade_skill_right', 'assets/effects/hero_blade_skill_right.png', {
+      frameWidth: 772,
+      frameHeight: 230
+    });
+    this.load.spritesheet('curator_idle', 'assets/characters/curator/curator_idle.png', {
+      frameWidth: 148,
+      frameHeight: 287
+    });
 
     // —— 高质量敌人 spritesheet（229×229 每帧，5列×6行）——
     // Row 1: walk_down, Row 2: walk_right, Row 3: walk_up, Row 4: walk_left, Row 5: attack, Row 6: hurt
@@ -72,6 +88,7 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('hub_cover', 'assets/maps/hub02/hub_overall.jpg');
     this.load.image('hub_surface', 'assets/maps/hub02/hub_overall.jpg');
     this.load.image('hub_object', 'assets/maps/hub02/hub_object.png');
+    this.load.image('training_ground', 'assets/maps/training/training_ground.png');
 
     // —— 任务关卡（博物馆）8 张高质量房间贴图 ——
     // 与 hub_02 同画风（深色砖墙 + 暗红/暗金中式纹饰），运行时按 roomTemplates 拼接
@@ -197,6 +214,7 @@ export default class BootScene extends Phaser.Scene {
     // —— 注册 LimeZu 角色动画（供 HubScene/对话使用）——
     this.registerLZAnims();
     this.registerHeroAnims();
+    this.registerCuratorAnims();
     this.registerEnemyAnims();
 
     // —— 像素美术保护：所有像素纹理（tex_* / lz_*）强制 NEAREST 过滤 ——
@@ -205,7 +223,7 @@ export default class BootScene extends Phaser.Scene {
     const Filter = Phaser.Textures.FilterMode || { NEAREST: 0 };
     const NEAREST = (Filter.NEAREST !== undefined) ? Filter.NEAREST : 0;
     Object.keys(this.textures.list).forEach((key) => {
-      if (key.startsWith('tex_') || key.startsWith('lz_') || key.startsWith('hero_') || key.startsWith('enemy_')) {
+      if (key.startsWith('tex_') || key.startsWith('lz_') || key.startsWith('hero_') || key.startsWith('enemy_') || key.startsWith('curator_')) {
         const t = this.textures.get(key);
         if (t && typeof t.setFilter === 'function') t.setFilter(NEAREST);
       }
@@ -1864,6 +1882,75 @@ export default class BootScene extends Phaser.Scene {
     makeAnim('hero_walk_up', 10, 14, 10);
     makeAnim('hero_attack', 15, 19, 12, 0);
     makeAnim('hero_hurt_down', 20, 24, 8, 0);
+
+    const makeSwordAnim = (key, row, startCol, endCol, frameRate = 10, repeat = -1) => {
+      if (this.anims.exists(key)) return;
+      const start = row * 5 + startCol;
+      const end = row * 5 + endCol;
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers('hero_sword', { start, end }),
+        frameRate,
+        repeat
+      });
+    };
+
+    // Sword hero sheet: 12 rows x 5 columns, 145x181 per frame.
+    // Rows 1-4: walk down/right/up/left; rows 5-8: idle down/right/up/left;
+    // rows 9-12: attack down/right/up/left.
+    makeSwordAnim('hero_sword_walk_down', 0, 0, 4, 10);
+    makeSwordAnim('hero_sword_walk_right', 1, 0, 4, 10);
+    makeSwordAnim('hero_sword_walk_up', 2, 0, 4, 10);
+    makeSwordAnim('hero_sword_walk_left', 3, 0, 4, 10);
+    makeSwordAnim('hero_sword_idle_down', 4, 0, 3, 4);
+    makeSwordAnim('hero_sword_idle_right', 5, 0, 3, 4);
+    makeSwordAnim('hero_sword_idle_up', 6, 0, 3, 4);
+    makeSwordAnim('hero_sword_idle_left', 7, 0, 3, 4);
+    makeSwordAnim('hero_sword_attack_down', 8, 0, 4, 12, 0);
+    makeSwordAnim('hero_sword_attack_right', 9, 0, 4, 12, 0);
+    makeSwordAnim('hero_sword_attack_up', 10, 0, 4, 12, 0);
+    makeSwordAnim('hero_sword_attack_left', 11, 0, 4, 12, 0);
+
+    const bladeSkillFrameDurations = {
+      6: 190,  // fifth from last
+      7: 210,  // fourth from last
+      8: 230,  // third from last
+      10: 170  // final frame
+    };
+    const makeBladeSkillFrames = (textureKey) => (
+      this.anims.generateFrameNumbers(textureKey, { start: 0, end: 10 })
+        .map((frame, index) => ({
+          ...frame,
+          duration: bladeSkillFrameDurations[index] || 0
+        }))
+    );
+
+    if (!this.anims.exists('hero_blade_skill_anim')) {
+      this.anims.create({
+        key: 'hero_blade_skill_anim',
+        frames: makeBladeSkillFrames('hero_blade_skill'),
+        frameRate: 8,
+        repeat: 0
+      });
+    }
+    if (!this.anims.exists('hero_blade_skill_right_anim')) {
+      this.anims.create({
+        key: 'hero_blade_skill_right_anim',
+        frames: makeBladeSkillFrames('hero_blade_skill_right'),
+        frameRate: 8,
+        repeat: 0
+      });
+    }
+  }
+
+  registerCuratorAnims() {
+    if (!this.textures.exists('curator_idle') || this.anims.exists('curator_idle_down')) return;
+    this.anims.create({
+      key: 'curator_idle_down',
+      frames: this.anims.generateFrameNumbers('curator_idle', { start: 0, end: 3 }),
+      frameRate: 4,
+      repeat: -1
+    });
   }
 
   // High-quality enemy spritesheet animations (229×229 per frame, 5 cols × 6 rows).

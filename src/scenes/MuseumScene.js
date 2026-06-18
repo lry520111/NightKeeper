@@ -22,8 +22,54 @@ import SpikeTrap from '../systems/SpikeTrap.js';
 const TILE = 32;
 const MAP_W = 30; // 30 * 32 = 960
 const MAP_H = 17; // 17 * 32 = 544
+const HERO_BLADE_SKILL = {
+  cost: 34,
+  cooldownMs: 1900,
+  animMs: 2180,
+  damage: 1,
+  knockMul: 2.4
+};
+const HERO_BLADE_SKILL_FW = 772;
+const HERO_BLADE_SKILL_FH = 230;
+const HERO_BLADE_SKILL_LEFT_ANCHOR_X = 648;
+const HERO_BLADE_SKILL_ORIGIN_Y = 0.98;
+const HERO_BLADE_SKILL_FRAME_RECTS = [
+  { x: 617, y: 135, w: 134, h: 90, ax: 648 },
+  { x: 560, y: 105, w: 207, h: 120, ax: 613 },
+  { x: 531, y: 93, w: 214, h: 137, ax: 614 },
+  { x: 461, y: 52, w: 276, h: 178, ax: 594 },
+  { x: 172, y: 59, w: 584, h: 171, ax: 522 },
+  { x: 199, y: 78, w: 554, h: 152, ax: 308 },
+  { x: 180, y: 49, w: 487, h: 181, ax: 288 },
+  { x: 25, y: 45, w: 657, h: 179, ax: 206 },
+  { x: 7, y: 2, w: 693, h: 220, ax: 161 },
+  { x: 20, y: 41, w: 506, h: 181, ax: 176 },
+  { x: 60, y: 75, w: 403, h: 127, ax: 184 },
+];
+const HERO_BLADE_SKILL_HIT_RECTS = [
+  null,
+  { x: 558, y: 103, w: 180, h: 92 },
+  { x: 532, y: 90, w: 198, h: 103 },
+  { x: 490, y: 70, w: 238, h: 126 },
+  { x: 220, y: 78, w: 410, h: 132 },
+  { x: 110, y: 86, w: 535, h: 122 },
+  { x: 96, y: 72, w: 520, h: 132 },
+  { x: 24, y: 72, w: 510, h: 135 },
+  { x: 36, y: 82, w: 348, h: 128 },
+  { x: 42, y: 96, w: 292, h: 104 },
+  { x: 70, y: 105, w: 210, h: 92 },
+];
+const HERO_BLADE_SKILL_FRAME_Y_OFFSETS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 10];
+const HERO_BLADE_SKILL_FRAME_X_OFFSETS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14];
 
 // 光照层颜色（近似纯黑、略带紫调，像月夜）
+const angleToDir4 = (angle = 0) => {
+  const x = Math.cos(angle);
+  const y = Math.sin(angle);
+  if (Math.abs(x) >= Math.abs(y)) return x >= 0 ? 'right' : 'left';
+  return y >= 0 ? 'down' : 'up';
+};
+
 const DARKNESS = 0x05060a;
 
 export default class MuseumScene extends Phaser.Scene {
@@ -601,16 +647,19 @@ export default class MuseumScene extends Phaser.Scene {
       this.lanterns = [];
     }    // —— 5. 玩家（出生点由生成器提供） ——
     // 优先使用新主角帧图：5 行 × 5 列，64×64；旧 LimeZu 角色仅作 fallback。
-    const useHeroPlayer = this.textures.exists('hero_hongfa');
+    const useSwordHero = this.textures.exists('hero_sword');
+    const useHeroPlayer = useSwordHero || this.textures.exists('hero_hongfa');
     const useLZPlayer = !useHeroPlayer && this.textures.exists('lz_adam_idle');
     this.player = this.physics.add.sprite(
       level.spawn.x * TILE + TILE / 2,
       level.spawn.y * TILE + TILE / 2,
-      useHeroPlayer ? 'hero_hongfa' : (useLZPlayer ? 'lz_adam_idle' : 'tex_player'),
+      useSwordHero ? 'hero_sword' : (useHeroPlayer ? 'hero_hongfa' : (useLZPlayer ? 'lz_adam_idle' : 'tex_player')),
       useHeroPlayer ? 0 : (useLZPlayer ? 18 : 0)  // hero: down row first frame; LimeZu: down row first frame
     );
     this.player.setCollideWorldBounds(true);
-    if (useHeroPlayer) {
+    if (useSwordHero) {
+      this.player.body.setSize(52, 28).setOffset(46, 124);
+    } else if (useHeroPlayer) {
       this.player.body.setSize(22, 12).setOffset(21, 48);
     } else if (useLZPlayer) {
       // LimeZu 16×32 像素帧：脚部 body 居中
@@ -624,11 +673,14 @@ export default class MuseumScene extends Phaser.Scene {
       this._playerBackDepth = 5;
       this.player.setDepth(this._playerFrontDepth);
     }
-    this.player.setScale(useHeroPlayer ? 0.85 : 1.7);
+    this.player.setScale(useSwordHero ? 0.43 : (useHeroPlayer ? 0.85 : 1.7));
     // 标记：后续切换动画时用
+    this._useSwordHero = useSwordHero;
     this._useHeroPlayer = useHeroPlayer;
     this._useLZPlayer = useLZPlayer;
-    if (useHeroPlayer && this.anims.exists('hero_idle_down')) {
+    if (useSwordHero && this.anims.exists('hero_sword_idle_down')) {
+      this.player.play('hero_sword_idle_down');
+    } else if (useHeroPlayer && this.anims.exists('hero_idle_down')) {
       this.player.play('hero_idle_down');
     } else if (useLZPlayer && this.anims.exists('adam_idle_down')) {
       this.player.play('adam_idle_down');
@@ -677,6 +729,8 @@ export default class MuseumScene extends Phaser.Scene {
       staggerUntil: 0,       // 受击僵直结束（期间禁止键盘控制 velocity）
       attackRange: (equippedWeapon && equippedWeapon.range) || 32,   // 本次挥刀范围（近战）
       attackArc:   (equippedWeapon && equippedWeapon.arc) || (Math.PI / 3),
+      bladeSkillUntil: 0,
+      bladeSkillCooldownUntil: 0,
       ammo: initialAmmo,     // 远程弹药剩余
       qinggongUntil: 0,      // 轻功符效果结束时间
       qinggongMul: 1         // 轻功期间的速度倍率
@@ -694,6 +748,7 @@ export default class MuseumScene extends Phaser.Scene {
       E: Phaser.Input.Keyboard.KeyCodes.E,
       F: Phaser.Input.Keyboard.KeyCodes.F,
       J: Phaser.Input.Keyboard.KeyCodes.J,
+      U: Phaser.Input.Keyboard.KeyCodes.U,
       K: Phaser.Input.Keyboard.KeyCodes.K,
       TAB: Phaser.Input.Keyboard.KeyCodes.TAB,
       ESC: Phaser.Input.Keyboard.KeyCodes.ESC,
@@ -2285,7 +2340,8 @@ export default class MuseumScene extends Phaser.Scene {
     else if (ps.sprint) speed = 230;
     if (ps.blocking) speed = 60;
     // 攻击挥刀瞬间略减速
-    if (now < ps.attackUntil) speed *= 0.45;
+    if (now < ps.bladeSkillUntil) speed *= 0.15;
+    else if (now < ps.attackUntil) speed *= 0.45;
     // 轻功符：期间统一乘以 qinggongMul（覆盖静步压低、同时与疾跑叠加）
     if (now < ps.qinggongUntil) speed = Math.max(speed, 230) * (ps.qinggongMul || 1.7);
     // 水域减速（走私船特色）
@@ -2347,18 +2403,23 @@ export default class MuseumScene extends Phaser.Scene {
     this._playerFacingAngle = ({ right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 })[facingDir];
 
     if (this._useHeroPlayer) {
-      const animDir = facingDir === 'left' ? 'right' : facingDir;
       const attacking = now < (ps.attackAnimUntil || 0);
-      const wantAnim = attacking
-        ? 'hero_attack'
-        : (now < ps.staggerUntil ? 'hero_hurt_down' : (moving ? `hero_walk_${animDir}` : `hero_idle_${animDir}`));
+      const swordDir = attacking ? angleToDir4(ps.attackDir || 0) : facingDir;
+      const animDir = this._useSwordHero ? swordDir : (facingDir === 'left' ? 'right' : facingDir);
+      const wantAnim = this._useSwordHero
+        ? (attacking
+            ? `hero_sword_attack_${swordDir}`
+            : (moving ? `hero_sword_walk_${animDir}` : `hero_sword_idle_${animDir}`))
+        : (attacking
+            ? 'hero_attack'
+            : (now < ps.staggerUntil ? 'hero_hurt_down' : (moving ? `hero_walk_${animDir}` : `hero_idle_${animDir}`)));
       if (this.anims.exists(wantAnim)) {
         const cur = this.player.anims.currentAnim;
         if (!cur || cur.key !== wantAnim) {
-          this.player.play(wantAnim, wantAnim === 'hero_attack' || wantAnim === 'hero_hurt_down');
+          this.player.play(wantAnim, attacking || wantAnim === 'hero_hurt_down');
         }
       }
-      this.player.setFlipX(attacking ? Math.cos(ps.attackDir || 0) < 0 : facingDir === 'left');
+      this.player.setFlipX(!this._useSwordHero && (attacking ? Math.cos(ps.attackDir || 0) > 0 : facingDir === 'left'));
       if (moving) {
         this._playerWalkAccum += dtSec;
         const stepTime = ps.sprint ? 0.20 : ps.stealth ? 0.45 : 0.30;
@@ -2430,6 +2491,9 @@ export default class MuseumScene extends Phaser.Scene {
     // —— 攻击输入（J 键） ——
     if (Phaser.Input.Keyboard.JustDown(this.keys.J)) {
       this.tryPlayerAttack();
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.U)) {
+      this.tryPlayerBladeSkill();
     }
 
     // —— 检测附近可拾取文物 ——
@@ -3472,6 +3536,7 @@ export default class MuseumScene extends Phaser.Scene {
     const ps = this.playerState;
     const now = this.time.now;
     if (now < ps.attackCooldownUntil) return;
+    if (now < ps.bladeSkillUntil) return;
     if (ps.blocking) return;        // 格挡中不能出刀
 
     // 装备的武器决定伤害 / 范围 / 冷却 / 耗体力
@@ -3495,9 +3560,15 @@ export default class MuseumScene extends Phaser.Scene {
     ps.attackAnimUntil = now + 420;
     ps.attackCooldownUntil = now + ((wp && wp.cooldownMs) || 360);
     ps.attackHitDone = false;
-    if (this._useHeroPlayer && this.anims.exists('hero_attack')) {
-      this.player.setFlipX(Math.cos(ps.attackDir) < 0);
-      this.player.play('hero_attack', true);
+    if (this._useHeroPlayer) {
+      if (this._useSwordHero) {
+        const attackKey = `hero_sword_attack_${angleToDir4(ps.attackDir)}`;
+        if (this.anims.exists(attackKey)) this.player.play(attackKey, true);
+        this.player.setFlipX(false);
+      } else if (this.anims.exists('hero_attack')) {
+        this.player.setFlipX(Math.cos(ps.attackDir) > 0);
+        this.player.play('hero_attack', true);
+      }
     }
 
     // 视觉：玩家前方扇形刀光
@@ -3506,11 +3577,176 @@ export default class MuseumScene extends Phaser.Scene {
   }
 
   /** 远程攻击：装备远程武器时可用（鼠标右键 或 左键/J） */
+  /** U key: wide hero blade skill using the imported 11-frame animation. */
+  tryPlayerBladeSkill() {
+    if (this._ended || !this.player || !this.playerState) return;
+    const ps = this.playerState;
+    const now = this.time.now;
+    if (now < ps.bladeSkillCooldownUntil || now < ps.attackCooldownUntil) return;
+    if (ps.blocking || now < ps.staggerUntil) return;
+    if (ps.stam < HERO_BLADE_SKILL.cost) {
+      this._floatText(this.player.x, this.player.y - 22, '体力不足', '#7fd8ff');
+      if (Audio && Audio.sfx && Audio.sfx.bad) Audio.sfx.bad();
+      return;
+    }
+
+    ps.stam = Math.max(0, ps.stam - HERO_BLADE_SKILL.cost);
+    const dir = this._playerDir4 || 'right';
+    const facingX = dir === 'left' ? -1 : (dir === 'right' ? 1 : (this._playerFacingX || 1));
+    const aim = facingX < 0 ? Math.PI : 0;
+
+    ps.attackDir = aim;
+    ps.attackUntil = now + HERO_BLADE_SKILL.animMs;
+    ps.attackAnimUntil = now + HERO_BLADE_SKILL.animMs;
+    ps.attackCooldownUntil = now + 420;
+    ps.attackHitDone = true;
+    ps.bladeSkillUntil = now + HERO_BLADE_SKILL.animMs;
+    ps.bladeSkillCooldownUntil = now + HERO_BLADE_SKILL.cooldownMs;
+    this.playHeroBladeSkillFx(facingX);
+    if (Audio && Audio.sfx && Audio.sfx.slash) Audio.sfx.slash();
+    if (typeof this.updateWeaponHUD === 'function') this.updateWeaponHUD();
+  }
+
+  playHeroBladeSkillFx(facingX) {
+    const animKey = facingX > 0 ? 'hero_blade_skill_right_anim' : 'hero_blade_skill_anim';
+    const texKey = facingX > 0 ? 'hero_blade_skill_right' : 'hero_blade_skill';
+    if (!this._useHeroPlayer || !this.anims.exists(animKey)) return;
+    if (this._heroBladeSkillSprite) this._heroBladeSkillSprite.destroy();
+
+    this.player.setVisible(false);
+    const playerFootY = this.player.y + this.player.displayHeight / 2;
+    const baseFxX = this.player.x;
+    const originX = this.getHeroBladeSkillAnchorX(facingX) / HERO_BLADE_SKILL_FW;
+    const fx = this.add.sprite(baseFxX, playerFootY, texKey, 0)
+      .setOrigin(originX, HERO_BLADE_SKILL_ORIGIN_Y)
+      .setScale(0.50)
+      .setDepth(this.player.depth + 2);
+    fx.play(animKey);
+    this._heroBladeSkillSprite = fx;
+
+    const onFrame = (anim, frame) => {
+      const frameIndex = Math.max(0, (frame && frame.index ? frame.index - 1 : 0));
+      fx.setScale(frameIndex < 4 || frameIndex === 10 ? 0.50 : 0.40);
+      fx.x = baseFxX + this.getHeroBladeSkillFrameXOffset(frameIndex, facingX) * fx.scaleX;
+      fx.y = playerFootY + this.getHeroBladeSkillFrameYOffset(frameIndex);
+      this.resolveHeroBladeSkillFrameHit(fx, frameIndex, facingX);
+    };
+    fx.on(Phaser.Animations.Events.ANIMATION_UPDATE, onFrame);
+    this.resolveHeroBladeSkillFrameHit(fx, 0, facingX);
+
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      fx.off(Phaser.Animations.Events.ANIMATION_UPDATE, onFrame);
+      if (this._heroBladeSkillSprite === fx) this._heroBladeSkillSprite = null;
+      if (this.player && this.player.active) {
+        const endRect = this.getHeroBladeSkillFrameRect(10, facingX);
+        const originPx = this.getHeroBladeSkillAnchorX(facingX);
+        const finalScale = 0.50;
+        const finalX = fx.x + ((endRect.ax || originPx) - originPx) * finalScale;
+        const finalFootY = playerFootY + this.getHeroBladeSkillFrameYOffset(10);
+        this.player.setPosition(finalX, finalFootY - this.player.displayHeight / 2);
+        this.player.setVisible(true);
+      }
+      if (fx && fx.active) fx.destroy();
+    };
+    fx.once(Phaser.Animations.Events.ANIMATION_COMPLETE, cleanup);
+    this.time.delayedCall(HERO_BLADE_SKILL.animMs + 120, cleanup);
+  }
+
+  getHeroBladeSkillAnchorX(facingX) {
+    return facingX > 0 ? HERO_BLADE_SKILL_FW - HERO_BLADE_SKILL_LEFT_ANCHOR_X : HERO_BLADE_SKILL_LEFT_ANCHOR_X;
+  }
+
+  getHeroBladeSkillFrameRect(frameIndex, facingX) {
+    const r = HERO_BLADE_SKILL_FRAME_RECTS[Math.max(0, Math.min(frameIndex, HERO_BLADE_SKILL_FRAME_RECTS.length - 1))];
+    if (facingX <= 0) return r;
+    return {
+      x: HERO_BLADE_SKILL_FW - r.x - r.w,
+      y: r.y,
+      w: r.w,
+      h: r.h,
+      ax: HERO_BLADE_SKILL_FW - r.ax,
+    };
+  }
+
+  getHeroBladeSkillHitRect(frameIndex, facingX) {
+    const r = HERO_BLADE_SKILL_HIT_RECTS[Math.max(0, Math.min(frameIndex, HERO_BLADE_SKILL_HIT_RECTS.length - 1))];
+    if (!r) return null;
+    if (facingX <= 0) return r;
+    return {
+      x: HERO_BLADE_SKILL_FW - r.x - r.w,
+      y: r.y,
+      w: r.w,
+      h: r.h,
+    };
+  }
+
+  getHeroBladeSkillFrameYOffset(frameIndex) {
+    return HERO_BLADE_SKILL_FRAME_Y_OFFSETS[Math.max(0, Math.min(frameIndex, HERO_BLADE_SKILL_FRAME_Y_OFFSETS.length - 1))] || 0;
+  }
+
+  getHeroBladeSkillFrameXOffset(frameIndex, facingX) {
+    const x = HERO_BLADE_SKILL_FRAME_X_OFFSETS[Math.max(0, Math.min(frameIndex, HERO_BLADE_SKILL_FRAME_X_OFFSETS.length - 1))] || 0;
+    return facingX > 0 ? -x : x;
+  }
+
+  getHeroBladeSkillWorldRect(fx, frameIndex, facingX, useHitRect = false) {
+    const r = useHitRect
+      ? this.getHeroBladeSkillHitRect(frameIndex, facingX)
+      : this.getHeroBladeSkillFrameRect(frameIndex, facingX);
+    if (!r) return null;
+    const s = fx.scaleX;
+    const ox = this.getHeroBladeSkillAnchorX(facingX);
+    const oy = HERO_BLADE_SKILL_FH * HERO_BLADE_SKILL_ORIGIN_Y;
+    const x0 = fx.x + (r.x - ox) * s;
+    const x1 = fx.x + (r.x + r.w - ox) * s;
+    const y0 = fx.y + (r.y - oy) * s;
+    const y1 = fx.y + (r.y + r.h - oy) * s;
+    return new Phaser.Geom.Rectangle(Math.min(x0, x1), y0, Math.abs(x1 - x0), y1 - y0);
+  }
+
+  resolveHeroBladeSkillFrameHit(fx, frameIndex, facingX) {
+    if (!this.guards || !this.player) return;
+    const hitRect = this.getHeroBladeSkillWorldRect(fx, frameIndex, facingX, true);
+    if (!hitRect) return;
+    const aim = facingX < 0 ? Math.PI : 0;
+    const dirX = Math.cos(aim);
+    const dirY = Math.sin(aim);
+    let hitAny = false;
+
+    for (const g of this.guards) {
+      if (!g || g.dead || !g.sprite || !g.sprite.active) continue;
+      const body = g.sprite.body;
+      const targetRect = body
+        ? new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height)
+        : new Phaser.Geom.Rectangle(g.sprite.x - 18, g.sprite.y - 34, 36, 68);
+      if (!Phaser.Geom.Rectangle.Overlaps(hitRect, targetRect)) continue;
+
+      const kx = dirX * HERO_BLADE_SKILL.knockMul;
+      const ky = dirY * HERO_BLADE_SKILL.knockMul;
+      const dead = g.takeDamage(HERO_BLADE_SKILL.damage, kx, ky);
+      if (dead) this._runStats.kills += 1;
+      const hitText = dead ? '斩' : `-${HERO_BLADE_SKILL.damage}`;
+      this.showBubble(g.sprite, hitText, { color: '#9ee8ff', fontSize: '17px', duration: 720, dy: -24 });
+      this._spawnImpactRing(g.sprite.x, g.sprite.y, false);
+      this.spawnHitSparks(g.sprite.x, g.sprite.y, false);
+      hitAny = true;
+    }
+
+    if (hitAny) {
+      this._applyHitstop(80);
+      this.cameras.main.shake(130, 0.0045);
+    }
+  }
+
   tryPlayerRangedAttack() {
     if (this._ended) return;
     const ps = this.playerState;
     const now = this.time.now;
     if (now < ps.attackCooldownUntil) return;
+    if (now < ps.bladeSkillUntil) return;
     if (ps.blocking) return;
     const wp = (this._loadoutEff && this._loadoutEff.weapon) || null;
     if (!wp || wp.kind !== 'ranged') {
@@ -3531,9 +3767,15 @@ export default class MuseumScene extends Phaser.Scene {
     ps.attackDir = this.player.getData('aim') || 0;
     ps.attackAnimUntil = now + 360;
     ps.attackCooldownUntil = now + (wp.cooldownMs || 300);
-    if (this._useHeroPlayer && this.anims.exists('hero_attack')) {
-      this.player.setFlipX(Math.cos(ps.attackDir) < 0);
-      this.player.play('hero_attack', true);
+    if (this._useHeroPlayer) {
+      if (this._useSwordHero) {
+        const attackKey = `hero_sword_attack_${angleToDir4(ps.attackDir)}`;
+        if (this.anims.exists(attackKey)) this.player.play(attackKey, true);
+        this.player.setFlipX(false);
+      } else if (this.anims.exists('hero_attack')) {
+        this.player.setFlipX(Math.cos(ps.attackDir) < 0);
+        this.player.play('hero_attack', true);
+      }
     }
 
     this.spawnProjectile(wp, ps.attackDir);
