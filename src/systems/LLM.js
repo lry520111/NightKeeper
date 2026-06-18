@@ -25,13 +25,13 @@ function cacheStorageKey() { return SaveSlots.slotKey(BASE_CACHE_KEY); }
 // 配置：队友接入腾讯混元时只需改这里
 // ——————————————————————————————————————————————
 const LLM_CONFIG = {
-  enabled: false,                    // 队友接好后改 true
+  enabled: true,                     // Hunyuan API enabled
   provider: 'hunyuan',               // 'hunyuan' | 'mock'
-  endpoint: '',                      // 例：'https://hunyuan.tencentcloudapi.com/...'
-  apiKey: '',                        // 由队友安全注入（建议放在打包时的 env，而非源码）
-  model: 'hunyuan-pro',
-  timeoutMs: 12000,
-  maxTokens: 400
+  endpoint: 'https://tokenhub.tencentmaas.com/v1',  // Hunyuan tokenhub endpoint
+  apiKey: import.meta.env.VITE_HUNYUAN_KEY || '',  // Auto-read from .env or runtime inject
+  model: 'hy3-preview',               // hy3 preview model
+  timeoutMs: 15000,
+  maxTokens: 600
 };
 
 // ——————————————————————————————————————————————
@@ -117,6 +117,29 @@ function buildPrompt(scenario, context) {
 
 请直接输出感言。`;
     }
+    case 'relic_chat': {
+      // Multi-turn relic chat: system prompt only (messages handled separately)
+      const r = context.relic || {};
+      return `你是博物馆馆长林默，一位沉静、博学、敬重器物的中年女性学者。你正在与一位年轻的夜行司守夜人（玩家）交流关于文物的知识。
+
+当前讨论的文物：
+- 名称：${r.name || ''}
+- 朝代：${r.dynasty || ''}
+- 年代：${r.era || ''}
+- 出土/发现地：${r.origin || ''}
+- 材质：${r.material || ''}
+- 纹饰/形制：${r.motif || ''}
+- 简介：${r.desc || ''}
+- 流散经历：${r.lostTo || ''}
+
+要求：
+- 以馆长林默的身份回答，语气沉静、温和、有学者气质；
+- 回答要有历史深度，可以延伸到相关的历史背景、文化意义、工艺特点；
+- 如果玩家问到超出文物本身的问题，可以适当关联其他历史知识；
+- 每次回答控制在 150 字以内，简洁有力；
+- 不要使用表情符号，不要分点列举，保持自然对话风格；
+- 可以偶尔引用古诗文或典故来增添文化氛围。`;
+    }
     case 'curator_review': {
       // 单局复盘
       const s = context.stats || {};
@@ -162,29 +185,30 @@ function buildPrompt(scenario, context) {
 }
 
 // ——————————————————————————————————————————————
-// 真实接入位：腾讯混元（队友实现 / 替换）
+// 真实接入位：腾讯混元（OpenAI 兼容协议）
 // ——————————————————————————————————————————————
 async function _hunyuanFetch(prompt, opts = {}) {
-  // ⚠️ 占位实现：当前直接抛错，外层会自动走 fallback。
-  // 队友接入时，请按腾讯混元 OpenAI 兼容协议或官方 SDK 实现，并返回纯文本字符串。
-  //
-  // 参考 (OpenAI 兼容):
-  //   const resp = await fetch(`${LLM_CONFIG.endpoint}/v1/chat/completions`, {
-  //     method: 'POST',
-  //     headers: {
-  //       'Content-Type': 'application/json',
-  //       'Authorization': `Bearer ${LLM_CONFIG.apiKey}`
-  //     },
-  //     body: JSON.stringify({
-  //       model: LLM_CONFIG.model,
-  //       messages: [{ role: 'user', content: prompt }],
-  //       max_tokens: opts.maxTokens || LLM_CONFIG.maxTokens,
-  //       temperature: 0.8
-  //     })
-  //   });
-  //   const data = await resp.json();
-  //   return data.choices?.[0]?.message?.content || '';
-  throw new Error('Hunyuan not wired yet');
+  const messages = opts.messages || [{ role: 'user', content: prompt }];
+  const resp = await fetch(`${LLM_CONFIG.endpoint}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${LLM_CONFIG.apiKey}`
+    },
+    body: JSON.stringify({
+      model: opts.model || LLM_CONFIG.model,
+      messages,
+      max_tokens: opts.maxTokens || LLM_CONFIG.maxTokens,
+      temperature: opts.temperature || 0.8,
+      stream: false
+    })
+  });
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    throw new Error(`Hunyuan API ${resp.status}: ${errText}`);
+  }
+  const data = await resp.json();
+  return data.choices?.[0]?.message?.content || '';
 }
 
 function withTimeout(promise, ms) {
@@ -262,6 +286,41 @@ const LLM = {
   /** 提供给队友：运行时切换配置（例如登录后注入 apiKey） */
   configure(patch = {}) {
     Object.assign(LLM_CONFIG, patch);
+  },
+
+  /**
+   * Multi-turn chat API for relic encyclopedia conversations.
+   * @param {Object}   opts
+   * @param {Object}   opts.relic       The relic data object
+   * @param {Array}    opts.history     Chat history: [{ role: 'user'|'assistant', content }]
+   * @param {string}   opts.userMessage The latest user message
+   * @param {string}   opts.fallback    Fallback text if LLM fails
+   * @returns {Promise<{ text: string, source: 'llm'|'fallback' }>}
+   */
+  async chat({ relic, history = [], userMessage, fallback = '' } = {}) {
+    if (!LLM_CONFIG.enabled || !LLM_CONFIG.apiKey) {
+      return { text: fallback || '（大模型未启用，请先配置 API Key）', source: 'fallback' };
+    }
+
+    try {
+      const systemPrompt = buildPrompt('relic_chat', { relic });
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        ...history,
+        { role: 'user', content: userMessage }
+      ];
+
+      const text = await withTimeout(
+        _hunyuanFetch('', { messages, maxTokens: LLM_CONFIG.maxTokens, temperature: 0.85 }),
+        LLM_CONFIG.timeoutMs
+      );
+      const cleaned = (text || '').toString().trim();
+      if (!cleaned) return { text: fallback || '……我一时语塞。', source: 'fallback' };
+      return { text: cleaned, source: 'llm' };
+    } catch (err) {
+      console.warn('[LLM] chat failed:', err && err.message);
+      return { text: fallback || '……通讯似乎出了些问题，稍后再试。', source: 'fallback' };
+    }
   }
 };
 

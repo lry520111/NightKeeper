@@ -200,11 +200,11 @@ export default class HubScene extends Phaser.Scene {
       return;
     }
 
-    // —— 首次进入或刚行动归来 → 自动触发馆长对话 ——
+    // —— 首次进入或刚行动归来 → 自动触发馆长对话（直接对话，不走菜单） ——
     if (!SaveData.getFlag('metCurator', false)) {
-      this.time.delayedCall(700, () => this.openCuratorDialog());
+      this.time.delayedCall(700, () => this.openCuratorDialogDirect());
     } else if (SaveData.getFlag('lastRunResult', null)) {
-      this.time.delayedCall(700, () => this.openCuratorDialog());
+      this.time.delayedCall(700, () => this.openCuratorDialogDirect());
     }
   }
 
@@ -437,8 +437,28 @@ export default class HubScene extends Phaser.Scene {
 
   openCuratorDialog() {
     if (this._dialogOpen) return;
+    this._dialogOpen = true;
+    this.player.setVelocity(0, 0);
+    this.hintText.setVisible(false);
+
+    // Show curator menu (choose between dialogue and relic encyclopedia)
+    this.scene.launch('CuratorMenuScene', {
+      returnTo: 'HubScene',
+      curatorConfig: CURATOR,
+      onClose: () => {
+        this._dialogOpen = false;
+      }
+    });
+    this.scene.pause();
+  }
+
+  /** Direct dialog launch (called from CuratorMenuScene when player chooses "对话") */
+  openCuratorDialogDirect() {
     const dlg = buildCuratorDialog(SaveData);
-    if (!dlg || !dlg.pages || !dlg.pages.length) return;
+    if (!dlg || !dlg.pages || !dlg.pages.length) {
+      this._dialogOpen = false;
+      return;
+    }
     this._dialogOpen = true;
     this.player.setVelocity(0, 0);
     this.hintText.setVisible(false);
