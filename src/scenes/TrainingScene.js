@@ -43,6 +43,37 @@ const BLADE_SKILL_HIT_RECTS = [
 ];
 const BLADE_SKILL_FRAME_Y_OFFSETS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 10];
 const BLADE_SKILL_FRAME_X_OFFSETS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14];
+const SKILL2_COOLDOWN = 2400;
+const SKILL2_DURATION = 3150;
+const SKILL2_FW = 821;
+const SKILL2_FH = 320;
+const SKILL2_ANCHOR_X = 495;
+const SKILL2_SCALE = 0.66;
+const SKILL2_FINAL_OFFSET_X = -105;
+const SKILL2_FRAME_X_OFFSETS = Array(22).fill(0);
+const SKILL2_FRAME_Y_OFFSETS = [0, 0, 9, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const SKILL2_HIT_RECTS = [
+  null, null, null,
+  { x: 315, y: 195, w: 205, h: 120 },
+  { x: 250, y: 145, w: 360, h: 175 },
+  { x: 245, y: 145, w: 315, h: 175 },
+  { x: 205, y: 105, w: 340, h: 215 },
+  { x: 220, y: 105, w: 350, h: 220 },
+  { x: 225, y: 115, w: 335, h: 205 },
+  { x: 235, y: 100, w: 260, h: 215 },
+  { x: 225, y: 60, w: 385, h: 260 },
+  { x: 245, y: 60, w: 330, h: 260 },
+  { x: 230, y: 70, w: 390, h: 250 },
+  { x: 220, y: 45, w: 390, h: 275 },
+  { x: 230, y: 55, w: 350, h: 265 },
+  { x: 215, y: 45, w: 370, h: 275 },
+  { x: 250, y: 45, w: 385, h: 270 },
+  { x: 230, y: 50, w: 420, h: 250 },
+  { x: 230, y: 45, w: 420, h: 275 },
+  { x: 330, y: 125, w: 150, h: 115 },
+  null,
+  null,
+];
 
 const DUMMIES = [
   { x: 180, y: 270, name: '左侧木桩一' },
@@ -103,14 +134,17 @@ export default class TrainingScene extends Phaser.Scene {
     this._cooldownUntil = 0;
     this._skillUntil = 0;
     this._skillCooldownUntil = 0;
+    this._skill2Until = 0;
+    this._skill2CooldownUntil = 0;
+    this._skill2HitFrames = new Set();
     this._lastFacingX = 1;
     const idleUp = `${this._heroAnimPrefix}_idle_up`;
     if (this.anims.exists(idleUp)) this.player.play(idleUp);
 
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,U,E,C,ESC,SPACE');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,U,Y,E,C,R,ESC,SPACE');
 
-    this.hud = this.add.text(18, 16, '训练场  WASD移动  J/空格攻击  U持刀技能  C切换角色  靠近下方门按E返回大厅', {
+    this.hud = this.add.text(18, 16, '训练场  WASD移动  J/空格攻击  U持刀技能  Y第二技能  C切换角色  R标尺  靠近下方门按E返回大厅', {
       fontFamily: '"PingFang SC", "Microsoft YaHei", serif',
       fontSize: '14px',
       color: '#ffe9a6',
@@ -200,6 +234,12 @@ export default class TrainingScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.U)) {
       this.tryBladeSkill(time);
     }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.Y)) {
+      this.trySkill2(time);
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.R)) {
+      this.toggleRuler();
+    }
     if (Phaser.Input.Keyboard.JustDown(this.keys.C)) {
       this._switchCharacter();
     }
@@ -224,7 +264,8 @@ export default class TrainingScene extends Phaser.Scene {
 
     const attacking = time < this._attackUntil;
     const skillActive = time < this._skillUntil;
-    const speed = skillActive ? PLAYER_SPEED * 0.12 : (attacking ? PLAYER_SPEED * 0.35 : PLAYER_SPEED);
+    const skill2Active = time < this._skill2Until;
+    const speed = skill2Active ? 0 : (skillActive ? PLAYER_SPEED * 0.12 : (attacking ? PLAYER_SPEED * 0.35 : PLAYER_SPEED));
     this.player.setVelocity(vx * speed, vy * speed);
 
     if (vx || vy) {
@@ -234,8 +275,9 @@ export default class TrainingScene extends Phaser.Scene {
       else if (vx < 0) this._lastFacingX = -1;
     }
 
-    this.updatePlayerAnim(attacking || skillActive);
+    this.updatePlayerAnim(attacking || skillActive || skill2Active);
     this.player.setDepth(this.player.y);
+    this.updateRulerText();
   }
 
   updatePlayerAnim(attacking) {
@@ -264,6 +306,7 @@ export default class TrainingScene extends Phaser.Scene {
   tryAttack(time) {
     if (time < this._cooldownUntil) return;
     if (time < this._skillUntil) return;
+    if (time < this._skill2Until) return;
     this._cooldownUntil = time + ATTACK_COOLDOWN;
     this._attackUntil = time + 210;
     this._attackDir = this._playerDir;
@@ -293,6 +336,7 @@ export default class TrainingScene extends Phaser.Scene {
 
   tryBladeSkill(time) {
     if (time < this._skillCooldownUntil || time < this._attackUntil) return;
+    if (time < this._skill2Until) return;
     this._skillCooldownUntil = time + BLADE_SKILL_COOLDOWN;
     this._skillUntil = time + BLADE_SKILL_DURATION;
 
@@ -300,6 +344,125 @@ export default class TrainingScene extends Phaser.Scene {
     this._lastFacingX = facingX;
     this.playBladeSkillFx(facingX);
     if (Audio && Audio.sfx && Audio.sfx.slash) Audio.sfx.slash();
+  }
+
+  trySkill2(time) {
+    if (time < this._skill2CooldownUntil || time < this._attackUntil || time < this._skillUntil) return;
+    this._skill2CooldownUntil = time + SKILL2_COOLDOWN;
+    this._skill2Until = time + SKILL2_DURATION;
+
+    const facingX = this._playerDir === 'left' ? -1 : (this._playerDir === 'right' ? 1 : this._lastFacingX);
+    this._lastFacingX = facingX;
+    this.playSkill2Fx(facingX);
+    if (Audio && Audio.sfx && Audio.sfx.slash) Audio.sfx.slash();
+  }
+
+  playSkill2Fx(facingX) {
+    const animKey = facingX > 0 ? 'hero_skill2_left_anim' : 'hero_skill2_right_anim';
+    const texKey = facingX > 0 ? 'hero_skill2_left' : 'hero_skill2_right';
+    if (!this.anims.exists(animKey)) return;
+    if (this._skill2Sprite) this._skill2Sprite.destroy();
+
+    this.player.setVisible(false);
+    this.player.setVelocity(0, 0);
+    this._skill2HitFrames = new Set();
+
+    const playerFootY = this.player.y + this.player.displayHeight / 2;
+    const baseFxX = this.player.x;
+    const baseFxY = playerFootY;
+    const fx = this.add.sprite(baseFxX, baseFxY, texKey, 0)
+      .setOrigin(this.getSkill2AnchorX(facingX) / SKILL2_FW, 1)
+      .setScale(SKILL2_SCALE)
+      .setDepth(this.player.y + 4);
+    fx.play(animKey);
+    this._skill2Sprite = fx;
+
+    const onFrame = (anim, frame) => {
+      const frameIndex = Math.max(0, (frame && frame.index ? frame.index - 1 : 0));
+      fx.x = baseFxX + this.getSkill2FrameXOffset(frameIndex, facingX);
+      fx.y = baseFxY + this.getSkill2FrameYOffset(frameIndex);
+      this.resolveSkill2FrameHit(fx, frameIndex, facingX);
+    };
+    fx.on(Phaser.Animations.Events.ANIMATION_UPDATE, onFrame);
+    this.resolveSkill2FrameHit(fx, 0, facingX);
+
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      fx.off(Phaser.Animations.Events.ANIMATION_UPDATE, onFrame);
+      if (this._skill2Sprite === fx) this._skill2Sprite = null;
+      if (this.player && this.player.active) {
+        const finalFrame = SKILL2_FRAME_X_OFFSETS.length - 1;
+        const finalFxX = baseFxX + this.getSkill2FrameXOffset(finalFrame, facingX);
+        const finalFxY = baseFxY + this.getSkill2FrameYOffset(finalFrame);
+        const finalDx = Math.abs(SKILL2_FINAL_OFFSET_X) * SKILL2_SCALE * (facingX > 0 ? 1 : -1);
+        this.player.setPosition(finalFxX + finalDx, finalFxY - this.player.displayHeight / 2);
+        this.player.setVisible(true);
+      }
+      if (fx && fx.active) fx.destroy();
+    };
+    fx.once(Phaser.Animations.Events.ANIMATION_COMPLETE, cleanup);
+    this.time.delayedCall(SKILL2_DURATION + 250, cleanup);
+  }
+
+  getSkill2AnchorX(facingX) {
+    return facingX > 0 ? SKILL2_FW - SKILL2_ANCHOR_X : SKILL2_ANCHOR_X;
+  }
+
+  getSkill2FrameXOffset(frameIndex, facingX) {
+    const x = SKILL2_FRAME_X_OFFSETS[Math.max(0, Math.min(frameIndex, SKILL2_FRAME_X_OFFSETS.length - 1))] || 0;
+    return facingX > 0 ? x : -x;
+  }
+
+  getSkill2FrameYOffset(frameIndex) {
+    return SKILL2_FRAME_Y_OFFSETS[Math.max(0, Math.min(frameIndex, SKILL2_FRAME_Y_OFFSETS.length - 1))] || 0;
+  }
+
+  getSkill2HitRect(frameIndex, facingX) {
+    const r = SKILL2_HIT_RECTS[Math.max(0, Math.min(frameIndex, SKILL2_HIT_RECTS.length - 1))];
+    if (!r) return null;
+    if (facingX < 0) return r;
+    return {
+      x: SKILL2_FW - r.x - r.w,
+      y: r.y,
+      w: r.w,
+      h: r.h,
+    };
+  }
+
+  getSkill2WorldRect(fx, frameIndex, facingX) {
+    const r = this.getSkill2HitRect(frameIndex, facingX);
+    if (!r) return null;
+    const s = fx.scaleX;
+    const ox = this.getSkill2AnchorX(facingX);
+    const oy = SKILL2_FH;
+    const x0 = fx.x + (r.x - ox) * s;
+    const x1 = fx.x + (r.x + r.w - ox) * s;
+    const y0 = fx.y + (r.y - oy) * s;
+    const y1 = fx.y + (r.y + r.h - oy) * s;
+    return new Phaser.Geom.Rectangle(Math.min(x0, x1), y0, Math.abs(x1 - x0), y1 - y0);
+  }
+
+  resolveSkill2FrameHit(fx, frameIndex, facingX) {
+    if (this._skill2HitFrames && this._skill2HitFrames.has(frameIndex)) return;
+    const hitRect = this.getSkill2WorldRect(fx, frameIndex, facingX);
+    if (!hitRect) return;
+    if (this._skill2HitFrames) this._skill2HitFrames.add(frameIndex);
+
+    const aim = facingX < 0 ? Math.PI : 0;
+    let hitCount = 0;
+    for (const d of this.dummies) {
+      const targetRect = new Phaser.Geom.Rectangle(d.x - 26, d.y - 66, 52, 92);
+      if (!Phaser.Geom.Rectangle.Overlaps(hitRect, targetRect)) continue;
+      this.hitDummy(d, aim);
+      hitCount += 1;
+    }
+    if (hitCount > 0) {
+      this._hits += hitCount;
+      this.comboText.setText(`命中 ${this._hits}`);
+      this.cameras.main.shake(70, 0.0028);
+    }
   }
 
   playBladeSkillFx(facingX) {
@@ -482,6 +645,44 @@ export default class TrainingScene extends Phaser.Scene {
         onComplete: () => p.destroy(),
       });
     }
+  }
+
+  toggleRuler() {
+    if (this._rulerLayer) {
+      this._rulerLayer.destroy(true);
+      this._rulerLayer = null;
+      this._rulerCoordText = null;
+      return;
+    }
+
+    const layer = this.add.container(0, 0).setDepth(1000);
+    const g = this.add.graphics();
+    g.lineStyle(1, 0x70d7ff, 0.25);
+    for (let x = 0; x <= W; x += 100) g.lineBetween(x, 0, x, H);
+    for (let y = 0; y <= H; y += 100) g.lineBetween(0, y, W, y);
+    g.lineStyle(1, 0xfff2a8, 0.7);
+    for (let x = 0; x <= W; x += 500) g.lineBetween(x, 0, x, H);
+    for (let y = 0; y <= H; y += 500) g.lineBetween(0, y, W, y);
+    layer.add(g);
+
+    const labelStyle = {
+      fontFamily: '"Consolas", monospace',
+      fontSize: '11px',
+      color: '#d8f7ff',
+      backgroundColor: '#061114aa',
+      padding: { x: 2, y: 1 },
+    };
+    for (let x = 0; x <= W; x += 100) layer.add(this.add.text(x + 3, 4, `${x}`, labelStyle));
+    for (let y = 0; y <= H; y += 100) layer.add(this.add.text(4, y + 3, `${y}`, labelStyle));
+    this._rulerCoordText = this.add.text(18, H - 30, '', labelStyle).setDepth(1001);
+    layer.add(this._rulerCoordText);
+    this._rulerLayer = layer;
+    this.updateRulerText();
+  }
+
+  updateRulerText() {
+    if (!this._rulerCoordText || !this.player) return;
+    this._rulerCoordText.setText(`player ${Math.round(this.player.x)}, ${Math.round(this.player.y)}`);
   }
 
   returnToHub() {

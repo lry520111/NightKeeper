@@ -7,8 +7,8 @@ import { findPath, smoothPath, pixelToCell, cellToPixel, hasLineOfSight, nearest
 const VIEW_RANGE = 210;          // 视野距离（像素）— 看得更远
 const VIEW_HALF_ANGLE = Math.PI / 5.2; // 视野半角（约 35° → 总 70°）— 视野更宽
 const TURN_SPEED = 3.6;          // 朝向转动速度（弧度/秒）— 转头更快
-const PATROL_SPEED = 70;         // 巡逻速度 — 加快巡逻
-const CHASE_SPEED = 145;         // 追击速度 — 玩家很难直线甩开
+const PATROL_SPEED = 52;         // 巡逻速度 — 放慢以减压
+const CHASE_SPEED = 110;         // 追击速度 — 玩家有更多反应空间
 const WAIT_AT_WAYPOINT_MS = 700; // 路径点停顿 — 停得更短
 // ★ 警惕性增强：被探照灯照到后 ~0.4秒 触发 “被发现了”
 const ALERT_FILL_RATE = 240;     // 每秒警觉值（满 100）— 锈心 ~0.42 秒满

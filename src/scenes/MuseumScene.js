@@ -62,6 +62,44 @@ const HERO_BLADE_SKILL_HIT_RECTS = [
 const HERO_BLADE_SKILL_FRAME_Y_OFFSETS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 10];
 const HERO_BLADE_SKILL_FRAME_X_OFFSETS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14];
 
+// —— Skill2 (Y key): 22-frame dash slash with own hitboxes ——
+const HERO_SKILL2 = {
+  cost: 38,
+  cooldownMs: 2600,
+  animMs: 3150,
+  damage: 1,
+  knockMul: 2.2
+};
+const HERO_SKILL2_FW = 821;
+const HERO_SKILL2_FH = 320;
+const HERO_SKILL2_ANCHOR_X = 495;
+const HERO_SKILL2_SCALE = 0.66;
+const HERO_SKILL2_FINAL_OFFSET_X = -105;
+const HERO_SKILL2_FRAME_X_OFFSETS = Array(22).fill(0);
+const HERO_SKILL2_FRAME_Y_OFFSETS = [0, 0, 9, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const HERO_SKILL2_HIT_RECTS = [
+  null, null, null,
+  { x: 315, y: 195, w: 205, h: 120 },
+  { x: 250, y: 145, w: 360, h: 175 },
+  { x: 245, y: 145, w: 315, h: 175 },
+  { x: 205, y: 105, w: 340, h: 215 },
+  { x: 220, y: 105, w: 350, h: 220 },
+  { x: 225, y: 115, w: 335, h: 205 },
+  { x: 235, y: 100, w: 260, h: 215 },
+  { x: 225, y: 60, w: 385, h: 260 },
+  { x: 245, y: 60, w: 330, h: 260 },
+  { x: 230, y: 70, w: 390, h: 250 },
+  { x: 220, y: 45, w: 390, h: 275 },
+  { x: 230, y: 55, w: 350, h: 265 },
+  { x: 215, y: 45, w: 370, h: 275 },
+  { x: 250, y: 45, w: 385, h: 270 },
+  { x: 230, y: 50, w: 420, h: 250 },
+  { x: 230, y: 45, w: 420, h: 275 },
+  { x: 330, y: 125, w: 150, h: 115 },
+  null,
+  null,
+];
+
 // 光照层颜色（近似纯黑、略带紫调，像月夜）
 const angleToDir4 = (angle = 0) => {
   const x = Math.cos(angle);
@@ -656,7 +694,10 @@ export default class MuseumScene extends Phaser.Scene {
     }    // —— 5. 玩家（C键切换：持刀 ↔ 原始 > LimeZu兜底）——
     this._charConfigs = {};
     this._charTypes = [];
-    if (this.textures.exists('hero_bow_1')) {
+    if (this.textures.exists('hero_bow_walk_down_1')) {
+      this._charTypes.push('bow');
+    this._charConfigs.bow = { tex:'hero_bow_walk_down_1', scale:0.22, bodyW:36, bodyH:22, bodyOx:48, bodyOy:170, prefix:'hero_bow', directional:true, isBow:true };
+    } else if (this.textures.exists('hero_bow_1')) {
       this._charTypes.push('bow');
     this._charConfigs.bow = { tex:'hero_bow_1', scale:0.105, bodyW:100, bodyH:50, bodyOx:50, bodyOy:260, prefix:'hero_bow', directional:false, isBow:true };
     }
@@ -755,6 +796,8 @@ export default class MuseumScene extends Phaser.Scene {
       attackArc:   (equippedWeapon && equippedWeapon.arc) || (Math.PI / 3),
       bladeSkillUntil: 0,
       bladeSkillCooldownUntil: 0,
+      skill2Until: 0,
+      skill2CooldownUntil: 0,
       ammo: initialAmmo,     // 远程弹药剩余
       qinggongUntil: 0,      // 轻功符效果结束时间
       qinggongMul: 1         // 轻功期间的速度倍率
@@ -773,6 +816,7 @@ export default class MuseumScene extends Phaser.Scene {
       F: Phaser.Input.Keyboard.KeyCodes.F,
       J: Phaser.Input.Keyboard.KeyCodes.J,
       U: Phaser.Input.Keyboard.KeyCodes.U,
+      Y: Phaser.Input.Keyboard.KeyCodes.Y,
       K: Phaser.Input.Keyboard.KeyCodes.K,
       TAB: Phaser.Input.Keyboard.KeyCodes.TAB,
       ESC: Phaser.Input.Keyboard.KeyCodes.ESC,
@@ -2636,9 +2680,48 @@ export default class MuseumScene extends Phaser.Scene {
     this._useBowHero = (type === 'bow');
     this._heroAnimPrefix = cfg.prefix;
     const dir = this._playerDir4 || 'down';
+
+    // —— Per-frame size normalization for bow hero ——
+    // Different shoot frames (legacy 1/3/4.png and walk_bow frames) have different pixel
+    // heights, which would make the sprite "pop" larger on some frames. We attach an
+    // animationupdate listener that rescales each frame so its on-screen height equals
+    // the walk-frame target height (204 * cfg.scale).
+    if (this.player._bowFrameNormalizer) {
+      this.player.off('animationupdate', this.player._bowFrameNormalizer);
+      this.player._bowFrameNormalizer = null;
+    }
     if (this._useBowHero) {
-      // Bow hero uses shared idle anim (not directional)
-      if (this.anims.exists('hero_bow_idle')) this.player.play('hero_bow_idle', true);
+      const refTex = this.textures.get(cfg.tex);
+      const refH = (refTex && refTex.getSourceImage && refTex.getSourceImage().height) || 204;
+      const targetH = refH * cfg.scale;
+      // Per-frame visual fudge: the "draw bow" frame (walk_*_5) has the arm/bow
+      // extended outward, so even after height-normalization the silhouette reads
+      // as larger than the surrounding frames. Shrink it slightly to match.
+      const frameFudge = (texKey) => {
+        if (typeof texKey === 'string' && /_walk_(?:down|up|left|right)_5$/.test(texKey)) {
+          return 0.88;
+        }
+        return 1;
+      };
+      const normalizer = (anim, frame) => {
+        if (!anim || typeof anim.key !== 'string' || !anim.key.startsWith('hero_bow_')) return;
+        const src = frame && frame.frame && frame.frame.height;
+        if (!src) return;
+        const fudge = frameFudge(frame && frame.textureKey);
+        const s = (targetH / src) * fudge;
+        this.player.setScale(s);
+      };
+      this.player.on('animationupdate', normalizer);
+      this.player._bowFrameNormalizer = normalizer;
+    }
+
+    if (this._useBowHero) {
+      // Bow hero: prefer 4-directional idle (pixel sprite), fallback to legacy single-frame idle
+      if (this.anims.exists(`hero_bow_idle_${dir}`)) {
+        this.player.play(`hero_bow_idle_${dir}`, true);
+      } else if (this.anims.exists('hero_bow_idle')) {
+        this.player.play('hero_bow_idle', true);
+      }
     } else if (this.anims.exists(`${cfg.prefix}_idle_${dir}`)) {
       this.player.play(`${cfg.prefix}_idle_${dir}`);
     }
@@ -2670,7 +2753,8 @@ export default class MuseumScene extends Phaser.Scene {
     else if (ps.sprint) speed = 230;
     if (ps.blocking) speed = 60;
     // 攻击挥刀瞬间略减速
-    if (now < ps.bladeSkillUntil) speed *= 0.15;
+    if (now < ps.skill2Until) speed = 0;
+    else if (now < ps.bladeSkillUntil) speed *= 0.15;
     else if (now < ps.attackUntil) speed *= 0.45;
     // 轻功符：期间统一乘以 qinggongMul（覆盖静步压低、同时与疾跑叠加）
     if (now < ps.qinggongUntil) speed = Math.max(speed, 230) * (ps.qinggongMul || 1.7);
@@ -2735,16 +2819,36 @@ export default class MuseumScene extends Phaser.Scene {
     if (this._useHeroPlayer) {
       const attacking = now < (ps.attackAnimUntil || 0);
 
-      // —— Bow hero: use shared idle/shoot anims (not directional) ——
+      // —— Bow hero: 4-directional walk/idle, shared shoot anim ——
       if (this._useBowHero) {
-        const wantAnim = attacking ? 'hero_bow_shoot' : 'hero_bow_idle';
+        // Pick aim direction for shoot so it matches where the arrow flies
+        const shootDir = attacking ? angleToDir4(ps.attackDir || 0) : facingDir;
+        let wantAnim;
+        if (attacking && this.anims.exists(`hero_bow_shoot_${shootDir}`)) {
+          wantAnim = `hero_bow_shoot_${shootDir}`;
+        } else if (attacking) {
+          // Legacy fallback (different sprite size — only used if 4-dir shoot missing)
+          wantAnim = 'hero_bow_shoot';
+        } else if (moving && this.anims.exists(`hero_bow_walk_${facingDir}`)) {
+          wantAnim = `hero_bow_walk_${facingDir}`;
+        } else if (this.anims.exists(`hero_bow_idle_${facingDir}`)) {
+          wantAnim = `hero_bow_idle_${facingDir}`;
+        } else {
+          wantAnim = 'hero_bow_idle';
+        }
         if (this.anims.exists(wantAnim)) {
           const cur = this.player.anims.currentAnim;
           if (!cur || cur.key !== wantAnim) {
             this.player.play(wantAnim, attacking);
           }
         }
-        this.player.setFlipX(facingDir === 'left');
+        // 4-directional anims have dedicated left frames; only legacy single-direction
+        // shoot anim (`hero_bow_shoot`) needs flipping.
+        if (attacking && wantAnim === 'hero_bow_shoot') {
+          this.player.setFlipX(Math.cos(ps.attackDir || 0) < 0);
+        } else {
+          this.player.setFlipX(false);
+        }
       } else {
       // —— Original knife / hongfa logic ——
       const useDirectional = this._useKnifeHero;
@@ -2840,6 +2944,9 @@ export default class MuseumScene extends Phaser.Scene {
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys.U)) {
       this.tryPlayerBladeSkill();
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.Y)) {
+      this.tryPlayerSkill2();
     }
 
     // —— 检测附近可拾取文物 ——
@@ -3894,6 +4001,7 @@ export default class MuseumScene extends Phaser.Scene {
     const now = this.time.now;
     if (now < ps.attackCooldownUntil) return;
     if (now < ps.bladeSkillUntil) return;
+    if (now < ps.skill2Until) return;
     if (ps.blocking) return;        // 格挡中不能出刀
 
     // 装备的武器决定伤害 / 范围 / 冷却 / 耗体力
@@ -3940,6 +4048,7 @@ export default class MuseumScene extends Phaser.Scene {
     const ps = this.playerState;
     const now = this.time.now;
     if (now < ps.bladeSkillCooldownUntil || now < ps.attackCooldownUntil) return;
+    if (now < ps.skill2Until) return;
     if (ps.blocking || now < ps.staggerUntil) return;
     if (ps.stam < HERO_BLADE_SKILL.cost) {
       this._floatText(this.player.x, this.player.y - 22, '体力不足', '#7fd8ff');
@@ -4138,12 +4247,208 @@ export default class MuseumScene extends Phaser.Scene {
     }
   }
 
+  // ============================================================
+  //  Y \u952e\uff1aSkill2 22\u5e27\u51b2\u523a\u65a9\uff08hero_skill2_left/right\uff09
+  // ============================================================
+  tryPlayerSkill2() {
+    if (this._ended || !this.player || !this.playerState) return;
+    const ps = this.playerState;
+    const now = this.time.now;
+    if (now < ps.skill2CooldownUntil || now < ps.attackCooldownUntil) return;
+    if (now < ps.bladeSkillUntil || ps.blocking || now < ps.staggerUntil) return;
+    if (ps.stam < HERO_SKILL2.cost) {
+      this._floatText(this.player.x, this.player.y - 22, '\u4f53\u529b\u4e0d\u8db3', '#7fd8ff');
+      if (Audio && Audio.sfx && Audio.sfx.bad) Audio.sfx.bad();
+      return;
+    }
+
+    ps.stam = Math.max(0, ps.stam - HERO_SKILL2.cost);
+    const dir = this._playerDir4 || 'right';
+    const facingX = dir === 'left' ? -1 : (dir === 'right' ? 1 : (this._playerFacingX || 1));
+    const aim = facingX < 0 ? Math.PI : 0;
+
+    ps.attackDir = aim;
+    ps.attackUntil = now + HERO_SKILL2.animMs;
+    ps.attackAnimUntil = now + HERO_SKILL2.animMs;
+    ps.attackCooldownUntil = now + 460;
+    ps.attackHitDone = true;
+    ps.skill2Until = now + HERO_SKILL2.animMs;
+    ps.skill2CooldownUntil = now + HERO_SKILL2.cooldownMs;
+    this.playHeroSkill2Fx(facingX);
+    if (Audio && Audio.sfx && Audio.sfx.slash) Audio.sfx.slash();
+    if (typeof this.updateWeaponHUD === 'function') this.updateWeaponHUD();
+  }
+
+  playHeroSkill2Fx(facingX) {
+    const animKey = facingX > 0 ? 'hero_skill2_left_anim' : 'hero_skill2_right_anim';
+    const texKey = facingX > 0 ? 'hero_skill2_left' : 'hero_skill2_right';
+    if (!this._useHeroPlayer || !this.anims.exists(animKey)) return;
+    if (this._heroSkill2Sprite) this._heroSkill2Sprite.destroy();
+
+    this.player.setVisible(false);
+    this.player.setVelocity(0, 0);
+    this._heroSkill2HitFrames = new Set();
+
+    const playerFootY = this.player.y + this.player.displayHeight / 2;
+    const baseFxX = this.player.x;
+    const baseFxY = playerFootY;
+    const fx = this.add.sprite(baseFxX, baseFxY, texKey, 0)
+      .setOrigin(this.getHeroSkill2AnchorX(facingX) / HERO_SKILL2_FW, 1)
+      .setScale(HERO_SKILL2_SCALE)
+      .setDepth(this.player.depth + 3);
+    fx.play(animKey);
+    this._heroSkill2Sprite = fx;
+
+    const onFrame = (anim, frame) => {
+      const frameIndex = Math.max(0, (frame && frame.index ? frame.index - 1 : 0));
+      fx.x = baseFxX + this.getHeroSkill2FrameXOffset(frameIndex, facingX);
+      fx.y = baseFxY + this.getHeroSkill2FrameYOffset(frameIndex);
+      this.resolveHeroSkill2FrameHit(fx, frameIndex, facingX);
+    };
+    fx.on(Phaser.Animations.Events.ANIMATION_UPDATE, onFrame);
+    this.resolveHeroSkill2FrameHit(fx, 0, facingX);
+
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      fx.off(Phaser.Animations.Events.ANIMATION_UPDATE, onFrame);
+      if (this._heroSkill2Sprite === fx) this._heroSkill2Sprite = null;
+      if (this.player && this.player.active) {
+        const finalFrame = HERO_SKILL2_FRAME_X_OFFSETS.length - 1;
+        const finalFxX = baseFxX + this.getHeroSkill2FrameXOffset(finalFrame, facingX);
+        const finalFxY = baseFxY + this.getHeroSkill2FrameYOffset(finalFrame);
+        const finalDx = Math.abs(HERO_SKILL2_FINAL_OFFSET_X) * HERO_SKILL2_SCALE * (facingX > 0 ? 1 : -1);
+        let targetX = finalFxX + finalDx;
+        let targetY = finalFxY - this.player.displayHeight / 2;
+        const safe = this.findSafeSkillLanding(this.player.x, this.player.y, targetX, targetY);
+        targetX = safe.x;
+        targetY = safe.y;
+        this.player.setPosition(targetX, targetY);
+        this.player.setVisible(true);
+      }
+      if (fx && fx.active) fx.destroy();
+    };
+    fx.once(Phaser.Animations.Events.ANIMATION_COMPLETE, cleanup);
+    this.time.delayedCall(HERO_SKILL2.animMs + 220, cleanup);
+  }
+
+  getHeroSkill2AnchorX(facingX) {
+    return facingX > 0 ? HERO_SKILL2_FW - HERO_SKILL2_ANCHOR_X : HERO_SKILL2_ANCHOR_X;
+  }
+
+  getHeroSkill2FrameXOffset(frameIndex, facingX) {
+    const x = HERO_SKILL2_FRAME_X_OFFSETS[Math.max(0, Math.min(frameIndex, HERO_SKILL2_FRAME_X_OFFSETS.length - 1))] || 0;
+    return facingX > 0 ? x : -x;
+  }
+
+  getHeroSkill2FrameYOffset(frameIndex) {
+    return HERO_SKILL2_FRAME_Y_OFFSETS[Math.max(0, Math.min(frameIndex, HERO_SKILL2_FRAME_Y_OFFSETS.length - 1))] || 0;
+  }
+
+  getHeroSkill2HitRect(frameIndex, facingX) {
+    const r = HERO_SKILL2_HIT_RECTS[Math.max(0, Math.min(frameIndex, HERO_SKILL2_HIT_RECTS.length - 1))];
+    if (!r) return null;
+    if (facingX < 0) return r;
+    return {
+      x: HERO_SKILL2_FW - r.x - r.w,
+      y: r.y,
+      w: r.w,
+      h: r.h,
+    };
+  }
+
+  getHeroSkill2WorldRect(fx, frameIndex, facingX) {
+    const r = this.getHeroSkill2HitRect(frameIndex, facingX);
+    if (!r) return null;
+    const s = fx.scaleX;
+    const ox = this.getHeroSkill2AnchorX(facingX);
+    const oy = HERO_SKILL2_FH;
+    const x0 = fx.x + (r.x - ox) * s;
+    const x1 = fx.x + (r.x + r.w - ox) * s;
+    const y0 = fx.y + (r.y - oy) * s;
+    const y1 = fx.y + (r.y + r.h - oy) * s;
+    return new Phaser.Geom.Rectangle(Math.min(x0, x1), y0, Math.abs(x1 - x0), y1 - y0);
+  }
+
+  resolveHeroSkill2FrameHit(fx, frameIndex, facingX) {
+    if (!this.guards || !this.player) return;
+    if (this._heroSkill2HitFrames && this._heroSkill2HitFrames.has(frameIndex)) return;
+    const hitRect = this.getHeroSkill2WorldRect(fx, frameIndex, facingX);
+    if (!hitRect) return;
+    if (this._heroSkill2HitFrames) this._heroSkill2HitFrames.add(frameIndex);
+
+    const aim = facingX < 0 ? Math.PI : 0;
+    const dirX = Math.cos(aim);
+    const dirY = Math.sin(aim);
+    let hitAny = false;
+
+    for (const g of this.guards) {
+      if (!g || g.dead || !g.sprite || !g.sprite.active) continue;
+      const body = g.sprite.body;
+      const targetRect = body
+        ? new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height)
+        : new Phaser.Geom.Rectangle(g.sprite.x - 18, g.sprite.y - 34, 36, 68);
+      if (!Phaser.Geom.Rectangle.Overlaps(hitRect, targetRect)) continue;
+
+      const kx = dirX * HERO_SKILL2.knockMul;
+      const ky = dirY * HERO_SKILL2.knockMul;
+      const dead = g.takeDamage(HERO_SKILL2.damage, kx, ky);
+      if (dead) this._runStats.kills += 1;
+      this.showBubble(g.sprite, dead ? '\u65a9' : `-${HERO_SKILL2.damage}`, { color: '#9ee8ff', fontSize: '17px', duration: 720, dy: -24 });
+      this._spawnImpactRing(g.sprite.x, g.sprite.y, false);
+      this.spawnHitSparks(g.sprite.x, g.sprite.y, false);
+      hitAny = true;
+    }
+
+    if (hitAny) {
+      this._applyHitstop(55);
+      this.cameras.main.shake(90, 0.0032);
+    }
+  }
+
+  findSafeSkillLanding(startX, startY, targetX, targetY) {
+    if (!this.walls) return { x: targetX, y: targetY };
+    const dx = targetX - startX;
+    const dy = targetY - startY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= 1) return { x: targetX, y: targetY };
+
+    const steps = Math.ceil(dist / 8);
+    const stepX = dx / steps;
+    const stepY = dy / steps;
+    const body = this.player.body;
+    const halfW = body ? body.width / 2 : 8;
+    const halfH = body ? body.height / 2 : 8;
+    let safeX = startX;
+    let safeY = startY;
+    for (let i = 1; i <= steps; i++) {
+      const testX = startX + stepX * i;
+      const testY = startY + stepY * i;
+      let blocked = false;
+      for (const wall of this.walls.getChildren()) {
+        if (!wall.body) continue;
+        const wb = wall.body;
+        if (testX + halfW > wb.x && testX - halfW < wb.x + wb.width &&
+            testY + halfH > wb.y && testY - halfH < wb.y + wb.height) {
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked) break;
+      safeX = testX;
+      safeY = testY;
+    }
+    return { x: safeX, y: safeY };
+  }
+
   tryPlayerRangedAttack() {
     if (this._ended) return;
     const ps = this.playerState;
     const now = this.time.now;
     if (now < ps.attackCooldownUntil) return;
     if (now < ps.bladeSkillUntil) return;
+    if (now < ps.skill2Until) return;
     if (ps.blocking) return;
     const wp = (this._loadoutEff && this._loadoutEff.weapon) || null;
     if (!wp || wp.kind !== 'ranged') {
@@ -4166,9 +4471,16 @@ export default class MuseumScene extends Phaser.Scene {
     ps.attackCooldownUntil = now + (wp.cooldownMs || 300);
     if (this._useHeroPlayer) {
       if (this._useBowHero) {
-        // Bow hero: play shoot animation
-        if (this.anims.exists('hero_bow_shoot')) this.player.play('hero_bow_shoot', true);
-        this.player.setFlipX(Math.cos(ps.attackDir) < 0);
+        // Bow hero: play 4-directional shoot anim if available, else legacy single-frame fallback
+        const shootDir = angleToDir4(ps.attackDir);
+        const dirShootKey = `hero_bow_shoot_${shootDir}`;
+        if (this.anims.exists(dirShootKey)) {
+          this.player.setFlipX(false);
+          this.player.play(dirShootKey, true);
+        } else if (this.anims.exists('hero_bow_shoot')) {
+          this.player.play('hero_bow_shoot', true);
+          this.player.setFlipX(Math.cos(ps.attackDir) < 0);
+        }
       } else if (this._useKnifeHero) {
         const attackKey = `hero_knife_attack_${angleToDir4(ps.attackDir)}`;
         if (this.anims.exists(attackKey)) this.player.play(attackKey, true);

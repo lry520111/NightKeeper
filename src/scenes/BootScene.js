@@ -53,6 +53,15 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('hero_bow_2', 'assets/characters/hero/2.png');
     this.load.image('hero_bow_3', 'assets/characters/hero/3.png');
     this.load.image('hero_bow_4', 'assets/characters/hero/4.png');
+    // Bow hero 4-direction walk frames (6 frames per direction)
+    {
+      const dirs = ['down', 'up', 'left', 'right'];
+      for (const d of dirs) {
+        for (let i = 1; i <= 6; i++) {
+          this.load.image(`hero_bow_walk_${d}_${i}`, `assets/characters/hero/walk_bow/${d}${i}.png`);
+        }
+      }
+    }
     this.load.spritesheet('hero_blade_skill', 'assets/effects/hero_blade_skill.png', {
       frameWidth: 772,
       frameHeight: 230
@@ -60,6 +69,15 @@ export default class BootScene extends Phaser.Scene {
     this.load.spritesheet('hero_blade_skill_right', 'assets/effects/hero_blade_skill_right.png', {
       frameWidth: 772,
       frameHeight: 230
+    });
+    // —— 第二技能（hero skill2）特效精灵表 ——
+    this.load.spritesheet('hero_skill2_right', 'assets/effects/hero_skill2_right.png', {
+      frameWidth: 821,
+      frameHeight: 320
+    });
+    this.load.spritesheet('hero_skill2_left', 'assets/effects/hero_skill2_left.png', {
+      frameWidth: 821,
+      frameHeight: 320
     });
     this.load.spritesheet('curator_idle', 'assets/characters/curator/curator_idle.png', {
       frameWidth: 148,
@@ -2015,7 +2033,7 @@ export default class BootScene extends Phaser.Scene {
 
     // —— Bow hero animations (individual image frames) ——
     if (this.textures.exists('hero_bow_1')) {
-      // Idle animation: frames 1 and 2 (holding bow at side)
+      // Idle animation: frames 1 and 2 (holding bow at side) — legacy non-directional
       if (!this.anims.exists('hero_bow_idle')) {
         this.anims.create({
           key: 'hero_bow_idle',
@@ -2040,6 +2058,47 @@ export default class BootScene extends Phaser.Scene {
           frameRate: 10,
           repeat: 0
         });
+      }
+    }
+
+    // —— Bow hero 4-direction walk / idle (pixel-art frames in walk_bow/) ——
+    if (this.textures.exists('hero_bow_walk_down_1')) {
+      const dirs = ['down', 'up', 'left', 'right'];
+      for (const d of dirs) {
+        const walkKey = `hero_bow_walk_${d}`;
+        if (!this.anims.exists(walkKey)) {
+          this.anims.create({
+            key: walkKey,
+            frames: [1, 2, 3, 4, 5, 6].map(i => ({ key: `hero_bow_walk_${d}_${i}` })),
+            frameRate: 10,
+            repeat: -1
+          });
+        }
+        // Static idle per direction = first frame of walk cycle
+        const idleKey = `hero_bow_idle_${d}`;
+        if (!this.anims.exists(idleKey)) {
+          this.anims.create({
+            key: idleKey,
+            frames: [{ key: `hero_bow_walk_${d}_1` }],
+            frameRate: 1,
+            repeat: -1
+          });
+        }
+        // Per-direction shoot animation reuses walk frames so sprite size stays consistent.
+        // 3 (raise/draw) -> 5 (release) -> 1 (recover) feels like a quick bow loose.
+        const shootKey = `hero_bow_shoot_${d}`;
+        if (!this.anims.exists(shootKey)) {
+          this.anims.create({
+            key: shootKey,
+            frames: [
+              { key: `hero_bow_walk_${d}_3`, duration: 90 },
+              { key: `hero_bow_walk_${d}_5`, duration: 140 },
+              { key: `hero_bow_walk_${d}_1`, duration: 90 }
+            ],
+            frameRate: 12,
+            repeat: 0
+          });
+        }
       }
     }
 
@@ -2072,6 +2131,25 @@ export default class BootScene extends Phaser.Scene {
         frameRate: 8,
         repeat: 0
       });
+    }
+
+    // —— 第二技能（hero skill2）22 帧动画 ——
+    if (this.textures.exists('hero_skill2_right') && this.textures.exists('hero_skill2_left')) {
+      const makeSkill2Frames = (textureKey) => (
+        this.anims.generateFrameNumbers(textureKey, { start: 0, end: 21 })
+      );
+      for (const [key, tex] of [
+        ['hero_skill2_right_anim', 'hero_skill2_right'],
+        ['hero_skill2_left_anim',  'hero_skill2_left']
+      ]) {
+        if (this.anims.exists(key)) this.anims.remove(key);
+        this.anims.create({
+          key,
+          frames: makeSkill2Frames(tex),
+          frameRate: 8,
+          repeat: 0
+        });
+      }
     }
   }
 
