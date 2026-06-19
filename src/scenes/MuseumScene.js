@@ -1962,56 +1962,86 @@ export default class MuseumScene extends Phaser.Scene {
   // ——————————————————————————————————————
   _setupFogLayer() {
     const biome = this.biome || {};
-    const fogColor = biome.fogColor || 0x1a3050;
-    const fogAlpha = biome.fogAlpha || 0.35;
-    const fogSpeed = biome.fogSpeed || 0.25;
+    const fogColor = biome.fogColor || 0xc8d8e8;
+    const fogAlpha = biome.fogAlpha || 0.30;
+    const fogSpeed = biome.fogSpeed || 0.2;
 
-    // Create multiple fog cloud sprites that drift across the screen
-    this._fogClouds = [];
-    const fogKeys = ['tex_fog_cloud', 'tex_fog_wisp'];
-    const numClouds = 14; // more clouds for thicker fog
-
-    for (let i = 0; i < numClouds; i++) {
-      const key = fogKeys[i % fogKeys.length];
-      if (!this.textures.exists(key)) continue;
-
-      const cloud = this.add.image(
-        Phaser.Math.Between(-200, 1480),
-        Phaser.Math.Between(50, 670),
-        key
-      );
-      cloud.setOrigin(0.5, 0.5);
-      cloud.setDepth(85); // below darkness (90) but above world tiles
-      cloud.setScrollFactor(0.1 + Math.random() * 0.2); // parallax drift
-      cloud.setAlpha(fogAlpha * (0.6 + Math.random() * 0.4));
-      cloud.setTint(fogColor);
-      cloud.setScale(2.0 + Math.random() * 2.0, 1.0 + Math.random() * 0.8);
-      cloud.setBlendMode(Phaser.BlendModes.SCREEN);
-
-      // Store drift data
-      cloud.setData('vx', (Math.random() - 0.3) * fogSpeed * 20);
-      cloud.setData('vy', (Math.random() - 0.5) * fogSpeed * 5);
-      cloud.setData('baseAlpha', cloud.alpha);
-      cloud.setData('phase', Math.random() * Math.PI * 2);
-
-      this._fogClouds.push(cloud);
+    // --- Partial-coverage fog: spawn clouds in clustered zones, not uniformly ---
+    // Define fog zones per biome (areas where fog concentrates), leaving gaps for contrast
+    const biomeId = biome.id || 'museum';
+    let fogZones;
+    if (biomeId === 'blackmarket') {
+      // Purple haze clusters in alleyways and corners
+      fogZones = [
+        { x: 50, y: 150, w: 350, h: 200 },    // left alley
+        { x: 700, y: 50, w: 400, h: 220 },     // top-right neon glow area
+        { x: 400, y: 450, w: 500, h: 200 },    // bottom market floor
+        { x: 1000, y: 350, w: 250, h: 250 },   // far-right corner
+      ];
+    } else if (biomeId === 'ship') {
+      // Sea mist rolling in from edges, thicker at bottom (deck level)
+      fogZones = [
+        { x: 0, y: 400, w: 600, h: 300 },      // left deck mist
+        { x: 600, y: 450, w: 680, h: 270 },    // right deck mist
+        { x: 200, y: 50, w: 350, h: 180 },     // upper cabin haze
+        { x: 900, y: 100, w: 300, h: 200 },    // starboard fog patch
+        { x: 50, y: 250, w: 250, h: 150 },     // port side wisp
+      ];
+    } else {
+      // Museum: scattered patches among exhibits
+      fogZones = [
+        { x: 100, y: 80, w: 400, h: 250 },     // top-left cluster
+        { x: 800, y: 400, w: 450, h: 280 },    // bottom-right cluster
+        { x: 500, y: 550, w: 350, h: 170 },    // bottom-center wisp
+        { x: 1050, y: 60, w: 300, h: 200 },    // top-right patch
+      ];
     }
 
-    // Strong color overlay for overall blue atmosphere tint (below darkness)
-    this._atmosphereOverlay = this.add.rectangle(
-      640, 360, 1280, 720,
-      fogColor, fogAlpha * 0.8
-    ).setOrigin(0.5).setDepth(84).setScrollFactor(0).setBlendMode(Phaser.BlendModes.SCREEN);
+    this._fogClouds = [];
+    const fogKeys = ['tex_fog_cloud', 'tex_fog_wisp'];
+    const cloudsPerZone = 4; // 4 clouds per zone = 16 total, but clustered
 
-    // Gentle pulse on the atmosphere overlay
-    this.tweens.add({
-      targets: this._atmosphereOverlay,
-      alpha: { from: fogAlpha * 0.5, to: fogAlpha * 0.9 },
-      duration: 6000,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
+    for (const zone of fogZones) {
+      for (let i = 0; i < cloudsPerZone; i++) {
+        const key = fogKeys[i % fogKeys.length];
+        if (!this.textures.exists(key)) continue;
+
+        // Spawn within the zone bounds with some jitter
+        const cx = zone.x + Math.random() * zone.w;
+        const cy = zone.y + Math.random() * zone.h;
+
+        const cloud = this.add.image(cx, cy, key);
+        cloud.setOrigin(0.5, 0.5);
+        cloud.setDepth(85);
+        cloud.setScrollFactor(0.05 + Math.random() * 0.15);
+        // Denser at zone center, lighter at edges
+        const distFromCenter = Math.hypot(
+          (cx - (zone.x + zone.w / 2)) / (zone.w / 2),
+          (cy - (zone.y + zone.h / 2)) / (zone.h / 2)
+        );
+        const edgeFade = Math.max(0.2, 1.0 - distFromCenter * 0.6);
+        cloud.setAlpha(fogAlpha * edgeFade * (0.6 + Math.random() * 0.4));
+        cloud.setTint(fogColor);
+        cloud.setScale(2.0 + Math.random() * 2.0, 1.0 + Math.random() * 0.8);
+        cloud.setBlendMode(Phaser.BlendModes.NORMAL);
+
+        // Drift slowly but stay roughly within zone area
+        cloud.setData('vx', (Math.random() - 0.5) * fogSpeed * 12);
+        cloud.setData('vy', (Math.random() - 0.5) * fogSpeed * 4);
+        cloud.setData('baseAlpha', cloud.alpha);
+        cloud.setData('phase', Math.random() * Math.PI * 2);
+        // Store zone bounds for wrapping within zone
+        cloud.setData('zoneX', zone.x - 80);
+        cloud.setData('zoneW', zone.w + 160);
+        cloud.setData('zoneY', zone.y - 40);
+        cloud.setData('zoneH', zone.h + 80);
+
+        this._fogClouds.push(cloud);
+      }
+    }
+
+    // No full-screen atmosphere overlay — keep clear areas truly clear for contrast
+    this._atmosphereOverlay = null;
   }
 
   /**
@@ -2031,11 +2061,17 @@ export default class MuseumScene extends Phaser.Scene {
       // Gentle alpha oscillation
       cloud.setAlpha(baseAlpha * (0.7 + 0.3 * Math.sin(this.time.now * 0.001 + phase)));
 
-      // Wrap around screen edges
-      if (cloud.x > 1500) cloud.x = -220;
-      if (cloud.x < -250) cloud.x = 1500;
-      if (cloud.y > 750) cloud.y = -50;
-      if (cloud.y < -80) cloud.y = 750;
+      // Wrap within zone bounds (keeps fog clustered in specific areas)
+      const zx = cloud.getData('zoneX');
+      const zw = cloud.getData('zoneW');
+      const zy = cloud.getData('zoneY');
+      const zh = cloud.getData('zoneH');
+      if (zx != null) {
+        if (cloud.x > zx + zw) cloud.x = zx;
+        if (cloud.x < zx) cloud.x = zx + zw;
+        if (cloud.y > zy + zh) cloud.y = zy;
+        if (cloud.y < zy) cloud.y = zy + zh;
+      }
     }
   }
 

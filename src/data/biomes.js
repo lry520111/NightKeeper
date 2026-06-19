@@ -22,13 +22,13 @@ export const BIOMES = {
     floorKeys: ['tex_floor', 'tex_floor', 'tex_floor', 'tex_floor_a', 'tex_floor_b'],
     wallKey: 'tex_wall',
     wallTopKey: 'tex_wall_top',
-    darkness: 0x081828,       // deep blue (not pure black)
-    darknessAlpha: 0.75,      // let world color bleed through more
-    ambientColor: 0x0a1e38,   // rich navy background
+    darkness: 0x1a2838,       // lighter blue-grey
+    darknessAlpha: 0.55,      // much brighter scene
+    ambientColor: 0x1a3050,   // lighter navy background
     lampTint: 0xffd27a,
-    fogColor: 0x204060,       // strong blue fog
-    fogAlpha: 0.35,           // thick fog overlay
-    fogSpeed: 0.25,           // fog drift speed
+    fogColor: 0xc8d8e8,       // white-grey fog
+    fogAlpha: 0.50,           // thick white fog
+    fogSpeed: 0.18,           // slow drift for atmosphere
     guardCount: 8,
     relicCount: 7,
     guardStyle: 'museum'      // 经典守卫：青灰长褂 + 红缨
@@ -40,12 +40,12 @@ export const BIOMES = {
     floorKeys: ['tex_floor_bm', 'tex_floor_bm', 'tex_floor_bm_a', 'tex_floor_bm_b'],
     wallKey: 'tex_wall_bm',
     wallTopKey: 'tex_wall_bm_top',
-    darkness: 0x0a0520,       // deep purple-black
-    darknessAlpha: 0.76,
-    ambientColor: 0x0c0420,   // dark purple background
+    darkness: 0x140a28,       // lighter purple-black
+    darknessAlpha: 0.58,
+    ambientColor: 0x1a0c30,   // lighter purple background
     lampTint: 0xc070ff,       // 紫色霓虹
-    fogColor: 0x2a1050,       // purple fog
-    fogAlpha: 0.28,           // thick purple fog
+    fogColor: 0xd0c0e8,       // pale lavender fog
+    fogAlpha: 0.45,           // thick pale fog
     fogSpeed: 0.2,
     guardCount: 6,            // 黑市治安"严"——多 1 个打手
     relicCount: 7,
@@ -58,13 +58,13 @@ export const BIOMES = {
     floorKeys: ['tex_floor_sp', 'tex_floor_sp', 'tex_floor_sp_a', 'tex_floor_sp_b'],
     wallKey: 'tex_wall_sp',
     wallTopKey: 'tex_wall_sp_top',
-    darkness: 0x041820,       // ocean dark blue
-    darknessAlpha: 0.72,
-    ambientColor: 0x041420,   // deep sea background
+    darkness: 0x0c2030,       // lighter ocean blue
+    darknessAlpha: 0.52,
+    ambientColor: 0x102838,   // lighter sea background
     lampTint: 0x7ad8ff,       // 冷白海灯
-    fogColor: 0x1a3850,       // sea mist blue
-    fogAlpha: 0.32,           // thick sea fog
-    fogSpeed: 0.4,            // faster drift (sea wind)
+    fogColor: 0xd0e4f0,       // white sea mist
+    fogAlpha: 0.50,           // thick sea fog
+    fogSpeed: 0.35,           // sea wind drift
     guardCount: 6,            // 船员多
     relicCount: 7,
     guardStyle: 'sailor'      // 船员：海军蓝 + 水手帽

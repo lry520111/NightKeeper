@@ -1845,32 +1845,33 @@ export default class BootScene extends Phaser.Scene {
 
   // Fog cloud texture: thick semi-transparent blob for atmospheric fog overlay
   makeFogTexture() {
-    this.makeCanvasTexture('tex_fog_cloud', 256, 128, (ctx, w, h) => {
-      // Draw several overlapping soft ellipses to form a dense cloud-like shape
+    // Large white fog cloud - soft overlapping ellipses
+    this.makeCanvasTexture('tex_fog_cloud', 320, 160, (ctx, w, h) => {
       const drawBlob = (cx, cy, rx, ry, alpha) => {
         const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
-        grad.addColorStop(0, `rgba(100,140,180,${alpha})`);
-        grad.addColorStop(0.4, `rgba(80,120,160,${alpha * 0.7})`);
-        grad.addColorStop(0.7, `rgba(60,100,140,${alpha * 0.4})`);
-        grad.addColorStop(1, 'rgba(40,80,120,0)');
+        grad.addColorStop(0, `rgba(240,245,255,${alpha})`);
+        grad.addColorStop(0.3, `rgba(220,230,245,${alpha * 0.75})`);
+        grad.addColorStop(0.6, `rgba(200,215,235,${alpha * 0.4})`);
+        grad.addColorStop(1, 'rgba(180,200,220,0)');
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
         ctx.fill();
       };
-      drawBlob(w * 0.3, h * 0.5, w * 0.32, h * 0.45, 0.5);
-      drawBlob(w * 0.55, h * 0.45, w * 0.35, h * 0.4, 0.45);
-      drawBlob(w * 0.75, h * 0.55, w * 0.26, h * 0.42, 0.35);
-      drawBlob(w * 0.15, h * 0.6, w * 0.22, h * 0.35, 0.3);
-      drawBlob(w * 0.5, h * 0.5, w * 0.4, h * 0.5, 0.25);
+      drawBlob(w * 0.25, h * 0.5, w * 0.34, h * 0.48, 0.55);
+      drawBlob(w * 0.5, h * 0.45, w * 0.38, h * 0.44, 0.5);
+      drawBlob(w * 0.75, h * 0.55, w * 0.3, h * 0.46, 0.4);
+      drawBlob(w * 0.15, h * 0.6, w * 0.24, h * 0.38, 0.35);
+      drawBlob(w * 0.6, h * 0.5, w * 0.42, h * 0.5, 0.3);
     });
 
-    // Smaller wisp for variety - also bluer
-    this.makeCanvasTexture('tex_fog_wisp', 128, 64, (ctx, w, h) => {
-      const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.45);
-      grad.addColorStop(0, 'rgba(90,130,170,0.4)');
-      grad.addColorStop(0.5, 'rgba(70,110,150,0.2)');
-      grad.addColorStop(1, 'rgba(50,90,130,0)');
+    // Smaller white wisp for variety
+    this.makeCanvasTexture('tex_fog_wisp', 160, 80, (ctx, w, h) => {
+      const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.48);
+      grad.addColorStop(0, 'rgba(235,240,250,0.45)');
+      grad.addColorStop(0.4, 'rgba(210,220,240,0.25)');
+      grad.addColorStop(0.7, 'rgba(190,205,225,0.1)');
+      grad.addColorStop(1, 'rgba(170,190,210,0)');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, w, h);
     });
