@@ -22,11 +22,16 @@ export const BIOMES = {
     floorKeys: ['tex_floor', 'tex_floor', 'tex_floor', 'tex_floor_a', 'tex_floor_b'],
     wallKey: 'tex_wall',
     wallTopKey: 'tex_wall_top',
-    darkness: 0x05060a,
+    darkness: 0x081828,       // deep blue (not pure black)
+    darknessAlpha: 0.75,      // let world color bleed through more
+    ambientColor: 0x0a1e38,   // rich navy background
     lampTint: 0xffd27a,
+    fogColor: 0x204060,       // strong blue fog
+    fogAlpha: 0.35,           // thick fog overlay
+    fogSpeed: 0.25,           // fog drift speed
     guardCount: 8,
     relicCount: 7,
-    guardStyle: 'museum'    // 经典守卫：青灰长褂 + 红缨
+    guardStyle: 'museum'      // 经典守卫：青灰长褂 + 红缨
   },
   blackmarket: {
     id: 'blackmarket',
@@ -35,11 +40,16 @@ export const BIOMES = {
     floorKeys: ['tex_floor_bm', 'tex_floor_bm', 'tex_floor_bm_a', 'tex_floor_bm_b'],
     wallKey: 'tex_wall_bm',
     wallTopKey: 'tex_wall_bm_top',
-    darkness: 0x070310,
-    lampTint: 0xc070ff,     // 紫色霓虹
-    guardCount: 6,          // 黑市治安"严"——多 1 个打手
+    darkness: 0x0a0520,       // deep purple-black
+    darknessAlpha: 0.76,
+    ambientColor: 0x0c0420,   // dark purple background
+    lampTint: 0xc070ff,       // 紫色霓虹
+    fogColor: 0x2a1050,       // purple fog
+    fogAlpha: 0.28,           // thick purple fog
+    fogSpeed: 0.2,
+    guardCount: 6,            // 黑市治安"严"——多 1 个打手
     relicCount: 7,
-    guardStyle: 'thug'      // 黑市打手：黑夹克 + 红头巾
+    guardStyle: 'thug'        // 黑市打手：黑夹克 + 红头巾
   },
   ship: {
     id: 'ship',
@@ -48,11 +58,16 @@ export const BIOMES = {
     floorKeys: ['tex_floor_sp', 'tex_floor_sp', 'tex_floor_sp_a', 'tex_floor_sp_b'],
     wallKey: 'tex_wall_sp',
     wallTopKey: 'tex_wall_sp_top',
-    darkness: 0x020a14,     // 海蓝偏黑
-    lampTint: 0x7ad8ff,     // 冷白海灯
-    guardCount: 6,          // 船员多
+    darkness: 0x041820,       // ocean dark blue
+    darknessAlpha: 0.72,
+    ambientColor: 0x041420,   // deep sea background
+    lampTint: 0x7ad8ff,       // 冷白海灯
+    fogColor: 0x1a3850,       // sea mist blue
+    fogAlpha: 0.32,           // thick sea fog
+    fogSpeed: 0.4,            // faster drift (sea wind)
+    guardCount: 6,            // 船员多
     relicCount: 7,
-    guardStyle: 'sailor'    // 船员：海军蓝 + 水手帽
+    guardStyle: 'sailor'      // 船员：海军蓝 + 水手帽
   }
 };
 

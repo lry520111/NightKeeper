@@ -70,7 +70,7 @@ const angleToDir4 = (angle = 0) => {
   return y >= 0 ? 'down' : 'up';
 };
 
-const DARKNESS = 0x05060a;
+const DARKNESS = 0x081828; // deep blue fallback (biome overrides this)
 
 export default class MuseumScene extends Phaser.Scene {
   constructor() {
@@ -825,6 +825,11 @@ export default class MuseumScene extends Phaser.Scene {
     // —— 装备效果：在所有依赖前提前解析一次 ——
     this._loadoutEff = SaveData.resolveEffects();
 
+    // Fix: re-initialize ammo now that _loadoutEff is available
+    if (this._loadoutEff && this._loadoutEff.weapon && this._loadoutEff.weapon.kind === 'ranged') {
+      this.playerState.ammo = this._loadoutEff.weapon.ammoMax || 0;
+    }
+
     // —— 10. 倒计时（180 秒撤离时限；信标可缩短） ——
     this.timeLeft = Math.round(180 * (this._loadoutEff.extractCdMul || 1));
     this.time.addEvent({
@@ -953,27 +958,16 @@ export default class MuseumScene extends Phaser.Scene {
 
     // For full-map PNG mode (wallsInPixels), pick container positions from walkable
     // floors OUTSIDE the relic display zones to avoid visual overlap with relics.
+    // NOTE: Chests are now placed AFTER guard paths are generated (see below).
     if (tpl.wallsInPixels) {
       // Build a set of tiles used by placeable (relic zones) to exclude them
       const relicZoneTiles = new Set();
       for (const cell of placeable) relicZoneTiles.add(k(cell.x, cell.y));
-      // Candidate tiles: walkable floors that are NOT in relic zones and NOT occupied
-      const containerCandidates = floors.filter(f =>
+      // Store candidates for later use (after guard paths are determined)
+      this._containerCandidates = floors.filter(f =>
         !relicZoneTiles.has(k(f.x, f.y)) && !occupied.has(k(f.x, f.y))
       );
-      // Shuffle candidates
-      for (let i = containerCandidates.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [containerCandidates[i], containerCandidates[j]] = [containerCandidates[j], containerCandidates[i]];
-      }
-      const maxContainers = 6 + (tpl.special && tpl.special.safe ? 1 : 0);
-      for (const cell of containerCandidates) {
-        if (containers.length >= maxContainers) break;
-        if (Math.random() < 0.5) {
-          containers.push({ x: cell.x, y: cell.y, kind: 'plain', lootKind: 'medkit' });
-          occupied.add(k(cell.x, cell.y));
-        }
-      }
+      this._containerOccupied = occupied;
     } else {
       for (const cell of placeable) {
         if (containers.length >= 6 + (tpl.special && tpl.special.safe ? 1 : 0)) break;
@@ -1090,6 +1084,40 @@ export default class MuseumScene extends Phaser.Scene {
 
     // 7) rooms 字段（用于装饰回避，模板模式下基本不会再调用）：把整个房间内部当成一个 room
     const rooms = [{ x: 1, y: 1, w: W - 2, h: H - 2 }];
+
+    // 8) Place chests near guard spawn points (for wallsInPixels mode)
+    //    Only 2 chests total, placed adjacent to 2 different guards' starting positions.
+    if (tpl.wallsInPixels && guardPaths.length >= 2 && this._containerCandidates) {
+      const candidates = this._containerCandidates;
+      const occupied = this._containerOccupied;
+      // Pick 2 guards (first and a middle one) to place chests near
+      const guardIndices = [0, Math.min(Math.floor(guardPaths.length / 2), guardPaths.length - 1)];
+      for (const gi of guardIndices) {
+        if (containers.length >= 2) break; // max 2 chests
+        const guardStart = guardPaths[gi][0]; // first waypoint of this guard
+        // Find the closest candidate tile to this guard's start position
+        let bestDist = Infinity;
+        let bestCell = null;
+        for (const cell of candidates) {
+          if (occupied.has(k(cell.x, cell.y))) continue;
+          const dx = cell.x - guardStart.x;
+          const dy = cell.y - guardStart.y;
+          const dist = dx * dx + dy * dy;
+          // Place within 1~4 tiles of the guard (not on top, not too far)
+          if (dist >= 1 && dist <= 16 && dist < bestDist) {
+            bestDist = dist;
+            bestCell = cell;
+          }
+        }
+        if (bestCell) {
+          containers.push({ x: bestCell.x, y: bestCell.y, kind: 'plain', lootKind: 'medkit' });
+          occupied.add(k(bestCell.x, bestCell.y));
+        }
+      }
+      // Clean up temp references
+      delete this._containerCandidates;
+      delete this._containerOccupied;
+    }
 
     return {
       walls,
@@ -1897,8 +1925,12 @@ export default class MuseumScene extends Phaser.Scene {
     // 暗色蒙版（覆盖全场景）
     this.darkness = this.add.renderTexture(0, 0, W, H);
     this.darkness.setOrigin(0, 0).setDepth(90).setScrollFactor(0);
-    // 略微调亮蒙版下面的世界，让墙体保留一丝可见性
-    this.cameras.main.setBackgroundColor(0x000000);
+    // Use biome ambient color instead of pure black background
+    const ambientColor = (this.biome && this.biome.ambientColor) || 0x0c1a2a;
+    this.cameras.main.setBackgroundColor(ambientColor);
+
+    // —— Fog / atmosphere layer (below darkness, above world) ——
+    this._setupFogLayer();
 
     // 文物固定光晕：保留位置以便每帧绘制
     this.staticLights = relicSpawns.map((s) => ({
@@ -1923,6 +1955,88 @@ export default class MuseumScene extends Phaser.Scene {
       alpha: 0.7,
       tint: 0x7ae8e8
     });
+  }
+
+  // ——————————————————————————————————————
+  //  Fog / Atmosphere: drifting fog clouds for moody ambience
+  // ——————————————————————————————————————
+  _setupFogLayer() {
+    const biome = this.biome || {};
+    const fogColor = biome.fogColor || 0x1a3050;
+    const fogAlpha = biome.fogAlpha || 0.35;
+    const fogSpeed = biome.fogSpeed || 0.25;
+
+    // Create multiple fog cloud sprites that drift across the screen
+    this._fogClouds = [];
+    const fogKeys = ['tex_fog_cloud', 'tex_fog_wisp'];
+    const numClouds = 14; // more clouds for thicker fog
+
+    for (let i = 0; i < numClouds; i++) {
+      const key = fogKeys[i % fogKeys.length];
+      if (!this.textures.exists(key)) continue;
+
+      const cloud = this.add.image(
+        Phaser.Math.Between(-200, 1480),
+        Phaser.Math.Between(50, 670),
+        key
+      );
+      cloud.setOrigin(0.5, 0.5);
+      cloud.setDepth(85); // below darkness (90) but above world tiles
+      cloud.setScrollFactor(0.1 + Math.random() * 0.2); // parallax drift
+      cloud.setAlpha(fogAlpha * (0.6 + Math.random() * 0.4));
+      cloud.setTint(fogColor);
+      cloud.setScale(2.0 + Math.random() * 2.0, 1.0 + Math.random() * 0.8);
+      cloud.setBlendMode(Phaser.BlendModes.SCREEN);
+
+      // Store drift data
+      cloud.setData('vx', (Math.random() - 0.3) * fogSpeed * 20);
+      cloud.setData('vy', (Math.random() - 0.5) * fogSpeed * 5);
+      cloud.setData('baseAlpha', cloud.alpha);
+      cloud.setData('phase', Math.random() * Math.PI * 2);
+
+      this._fogClouds.push(cloud);
+    }
+
+    // Strong color overlay for overall blue atmosphere tint (below darkness)
+    this._atmosphereOverlay = this.add.rectangle(
+      640, 360, 1280, 720,
+      fogColor, fogAlpha * 0.8
+    ).setOrigin(0.5).setDepth(84).setScrollFactor(0).setBlendMode(Phaser.BlendModes.SCREEN);
+
+    // Gentle pulse on the atmosphere overlay
+    this.tweens.add({
+      targets: this._atmosphereOverlay,
+      alpha: { from: fogAlpha * 0.5, to: fogAlpha * 0.9 },
+      duration: 6000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  }
+
+  /**
+   * Update fog cloud positions each frame (called from update loop)
+   */
+  _updateFog(dtSec) {
+    if (!this._fogClouds) return;
+    for (const cloud of this._fogClouds) {
+      const vx = cloud.getData('vx');
+      const vy = cloud.getData('vy');
+      const phase = cloud.getData('phase');
+      const baseAlpha = cloud.getData('baseAlpha');
+
+      cloud.x += vx * dtSec;
+      cloud.y += vy * dtSec;
+
+      // Gentle alpha oscillation
+      cloud.setAlpha(baseAlpha * (0.7 + 0.3 * Math.sin(this.time.now * 0.001 + phase)));
+
+      // Wrap around screen edges
+      if (cloud.x > 1500) cloud.x = -220;
+      if (cloud.x < -250) cloud.x = 1500;
+      if (cloud.y > 750) cloud.y = -50;
+      if (cloud.y < -80) cloud.y = 750;
+    }
   }
 
   // ——————————————————————————————————————
@@ -2003,8 +2117,9 @@ export default class MuseumScene extends Phaser.Scene {
     // 5. 守卫提灯光晕
     this.drawGuardLights(rt);
 
-    // 6. 让暗部稍微透出一点世界色（避免完全死黑）
-    rt.setAlpha(0.94);
+    // 6. 让暗部稍微透出一点世界色（避免完全死黑）—— 使用 biome 配置的透明度
+    const darknessAlpha = (this.biome && this.biome.darknessAlpha) || 0.82;
+    rt.setAlpha(darknessAlpha);
   }
 
   /**
@@ -2627,6 +2742,9 @@ export default class MuseumScene extends Phaser.Scene {
 
     // —— 光照刷新 ——
     this.updateLighting();
+
+    // —— 雾气飘动 ——
+    this._updateFog(dtSec);
   }
 
   updateAlertBar(ratio) {
@@ -3677,9 +3795,49 @@ export default class MuseumScene extends Phaser.Scene {
         const endRect = this.getHeroBladeSkillFrameRect(10, facingX);
         const originPx = this.getHeroBladeSkillAnchorX(facingX);
         const finalScale = 0.50;
-        const finalX = fx.x + ((endRect.ax || originPx) - originPx) * finalScale;
+        let targetX = fx.x + ((endRect.ax || originPx) - originPx) * finalScale;
         const finalFootY = playerFootY + this.getHeroBladeSkillFrameYOffset(10);
-        this.player.setPosition(finalX, finalFootY - this.player.displayHeight / 2);
+        let targetY = finalFootY - this.player.displayHeight / 2;
+
+        // ── Anti-clip: step from original position toward target, stop before walls ──
+        const startX = this.player.x;
+        const startY = this.player.y;
+        const dx = targetX - startX;
+        const dy = targetY - startY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 1 && this.walls) {
+          const steps = Math.ceil(dist / 8); // check every 8px
+          const stepX = dx / steps;
+          const stepY = dy / steps;
+          const playerBody = this.player.body;
+          const halfW = playerBody ? playerBody.width / 2 : 8;
+          const halfH = playerBody ? playerBody.height / 2 : 8;
+          let safeX = startX;
+          let safeY = startY;
+          for (let s = 1; s <= steps; s++) {
+            const testX = startX + stepX * s;
+            const testY = startY + stepY * s;
+            // Check overlap with any wall body
+            let blocked = false;
+            for (const wall of this.walls.getChildren()) {
+              if (!wall.body) continue;
+              const wb = wall.body;
+              // Simple AABB overlap test
+              if (testX + halfW > wb.x && testX - halfW < wb.x + wb.width &&
+                  testY + halfH > wb.y && testY - halfH < wb.y + wb.height) {
+                blocked = true;
+                break;
+              }
+            }
+            if (blocked) break;
+            safeX = testX;
+            safeY = testY;
+          }
+          targetX = safeX;
+          targetY = safeY;
+        }
+
+        this.player.setPosition(targetX, targetY);
         this.player.setVisible(true);
       }
       if (fx && fx.active) fx.destroy();

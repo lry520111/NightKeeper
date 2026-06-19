@@ -218,6 +218,7 @@ export default class BootScene extends Phaser.Scene {
     this.makeGlowRingTexture();     // 撤离门光环
     this.makeFootstepTexture();     // 脚印拖痕
     this.makeVignetteTexture();     // 屏幕暗角（周边压暗）
+    this.makeFogTexture();          // 雾气云团（氛围用）
 
     // —— 注册 LimeZu 角色动画（供 HubScene/对话使用）——
     this.registerLZAnims();
@@ -1837,6 +1838,39 @@ export default class BootScene extends Phaser.Scene {
       grad.addColorStop(0, 'rgba(0,0,0,0)');
       grad.addColorStop(0.7, 'rgba(80,0,0,0.35)');
       grad.addColorStop(1, 'rgba(80,0,0,0.85)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+    });
+  }
+
+  // Fog cloud texture: thick semi-transparent blob for atmospheric fog overlay
+  makeFogTexture() {
+    this.makeCanvasTexture('tex_fog_cloud', 256, 128, (ctx, w, h) => {
+      // Draw several overlapping soft ellipses to form a dense cloud-like shape
+      const drawBlob = (cx, cy, rx, ry, alpha) => {
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
+        grad.addColorStop(0, `rgba(100,140,180,${alpha})`);
+        grad.addColorStop(0.4, `rgba(80,120,160,${alpha * 0.7})`);
+        grad.addColorStop(0.7, `rgba(60,100,140,${alpha * 0.4})`);
+        grad.addColorStop(1, 'rgba(40,80,120,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+      };
+      drawBlob(w * 0.3, h * 0.5, w * 0.32, h * 0.45, 0.5);
+      drawBlob(w * 0.55, h * 0.45, w * 0.35, h * 0.4, 0.45);
+      drawBlob(w * 0.75, h * 0.55, w * 0.26, h * 0.42, 0.35);
+      drawBlob(w * 0.15, h * 0.6, w * 0.22, h * 0.35, 0.3);
+      drawBlob(w * 0.5, h * 0.5, w * 0.4, h * 0.5, 0.25);
+    });
+
+    // Smaller wisp for variety - also bluer
+    this.makeCanvasTexture('tex_fog_wisp', 128, 64, (ctx, w, h) => {
+      const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.45);
+      grad.addColorStop(0, 'rgba(90,130,170,0.4)');
+      grad.addColorStop(0.5, 'rgba(70,110,150,0.2)');
+      grad.addColorStop(1, 'rgba(50,90,130,0)');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, w, h);
     });
