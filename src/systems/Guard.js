@@ -1,6 +1,7 @@
 // 守卫 AI - 夜行者：归藏
-// 巡逻 / 视野扇形 / 警觉值 / 视线遮挡 / 追击
+// 巡逻 / 视野扇形 / 警觉值 / 视线遮挡 / 追击 + A* 寻路
 import Phaser from 'phaser';
+import { findPath, smoothPath, pixelToCell, cellToPixel, hasLineOfSight, nearestWalkable } from './Pathfinding.js';
 
 // ——— 视野参数 ———
 const VIEW_RANGE = 210;          // 视野距离（像素）— 看得更远
@@ -29,6 +30,13 @@ const ATTACK_WINDUP_MS = 560;    // 蓄力时间 — 出招更快
 const ATTACK_HIT_HALF_ANGLE = Math.PI / 5; // 守卫挥刀扇形半角 36°
 const ATTACK_COOLDOWN_MS = 850;  // 出招后冷却 — 攻击更频繁
 
+// ——— A* 寻路参数 ———
+const PATH_REACH_DIST = 12;          // 到达路径点的判定距离（像素）
+const PATH_REPLAN_PATROL_MS = 800;   // 巡逻路径的最小重算间隔
+const PATH_REPLAN_CHASE_MS  = 350;   // 追击路径的重算间隔（玩家在动，要更频繁）
+const STUCK_CHECK_INTERVAL  = 220;   // 卡墙检测间隔（毫秒）
+const STUCK_MIN_MOVE        = 2.5;   // 这段时间内位移不足此值就视为卡住
+
 export default class Guard {
   /**
    * @param {Phaser.Scene} scene
@@ -39,6 +47,14 @@ export default class Guard {
     this.scene = scene;
     this.waypoints = waypoints;
     this.style = style;
+
+    // —— Nightkeeper 新版独立帧动画（museum / sailor）：优先级最高 ——
+    //   museum → nkguard  船员 → nkpirate  打手 → 仍走旧链路
+    this.nkAnimPrefix = style === 'sailor' ? 'nkpirate'
+      : (style === 'museum' ? 'nkguard' : null);
+    this.useNew = !!this.nkAnimPrefix
+      && scene.anims && scene.anims.exists(`${this.nkAnimPrefix}_idle_down`);
+
     // 解析对应贴图组（museum 沿用旧 key，保持兼容）
     this.texIdle = style === 'thug' ? 'tex_guard_thug'
       : style === 'sailor' ? 'tex_guard_sailor'
@@ -47,10 +63,7 @@ export default class Guard {
       : style === 'sailor' ? 'tex_guard_sailor_walk'
       : 'tex_guard_walk';
 
-    // —— 高质量 spritesheet 贴图（优先级最高） ——
-    //   museum → enemy_guard (gaurds.png)
-    //   thug   → enemy_thug  (fighters.png)
-    //   sailor → enemy_sailor (pirates_processed.png)
+    // —— 高质量 spritesheet 贴图（thug 仍用此链路） ——
     this.hqKey = style === 'thug'
       ? (scene.textures && scene.textures.exists('enemy_thug_blackmarket') ? 'enemy_thug_blackmarket' : 'enemy_thug')
       : style === 'sailor' ? 'enemy_sailor'
@@ -58,19 +71,18 @@ export default class Guard {
     this.hqAnimPrefix = style === 'thug' ? 'thug'
       : style === 'sailor' ? 'sailor'
       : 'guard';
-    this.useHQ = scene.textures && scene.textures.exists(this.hqKey);
+    // 仅在没有新版动画时启用 HQ
+    this.useHQ = !this.useNew && scene.textures && scene.textures.exists(this.hqKey);
 
     // —— LimeZu 精美贴图配置（按风格分配不同 LimeZu 角色）——
-    //   thug   → Bob   （粗犷打手）
-    //   sailor → Alex  （海军风）
-    //   default→ Amelia（女守卫）
     this.lzKey = style === 'thug' ? 'lz_bob_idle'
       : style === 'sailor' ? 'lz_alex_idle'
       : 'lz_amelia_idle';
     this.lzAnimPrefix = style === 'thug' ? 'bob'
       : style === 'sailor' ? 'alex'
       : 'amelia';
-    this.useLZ = !this.useHQ && scene.textures && scene.textures.exists(this.lzKey);
+    this.useLZ = !this.useNew && !this.useHQ && scene.textures && scene.textures.exists(this.lzKey);
+
     this.wpIdx = 0;
     this.alert = 0;
     this.state = 'patrol'; // patrol | suspicious | chase
@@ -79,40 +91,70 @@ export default class Guard {
     this.chaseUntil = 0;
     this.onStateChange = null; // (newState, oldState, guard) => void
     // ★ 巡逻硬约束（世界像素矩形）：守卫不能走出该区域，迫近边界会被拉回
-    //   由 setPatrolBounds() 设置；为 null 时不限制（单房间模式保留原状）
     this.patrolBounds = null;
 
     // —— 战斗状态 ——
     this.hp = GUARD_MAX_HP;
     this.dead = false;
-    this.staggerUntil = 0;        // 硬直结束时间
-    this.attackPhase = 'idle';    // idle | windup | recover
-    this.attackPhaseUntil = 0;    // 当前阶段结束时间
-    this.attackedThisSwing = false; // 本次挥刀是否已结算命中
-    this.onHitPlayer = null;      // (guard) => void
-    this.onWindupStart = null;    // (guard) => void  用于警报音效
+    this.staggerUntil = 0;
+    this.attackPhase = 'idle';
+    this.attackPhaseUntil = 0;
+    this.attackedThisSwing = false;
+    this.onHitPlayer = null;
+    this.onWindupStart = null;
 
-    // —— 行走帧切换 ——
+    // —— 行走帧切换（旧贴图模式专用） ——
     this._walkPhase = 0;
     this._walkAccum = 0;
     this._lastX = 0;
     this._lastY = 0;
+
+    // —— A* 寻路状态 ——
+    this._currentPath = null;       // 世界像素路径数组（不含起点）
+    this._pathTargetIdx = 0;        // 当前正在走的 path 节点
+    this._lastPlanTime = 0;         // 上次规划路径的时间戳
+    this._stuckCheckTime = 0;       // 上次卡墙检测的时间
+    this._stuckCheckPos = { x: 0, y: 0 };
+    // —— 卡墙后的「反向逃离」机制（防止守卫一直怼墙）——
+    this._reverseUntil = 0;         // 反向移动持续到的时间戳
+    this._reverseAngle = 0;         // 反向移动的角度（来自卡住瞬间 facing 的反方向）
+    this._stuckCount = 0;           // 连续卡住次数（决定反向移动时长）
 
     const start = waypoints[0];
     // —— 初始生成点：选择路径中点附近的点，避免守卫刚刷出来就贴脸玩家 ——
     const startIdx = waypoints.length >= 2 ? Math.floor(waypoints.length / 2) : 0;
     const startPos = waypoints[startIdx];
     this.wpIdx = (startIdx + 1) % waypoints.length;
-    // —— 创建 sprite：优先 HQ spritesheet，其次 LimeZu，最后旧 canvas 贴图 ——
-    const initTex = this.useHQ ? this.hqKey
-      : this.useLZ ? this.lzKey
-      : this.texIdle;
-    const initFrame = this.useHQ ? 0 : (this.useLZ ? 18 : 0);
+
+    // —— 创建 sprite：优先级 useNew > useHQ > useLZ > 旧 canvas 贴图 ——
+    let initTex, initFrame;
+    if (this.useNew) {
+      // 新版用 4 个独立 PNG，初始用 down1 帧
+      initTex = `${this.nkAnimPrefix === 'nkguard' ? 'nk_guard' : 'nk_pirate'}_down_1`;
+      initFrame = 0;
+    } else if (this.useHQ) {
+      initTex = this.hqKey;
+      initFrame = 0;
+    } else if (this.useLZ) {
+      initTex = this.lzKey;
+      initFrame = 18;
+    } else {
+      initTex = this.texIdle;
+      initFrame = 0;
+    }
     this.sprite = scene.physics.add.sprite(startPos.x, startPos.y, initTex, initFrame);
     this.sprite.setCollideWorldBounds(true);
-    if (this.useHQ) {
-      // HQ 229×229 帧：碰撞体设为中下部分（脚部区域）
-      // sailor 贴图角色较小，需要更大的碰撞体偏移调整
+
+    if (this.useNew) {
+      // 新版 PNG 帧大约 200~256px，body 设为脚部小框
+      // 先按 sprite 当前显示尺寸推算（贴图加载后 sprite 已知 width/height）
+      const sw = this.sprite.width || 200;
+      const sh = this.sprite.height || 200;
+      const bw = Math.max(28, sw * 0.22);
+      const bh = Math.max(20, sh * 0.18);
+      this.sprite.body.setSize(bw, bh)
+        .setOffset((sw - bw) / 2, sh - bh - sh * 0.05);
+    } else if (this.useHQ) {
       if (this.style === 'thug' && this.hqKey === 'enemy_thug_blackmarket') {
         this.sprite.body.setSize(86, 44).setOffset(69, 176);
       } else if (this.style === 'sailor') {
@@ -121,20 +163,32 @@ export default class Guard {
         this.sprite.body.setSize(60, 50).setOffset(85, 160);
       }
     } else if (this.useLZ) {
-      // LimeZu 16×32 像素帧：脚部 body 居中（与玩家一致）
       this.sprite.body.setSize(10, 12).setOffset(3, 18);
     } else {
       this.sprite.body.setSize(12, 18).setOffset(2, 4);
     }
     this.sprite.setDepth(5);
-    // HQ 229px 帧缩放：sailor 贴图中角色较小，需要更大的 scale 补偿
-    const hqScale = (this.style === 'thug' && this.hqKey === 'enemy_thug_blackmarket')
-      ? 0.3
-      : (this.style === 'sailor' ? 0.28 : 0.21);
-    this.sprite.setScale(this.useHQ ? hqScale : (this.useLZ ? 1.5 : 1.7));
+
+    // —— 缩放：新版独立帧用 0.18，HQ 229px 用旧规则 ——
+    let scale;
+    if (this.useNew) {
+      scale = 0.20; // 新版 PNG 大约 200~256px，缩到合理大小
+    } else if (this.useHQ) {
+      scale = (this.style === 'thug' && this.hqKey === 'enemy_thug_blackmarket')
+        ? 0.3 : (this.style === 'sailor' ? 0.28 : 0.21);
+    } else if (this.useLZ) {
+      scale = 1.5;
+    } else {
+      scale = 1.7;
+    }
+    this.sprite.setScale(scale);
+
     // 当前 4 方向
     this._dir4 = 'down';
-    if (this.useHQ) {
+    if (this.useNew) {
+      const animKey = `${this.nkAnimPrefix}_idle_down`;
+      if (scene.anims.exists(animKey)) this.sprite.play(animKey);
+    } else if (this.useHQ) {
       const animKey = `${this.hqAnimPrefix}_idle_down`;
       if (scene.anims.exists(animKey)) this.sprite.play(animKey);
     } else if (this.useLZ) {
@@ -148,7 +202,7 @@ export default class Guard {
 
     // —— 视野锥渲染 ——
     this.coneGfx = scene.add.graphics();
-    this.coneGfx.setDepth(4); // 在墙之上、玩家之下
+    this.coneGfx.setDepth(4);
 
     // 守卫提灯光晕（在光照系统中读取）
     this.lightKey = 'tex_light_guard';
@@ -160,6 +214,8 @@ export default class Guard {
 
     this._lastX = startPos.x;
     this._lastY = startPos.y;
+    this._stuckCheckPos.x = startPos.x;
+    this._stuckCheckPos.y = startPos.y;
   }
 
   destroy() {
@@ -170,14 +226,11 @@ export default class Guard {
   }
 
   // ★ 设置守卫的活动范围（世界像素矩形）★
-  // 守卫不会走出此矩形：每帧检查，若已在边界外则强制拉回 + 反向速度
-  // 这是相比 patrol waypoints 之外的"硬约束"——即使在 chase / suspicious 状态也生效
   setPatrolBounds(rect) {
     if (!rect) {
       this.patrolBounds = null;
       return;
     }
-    // 内缩半个 body 宽度，避免 sprite 中心贴到边界时身体部分越界
     const margin = 8;
     this.patrolBounds = {
       x: rect.x + margin,
@@ -188,6 +241,7 @@ export default class Guard {
   }
 
   // 把守卫位置/速度限制在 patrolBounds 内
+  // 触发后：清空当前路径，强制切到下一个 waypoint，避免在边界打转
   enforceBounds() {
     const b = this.patrolBounds;
     if (!b || !this.sprite || !this.sprite.body) return;
@@ -203,11 +257,15 @@ export default class Guard {
       this.sprite.x = x;
       this.sprite.y = y;
       this.sprite.body.setVelocity(vx, vy);
-      // 在 patrol/suspicious 状态下被边界拉住时，让朝向反转回房间中心，避免"贴墙原地踏步"
+      // ★ 反向逃离期间：保留 clamp，但不换 waypoint（避免覆盖反向逻辑）
+      if (this.scene.time.now < this._reverseUntil) return;
+      // ★ 关键修复：撞到边界时换 waypoint + 清空路径，下一帧重新规划 ★
       if (this.state !== 'chase') {
-        const cx = (b.x + b.x2) / 2;
-        const cy = (b.y + b.y2) / 2;
-        this.facing = Math.atan2(cy - y, cx - x);
+        this._currentPath = null;
+        this._pathTargetIdx = 0;
+        this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+        // 等一拍再走（避免立刻又撞回去）
+        this.waitUntil = this.scene.time.now + 200;
       }
     }
   }
@@ -217,31 +275,25 @@ export default class Guard {
     if (this.dead) return false;
     this.hp -= amount;
     this.staggerUntil = this.scene.time.now + GUARD_STAGGER_MS;
-    // 击退（加大力度，击中手感更明显）
     if (this.sprite.body) {
       this.sprite.setVelocity(knockX * 200, knockY * 200);
     }
-    // HQ hurt animation
     if (this.useHQ) {
       const hurtKey = `${this.hqAnimPrefix}_hurt`;
       if (this.scene.anims.exists(hurtKey)) this.sprite.play(hurtKey);
     }
-    // 闪红
     this.sprite.setTint(0xff5555);
     this.scene.time.delayedCall(160, () => {
       if (this.sprite && !this.dead) this.sprite.clearTint();
     });
-    // 血条显示 2.5 秒
     this.hpBarShowUntil = this.scene.time.now + 2500;
     if (this.hp <= 0) {
       this.die();
       return true;
     }
-    // 受击立即拉满警觉 → 直接进入追击状态（被打了肯定发现主角）
     this.alert = ALERT_FULL;
     this.state = 'chase';
-    this.chaseUntil = this.scene.time.now + 8000; // 追击 8 秒
-    // 触发警报联动
+    this.chaseUntil = this.scene.time.now + 8000;
     if (typeof this.onAlarm === 'function') {
       this.onAlarm(this, ALARM_RADIUS);
     }
@@ -280,12 +332,10 @@ export default class Guard {
 
     // —— 警觉值变化 ——
     if (seePlayer) {
-      // 距离越近、玩家越在锥心 → 增速越快
       const dx = player.x - this.sprite.x;
       const dy = player.y - this.sprite.y;
       const dist = Math.hypot(dx, dy);
       const distFactor = Phaser.Math.Clamp(1 - dist / VIEW_RANGE, 0.2, 1);
-      // 玩家潜行时减半（Shift）
       const sneak = this.scene.keys && this.scene.keys.SHIFT.isDown ? 0.45 : 1;
       this.alert = Math.min(ALERT_FULL, this.alert + ALERT_FILL_RATE * distFactor * sneak * dt);
     } else {
@@ -296,13 +346,11 @@ export default class Guard {
     const oldState = this.state;
     if (this.alert >= ALERT_FULL) {
       this.state = 'chase';
-      this.chaseUntil = this.scene.time.now + 6000; // 进入追击 6 秒
-      // 警觉拉满 → 通知附近守卫一起搜（同伴联动）
+      this.chaseUntil = this.scene.time.now + 6000;
       if (oldState !== 'chase' && typeof this.onAlarm === 'function') {
         this.onAlarm(this, ALARM_RADIUS);
       }
     } else if (this.alert > ALERT_SUSPICIOUS) {
-      // 看不到时按追击逻辑保留惯性，看到则进入怀疑
       if (seePlayer) this.state = 'suspicious';
     } else if (this.state !== 'chase' || this.scene.time.now > this.chaseUntil) {
       this.state = 'patrol';
@@ -312,6 +360,9 @@ export default class Guard {
         this.onStateChange(this.state, oldState, this);
       }
       this.prevState = oldState;
+      // 状态变了 → 路径作废
+      this._currentPath = null;
+      this._pathTargetIdx = 0;
     }
 
     // —— 硬直期间不行动 ——
@@ -319,15 +370,28 @@ export default class Guard {
 
     // —— 行为 ——
     if (inStagger) {
-      // 硬直：保留击退速度，逐渐衰减
       this.sprite.setVelocity(this.sprite.body.velocity.x * 0.85, this.sprite.body.velocity.y * 0.85);
+    } else if (this.scene.time.now < this._reverseUntil) {
+      // ★ 反向逃离：上一轮被判定为卡墙，强制朝反方向冲一段时间，避免一直怼墙 ★
+      const spd = this.state === 'chase' ? CHASE_SPEED * 0.85 : PATROL_SPEED * 1.0;
+      const vx = Math.cos(this._reverseAngle) * spd;
+      const vy = Math.sin(this._reverseAngle) * spd;
+      this.sprite.setVelocity(vx, vy);
+      // 朝向也跟着转（视觉合理）
+      this.facing = this.lerpAngle(this.facing, this._reverseAngle, TURN_SPEED * 1.6 * dt);
+      // 期间清空路径，反向结束后下一帧自然重规划
+      this._currentPath = null;
+      this._pathTargetIdx = 0;
     } else if (this.state === 'chase') {
-      this.behaviorChase(dt, player);
+      this.behaviorChase(dt, player, walls);
     } else if (this.state === 'suspicious') {
       this.behaviorSuspicious(dt, player);
     } else {
       this.behaviorPatrol(dt);
     }
+
+    // —— 卡墙检测：长时间几乎没动 → 重新规划 ——
+    this.checkStuck();
 
     // —— 视野锥渲染 ——
     this.drawCone();
@@ -344,10 +408,242 @@ export default class Guard {
     // —— 硬约束：守卫不能走出自己房间的矩形范围 ——
     this.enforceBounds();
 
-    // 接触致死保留：贴脸即抓
     return this.touchPlayer(player);
   }
 
+  // —— 卡墙检测：每隔一段时间看看实际位移，若太小就清路径
+  checkStuck() {
+    const now = this.scene.time.now;
+    if (now - this._stuckCheckTime < STUCK_CHECK_INTERVAL) return;
+    this._stuckCheckTime = now;
+    // 反向逃离期间不做卡墙判断（避免刚启动反向就又被判定卡住）
+    if (now < this._reverseUntil) {
+      this._stuckCheckPos.x = this.sprite.x;
+      this._stuckCheckPos.y = this.sprite.y;
+      return;
+    }
+    if (this.state === 'patrol' && now < this.waitUntil) {
+      // 主动停顿期间不算
+      this._stuckCheckPos.x = this.sprite.x;
+      this._stuckCheckPos.y = this.sprite.y;
+      return;
+    }
+    const dx = this.sprite.x - this._stuckCheckPos.x;
+    const dy = this.sprite.y - this._stuckCheckPos.y;
+    const moved = Math.hypot(dx, dy);
+    this._stuckCheckPos.x = this.sprite.x;
+    this._stuckCheckPos.y = this.sprite.y;
+    // 想走但没走动 → 卡住，触发重规划
+    const wantsToMove = this.attackPhase === 'idle'
+      && (this.state === 'chase' || (this.state === 'patrol' && now >= this.waitUntil));
+    if (wantsToMove && moved < STUCK_MIN_MOVE) {
+      this._currentPath = null;
+      this._pathTargetIdx = 0;
+      // 巡逻卡住时跳到下一个 waypoint
+      if (this.state === 'patrol') {
+        this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+        this.waitUntil = now + 150;
+      }
+      // ★ 启动「反向逃离」：朝当前 facing 的反方向冲一段时间 ★
+      //   连续卡得越多，反向时长越长，并加少量随机抖动避免对称死锁
+      this._stuckCount = Math.min(this._stuckCount + 1, 4);
+      const baseDur = 320;
+      const dur = baseDur + this._stuckCount * 90;     // 320 / 410 / 500 / 590 / 680
+      const jitter = (Math.random() - 0.5) * 0.6;       // ±0.3 弧度（约 ±17°）
+      this._reverseAngle = this.facing + Math.PI + jitter;
+      this._reverseUntil = now + dur;
+    } else if (moved >= STUCK_MIN_MOVE) {
+      // 顺利移动了 → 清零卡住计数
+      this._stuckCount = 0;
+    }
+  }
+
+  // —— A* 路径计算（基于场景的 walkGrid） ——
+  // 成功返回路径世界像素数组（不含起点），失败返回 null
+  planPathTo(targetX, targetY) {
+    const grid = this.scene && this.scene._walkGrid;
+    const cell = this.scene && this.scene._walkGridCell;
+    if (!grid || !cell) return null;
+    const s = pixelToCell(this.sprite.x, this.sprite.y, cell);
+    const t = pixelToCell(targetX, targetY, cell);
+    const tilePath = findPath(grid, s.x, s.y, t.x, t.y);
+    if (!tilePath || tilePath.length === 0) return null;
+    const smoothed = smoothPath(grid, tilePath);
+    // 跳过起点格自己；若只剩一个点（终点格==起点格）就直接给终点
+    const worldPath = [];
+    for (let i = 1; i < smoothed.length; i++) {
+      worldPath.push(cellToPixel(smoothed[i].x, smoothed[i].y, cell));
+    }
+    if (worldPath.length === 0) {
+      worldPath.push({ x: targetX, y: targetY });
+    } else {
+      // 让最后一个点更精准（直接对齐目标坐标）
+      worldPath[worldPath.length - 1] = { x: targetX, y: targetY };
+    }
+    return worldPath;
+  }
+
+  // —— 沿当前 path 走一步：维护朝向、速度，到达节点就推进
+  followPath(speed, dt) {
+    if (!this._currentPath || this._currentPath.length === 0) {
+      this.sprite.setVelocity(0, 0);
+      return false;
+    }
+    if (this._pathTargetIdx >= this._currentPath.length) {
+      this.sprite.setVelocity(0, 0);
+      return true; // 已走完
+    }
+    const node = this._currentPath[this._pathTargetIdx];
+    const dx = node.x - this.sprite.x;
+    const dy = node.y - this.sprite.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < PATH_REACH_DIST) {
+      this._pathTargetIdx++;
+      if (this._pathTargetIdx >= this._currentPath.length) {
+        this.sprite.setVelocity(0, 0);
+        return true;
+      }
+    }
+    const cur = this._currentPath[this._pathTargetIdx];
+    const ang = Math.atan2(cur.y - this.sprite.y, cur.x - this.sprite.x);
+    this.facing = this.lerpAngle(this.facing, ang, TURN_SPEED * dt);
+    this.sprite.setVelocity(Math.cos(this.facing) * speed, Math.sin(this.facing) * speed);
+    return false;
+  }
+
+  // —— 巡逻：A* 到下一个 waypoint，到了就停顿，再去下一个 ——
+  behaviorPatrol(dt) {
+    const now = this.scene.time.now;
+    if (now < this.waitUntil) {
+      this.sprite.setVelocity(0, 0);
+      this.facing += Math.sin(now / 380) * 0.025;
+      return;
+    }
+    const target = this.waypoints[this.wpIdx];
+    if (!target) return;
+
+    // 没有路径或到该重算的时间 → 规划一条
+    const needPlan = !this._currentPath
+      || this._pathTargetIdx >= this._currentPath.length
+      || (now - this._lastPlanTime) > PATH_REPLAN_PATROL_MS * 6; // 巡逻路径很稳，少重算
+    if (needPlan) {
+      const path = this.planPathTo(target.x, target.y);
+      if (path && path.length > 0) {
+        this._currentPath = path;
+        this._pathTargetIdx = 0;
+        this._lastPlanTime = now;
+      } else {
+        // 无 walkGrid 或寻不到路 → fallback：直线（保留原有兜底）
+        this._currentPath = [{ x: target.x, y: target.y }];
+        this._pathTargetIdx = 0;
+        this._lastPlanTime = now;
+      }
+    }
+
+    // 接近 waypoint 时（不一定要走完整段路径）：到了就停顿换下一个
+    const dx = target.x - this.sprite.x;
+    const dy = target.y - this.sprite.y;
+    const distToWp = Math.hypot(dx, dy);
+    if (distToWp < 10) {
+      this.sprite.setVelocity(0, 0);
+      const waitTime = 400 + Math.floor(Math.random() * 1400);
+      this.waitUntil = now + waitTime;
+      this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+      this._currentPath = null;
+      this._pathTargetIdx = 0;
+      return;
+    }
+
+    // 沿路径走
+    const reached = this.followPath(PATROL_SPEED, dt);
+    if (reached) {
+      // 路径走完但 waypoint 还没到（罕见，可能是 grid 与目标偏差）→ 直线补足
+      const ang = Math.atan2(dy, dx);
+      this.facing = this.lerpAngle(this.facing, ang, TURN_SPEED * dt);
+      this.sprite.setVelocity(Math.cos(this.facing) * PATROL_SPEED, Math.sin(this.facing) * PATROL_SPEED);
+    }
+  }
+
+  // —— 怀疑：站定，朝玩家方向转过去 ——
+  behaviorSuspicious(dt, player) {
+    this.sprite.setVelocity(0, 0);
+    const ang = Math.atan2(player.y - this.sprite.y, player.x - this.sprite.x);
+    this.facing = this.lerpAngle(this.facing, ang, TURN_SPEED * 1.4 * dt);
+  }
+
+  // —— 追击：A* 跟随玩家，进入攻击距离则蓄力出刀 ——
+  behaviorChase(dt, player, walls) {
+    const now = this.scene.time.now;
+    const dx = player.x - this.sprite.x;
+    const dy = player.y - this.sprite.y;
+    const dist = Math.hypot(dx, dy);
+    const ang = Math.atan2(dy, dx);
+
+    // 攻击状态机
+    if (this.attackPhase === 'windup') {
+      this.sprite.setVelocity(0, 0);
+      this.facing = this.lerpAngle(this.facing, ang, TURN_SPEED * 1.4 * dt);
+      if (now >= this.attackPhaseUntil) {
+        this.attackPhase = 'recover';
+        this.attackPhaseUntil = now + 220;
+        this.tryHitPlayer(player);
+      }
+      return;
+    }
+    if (this.attackPhase === 'recover') {
+      this.sprite.setVelocity(0, 0);
+      if (now >= this.attackPhaseUntil) {
+        this.attackPhase = 'idle';
+        this.attackPhaseUntil = now + ATTACK_COOLDOWN_MS;
+      }
+      return;
+    }
+    if (now >= this.attackPhaseUntil && dist <= ATTACK_RANGE) {
+      this.attackPhase = 'windup';
+      this.attackPhaseUntil = now + ATTACK_WINDUP_MS;
+      this.attackedThisSwing = false;
+      this.sprite.setVelocity(0, 0);
+      if (typeof this.onWindupStart === 'function') {
+        this.onWindupStart(this);
+      }
+      return;
+    }
+
+    // —— 追击移动：
+    //   1) 玩家直线可达（无墙阻挡）→ 直接冲，最丝滑
+    //   2) 玩家被墙挡 → 走 A* 路径
+    const directLOS = !this.rayHitsWall(this.sprite.x, this.sprite.y, player.x, player.y, walls);
+    if (directLOS) {
+      // 清空路径，直冲
+      this._currentPath = null;
+      this._pathTargetIdx = 0;
+      this.facing = this.lerpAngle(this.facing, ang, TURN_SPEED * 1.8 * dt);
+      this.sprite.setVelocity(Math.cos(this.facing) * CHASE_SPEED, Math.sin(this.facing) * CHASE_SPEED);
+      return;
+    }
+
+    // 被墙挡 → 用 A*
+    const needPlan = !this._currentPath
+      || this._pathTargetIdx >= this._currentPath.length
+      || (now - this._lastPlanTime) > PATH_REPLAN_CHASE_MS;
+    if (needPlan) {
+      const path = this.planPathTo(player.x, player.y);
+      if (path && path.length > 0) {
+        this._currentPath = path;
+        this._pathTargetIdx = 0;
+        this._lastPlanTime = now;
+      } else {
+        // 寻不到路 → 退化为直线追
+        this._currentPath = null;
+        this.facing = this.lerpAngle(this.facing, ang, TURN_SPEED * 1.8 * dt);
+        this.sprite.setVelocity(Math.cos(this.facing) * CHASE_SPEED, Math.sin(this.facing) * CHASE_SPEED);
+        return;
+      }
+    }
+    this.followPath(CHASE_SPEED, dt);
+  }
+
+  // —— 行走帧切换 / 动画选择 ——
   updateWalkFrame(dt) {
     if (this.dead) return;
     const dx = this.sprite.x - this._lastX;
@@ -359,8 +655,8 @@ export default class Guard {
     this._lastX = this.sprite.x;
     this._lastY = this.sprite.y;
 
-    if (this.useHQ) {
-      // —— HQ spritesheet 4方向动画 ——
+    // —— Nightkeeper 新版独立帧动画 ——
+    if (this.useNew) {
       let dir = this._dir4 || 'down';
       if (speed > 2) {
         if (Math.abs(bvx) > Math.abs(bvy)) dir = bvx > 0 ? 'right' : 'left';
@@ -376,7 +672,33 @@ export default class Guard {
       }
       this._dir4 = dir;
       const moving = speed > 2 || moved > 0.15;
-      // Attack animation takes priority during windup/recover
+      const animKey = moving
+        ? `${this.nkAnimPrefix}_walk_${dir}`
+        : `${this.nkAnimPrefix}_idle_${dir}`;
+      if (this.scene.anims.exists(animKey)) {
+        const cur = this.sprite.anims.currentAnim;
+        if (!cur || cur.key !== animKey) this.sprite.play(animKey);
+      }
+      this.sprite.setFlipX(false);
+      return;
+    }
+
+    if (this.useHQ) {
+      let dir = this._dir4 || 'down';
+      if (speed > 2) {
+        if (Math.abs(bvx) > Math.abs(bvy)) dir = bvx > 0 ? 'right' : 'left';
+        else dir = bvy > 0 ? 'down' : 'up';
+      } else if (moved > 0.15) {
+        if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? 'right' : 'left';
+        else dir = dy > 0 ? 'down' : 'up';
+      } else if (typeof this.facing === 'number') {
+        const fx = Math.cos(this.facing);
+        const fy = Math.sin(this.facing);
+        if (Math.abs(fx) > Math.abs(fy)) dir = fx > 0 ? 'right' : 'left';
+        else dir = fy > 0 ? 'down' : 'up';
+      }
+      this._dir4 = dir;
+      const moving = speed > 2 || moved > 0.15;
       if (this.attackPhase === 'windup' || this.attackPhase === 'recover') {
         const directionalAtkKey = `${this.hqAnimPrefix}_attack_${dir}`;
         const atkKey = this.scene.anims.exists(directionalAtkKey)
@@ -403,8 +725,6 @@ export default class Guard {
     }
 
     if (this.useLZ) {
-      // —— LimeZu 4方向动画 ——
-      // 优先按运动方向决定朝向；若静止则保持当前 _dir4（结合 facing 修正一次）
       let dir = this._dir4 || 'down';
       if (moved > 0.4) {
         if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? 'right' : 'left';
@@ -439,7 +759,6 @@ export default class Guard {
         this._walkPhase = 1 - this._walkPhase;
         this.sprite.setTexture(this._walkPhase ? this.texWalk : this.texIdle);
       }
-      // 顶视角下：只按本帧水平移动分量决定翻转
       if (Math.abs(dx) > 0.05) {
         this.sprite.setFlipX(dx < 0);
       }
@@ -448,89 +767,6 @@ export default class Guard {
       this._walkAccum = 0;
       this.sprite.setTexture(this.texIdle);
     }
-  }
-
-  // —— 巡逻：往下一路径点走，停顿，再下一点 ——
-  // 支持长距离跨区域巡逻（走私船模式）：到达路径点后随机停顿，偶尔偏移方向
-  behaviorPatrol(dt) {
-    const now = this.scene.time.now;
-    if (now < this.waitUntil) {
-      this.sprite.setVelocity(0, 0);
-      // 停顿时缓慢左右扫视
-      this.facing += Math.sin(now / 380) * 0.025;
-      return;
-    }
-    const target = this.waypoints[this.wpIdx];
-    const dx = target.x - this.sprite.x;
-    const dy = target.y - this.sprite.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist < 6) {
-      this.sprite.setVelocity(0, 0);
-      // Random wait time: 400~1800ms for variety
-      const waitTime = 400 + Math.floor(Math.random() * 1400);
-      this.waitUntil = now + waitTime;
-      this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
-      return;
-    }
-    const ang = Math.atan2(dy, dx);
-    // Add slight random drift to make movement less robotic
-    const drift = (Math.sin(now / 1200 + this.wpIdx * 2.7) * 0.12);
-    const targetAng = ang + drift;
-    this.facing = this.lerpAngle(this.facing, targetAng, TURN_SPEED * dt);
-    this.sprite.setVelocity(Math.cos(this.facing) * PATROL_SPEED, Math.sin(this.facing) * PATROL_SPEED);
-  }
-
-  // —— 怀疑：站定，朝玩家方向转过去，但暂不移动 ——
-  behaviorSuspicious(dt, player) {
-    this.sprite.setVelocity(0, 0);
-    const ang = Math.atan2(player.y - this.sprite.y, player.x - this.sprite.x);
-    this.facing = this.lerpAngle(this.facing, ang, TURN_SPEED * 1.4 * dt);
-  }
-
-  // —— 追击：向玩家方向冲，进入攻击距离则蓄力出刀 ——
-  behaviorChase(dt, player) {
-    const now = this.scene.time.now;
-    const dx = player.x - this.sprite.x;
-    const dy = player.y - this.sprite.y;
-    const dist = Math.hypot(dx, dy);
-    const ang = Math.atan2(dy, dx);
-
-    // 攻击状态机
-    if (this.attackPhase === 'windup') {
-      // 蓄力：站定，朝向玩家
-      this.sprite.setVelocity(0, 0);
-      this.facing = this.lerpAngle(this.facing, ang, TURN_SPEED * 1.4 * dt);
-      if (now >= this.attackPhaseUntil) {
-        // 挥刀结算（一次扇形检测）
-        this.attackPhase = 'recover';
-        this.attackPhaseUntil = now + 220; // 收招
-        this.tryHitPlayer(player);
-      }
-      return;
-    }
-    if (this.attackPhase === 'recover') {
-      this.sprite.setVelocity(0, 0);
-      if (now >= this.attackPhaseUntil) {
-        this.attackPhase = 'idle';
-        this.attackPhaseUntil = now + ATTACK_COOLDOWN_MS; // 进入冷却
-      }
-      return;
-    }
-    // idle / cooldown
-    if (now >= this.attackPhaseUntil && dist <= ATTACK_RANGE) {
-      // 进入蓄力
-      this.attackPhase = 'windup';
-      this.attackPhaseUntil = now + ATTACK_WINDUP_MS;
-      this.attackedThisSwing = false;
-      this.sprite.setVelocity(0, 0);
-      if (typeof this.onWindupStart === 'function') {
-        this.onWindupStart(this);
-      }
-      return;
-    }
-    // 普通追击移动
-    this.facing = this.lerpAngle(this.facing, ang, TURN_SPEED * 1.8 * dt);
-    this.sprite.setVelocity(Math.cos(this.facing) * CHASE_SPEED, Math.sin(this.facing) * CHASE_SPEED);
   }
 
   // —— 守卫挥刀命中判定 ——
@@ -544,7 +780,6 @@ export default class Guard {
     const ang = Math.atan2(dy, dx);
     const diff = Math.abs(Phaser.Math.Angle.Wrap(ang - this.facing));
     if (diff > ATTACK_HIT_HALF_ANGLE) return;
-    // 通知场景结算（玩家可能格挡）
     if (typeof this.onHitPlayer === 'function') {
       this.onHitPlayer(this);
     }
@@ -562,10 +797,9 @@ export default class Guard {
     const now = this.scene.time.now;
     const total = ATTACK_WINDUP_MS;
     const left = Math.max(0, this.attackPhaseUntil - now);
-    const t = 1 - left / total; // 0→1
+    const t = 1 - left / total;
     const cx = this.sprite.x;
     const cy = this.sprite.y;
-    // 扇形充能
     g.fillStyle(0xff3030, 0.28 + 0.25 * t);
     g.beginPath();
     g.moveTo(cx, cy);
@@ -577,32 +811,26 @@ export default class Guard {
     }
     g.closePath();
     g.fillPath();
-    // 边线随充能加深
     g.lineStyle(1.5, 0xff5050, 0.55 + 0.4 * t);
     g.strokePath();
   }
 
-  // —— 血条渲染：只在受击后几秒内显示 ——
+  // —— 血条渲染 ——
   drawHpBar() {
     const g = this.hpBarGfx;
     if (!g) return;
     g.clear();
     if (this.dead) return;
     if (this.scene.time.now > this.hpBarShowUntil) return;
-
     const w = 22;
     const h = 3;
     const x = this.sprite.x - w / 2;
     const y = this.sprite.y - 16;
     const ratio = Phaser.Math.Clamp(this.hp / GUARD_MAX_HP, 0, 1);
-
-    // 底框
     g.fillStyle(0x000000, 0.7);
     g.fillRect(x - 1, y - 1, w + 2, h + 2);
-    // 背景（深红）
     g.fillStyle(0x6a1818, 0.95);
     g.fillRect(x, y, w, h);
-    // 剩余血量（鲜红）
     g.fillStyle(0xff4848, 1);
     g.fillRect(x, y, w * ratio, h);
   }
@@ -613,18 +841,13 @@ export default class Guard {
     const dy = player.y - this.sprite.y;
     const dist = Math.hypot(dx, dy);
     if (dist > VIEW_RANGE) return false;
-
     const ang = Math.atan2(dy, dx);
     const diff = Math.abs(Phaser.Math.Angle.Wrap(ang - this.facing));
     if (diff > VIEW_HALF_ANGLE) return false;
-
-    // 玩家烟雾遮蔽：30 像素以外即可视为看不见（贴脸仍会被发现）
     const ps = this.scene && this.scene.playerState;
     if (ps && ps.smokedUntil && this.scene.time.now < ps.smokedUntil) {
       if (dist > 30) return false;
     }
-
-    // 射线 vs 墙体（用墙的 AABB 求交）
     return !this.rayHitsWall(this.sprite.x, this.sprite.y, player.x, player.y, walls);
   }
 
@@ -641,8 +864,7 @@ export default class Guard {
     return false;
   }
 
-  // —— \u8d34\u8eab\u63a5\u89e6\uff08\u5b88\u536b\u62b5\u8fd1\u73a9\u5bb6\uff09\uff1a
-  // \u4ec5\u5728 chase \u72b6\u6001\u4e0b\u751f\u6548\uff0c\u907f\u514d\u5de1\u903b\u4e2d\u4e0d\u5c0f\u5fc3\u649e\u5230\u4e5f\u88ab\u5224\u5b9a\u4e3a\u88ab\u6293
+  // —— 贴身接触 ——
   touchPlayer(player) {
     if (this.state !== 'chase') return false;
     if (this.scene.time.now < this.staggerUntil) return false;
@@ -662,7 +884,6 @@ export default class Guard {
   drawCone() {
     const g = this.coneGfx;
     g.clear();
-
     let color = COLOR_GREEN;
     let alpha = 0.16;
     if (this.state === 'chase') {
@@ -672,8 +893,6 @@ export default class Guard {
       color = COLOR_YELLOW;
       alpha = 0.22 + 0.12 * (this.alert / ALERT_FULL);
     }
-
-    // 锥面（扇形）
     g.fillStyle(color, alpha);
     g.beginPath();
     const cx = this.sprite.x;
@@ -687,8 +906,6 @@ export default class Guard {
     }
     g.closePath();
     g.fillPath();
-
-    // 锥边线（深一点）
     g.lineStyle(1, color, Math.min(0.7, alpha + 0.25));
     g.beginPath();
     g.moveTo(cx, cy);
@@ -714,12 +931,11 @@ export default class Guard {
     return this.alert / ALERT_FULL;
   }
 
-  // —— 被同伴叫醒：直接拉到怀疑级（不立即满，给玩家蹲点机会）——
+  // —— 被同伴叫醒：直接拉到怀疑级 ——
   receiveAlarm(fromGuard) {
     if (this.dead) return;
     if (this.state === 'chase') return;
     this.alert = Math.max(this.alert, ALARM_ALERT_BUMP);
-    // 朝向警源，转过去看看
     if (fromGuard && fromGuard.sprite) {
       const ang = Math.atan2(fromGuard.sprite.y - this.sprite.y, fromGuard.sprite.x - this.sprite.x);
       this.facing = ang;

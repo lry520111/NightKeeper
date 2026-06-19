@@ -579,7 +579,8 @@ export default class MuseumScene extends Phaser.Scene {
     }
 
     // —— 3. 文物（带展柜底座 + 类型化贴图，位置随机） ——
-    this.relicGroup = this.physics.add.group();
+    // ★ 文物使用 static body 作为小碰撞箱：玩家 / 守卫在拾取前都不能进入 ★
+    this.relicGroup = this.physics.add.staticGroup();
     const relicSpawns = level.relicSpawns;
     relicSpawns.forEach((s) => {
       const data = RELICS[s.relicIdx];
@@ -592,9 +593,16 @@ export default class MuseumScene extends Phaser.Scene {
       const r = this.relicGroup.create(cx, cy - 2, iconKey);
       r.setData('relic', data).setDepth(2);
       this._fitRelicSprite(r, iconKey);
-      r.body.setSize(16, 16);
+      // 14×14 小碰撞箱（比贴图视觉略小，避免拾取手感卡）
+      r.body.setSize(14, 14);
+      // staticBody 在 sprite 移动后必须 refresh，但我们这里只设一次
+      if (typeof r.body.updateFromGameObject === 'function') {
+        r.body.updateFromGameObject();
+      }
       r.setData('basePos', { x: cx, y: cy - 2 });
-      // 微微浮动呼吸
+      // ★ 把文物所在格记下：buildWalkGrid 会用它把守卫寻路网格也标为障碍 ★
+      r.setData('tile', { x: s.x, y: s.y });
+      // 微微浮动呼吸（仅视觉浮动，不动 body 位置）
       this.tweens.add({
         targets: r,
         y: cy - 4,
@@ -650,15 +658,15 @@ export default class MuseumScene extends Phaser.Scene {
     this._charTypes = [];
     if (this.textures.exists('hero_bow_1')) {
       this._charTypes.push('bow');
-      this._charConfigs.bow = { tex:'hero_bow_1', scale:0.12, bodyW:100, bodyH:50, bodyOx:50, bodyOy:260, prefix:'hero_bow', directional:false, isBow:true };
+    this._charConfigs.bow = { tex:'hero_bow_1', scale:0.105, bodyW:100, bodyH:50, bodyOx:50, bodyOy:260, prefix:'hero_bow', directional:false, isBow:true };
     }
     if (this.textures.exists('hero_knife')) {
       this._charTypes.push('knife');
-      this._charConfigs.knife = { tex:'hero_knife', scale:0.2, bodyW:100, bodyH:50, bodyOx:78, bodyOy:204, prefix:'hero_knife', directional:true };
+    this._charConfigs.knife = { tex:'hero_knife', scale:0.175, bodyW:100, bodyH:50, bodyOx:78, bodyOy:204, prefix:'hero_knife', directional:true };
     }
     if (this.textures.exists('hero_hongfa')) {
       this._charTypes.push('hongfa');
-      this._charConfigs.hongfa = { tex:'hero_hongfa', scale:0.85, bodyW:22, bodyH:12, bodyOx:21, bodyOy:48, prefix:'hero', directional:false };
+    this._charConfigs.hongfa = { tex:'hero_hongfa', scale:0.75, bodyW:22, bodyH:12, bodyOx:21, bodyOy:48, prefix:'hero', directional:false };
     }
     this._useLZPlayer = this._charTypes.length === 0 && this.textures.exists('lz_adam_idle');
     this._useHeroPlayer = this._charTypes.length > 0 || this._useLZPlayer;
@@ -676,10 +684,10 @@ export default class MuseumScene extends Phaser.Scene {
       this._applyCharConfig(0);
     } else if (this._useLZPlayer) {
       this.player.body.setSize(10, 12).setOffset(3, 18);
-      this.player.setScale(1.7);
+      this.player.setScale(1.5);
     } else {
       this.player.body.setSize(12, 18).setOffset(2, 4);
-      this.player.setScale(1.7);
+      this.player.setScale(1.5);
     }
     this._useKnifeHero = false;
     this._useBowHero = false;
@@ -711,6 +719,10 @@ export default class MuseumScene extends Phaser.Scene {
     // 容器与玩家碰撞（容器在玩家之前生成，统一在此挂载）
     if (this.containerGroup) {
       this.physics.add.collider(this.player, this.containerGroup);
+    }
+    // ★ 文物碰撞箱：拾取前玩家不能踩在文物上 ★
+    if (this.relicGroup) {
+      this.physics.add.collider(this.player, this.relicGroup);
     }
 
     // —— 相机跟随（模板 / 复合模式下房间可能大于视口）——
@@ -1223,9 +1235,120 @@ export default class MuseumScene extends Phaser.Scene {
   }
 
   // ————————————————————————————————————————
+  //  烘焙寻路网格 walkGrid（供 Guard A* 使用）
+  //  策略：扫描所有墙体物理 body 的 AABB，把覆盖到的格子标为不可走。
+  //  网格分辨率 GRID_CELL = 16px（TILE 的一半），既精准又不至于太大。
+  //  附加：守卫 sprite 的体型膨胀（inflate）半径 ≈ 8px，避免贴墙时被擦到。
+  // ————————————————————————————————————————
+  buildWalkGrid() {
+    const cell = 16;
+    const worldW = this.physics.world.bounds.width;
+    const worldH = this.physics.world.bounds.height;
+    const W = Math.ceil(worldW / cell);
+    const H = Math.ceil(worldH / cell);
+    // grid[y][x] = true 可走
+    const grid = new Array(H);
+    for (let y = 0; y < H; y++) {
+      grid[y] = new Array(W).fill(true);
+    }
+    // 用守卫近似半径膨胀障碍（按典型守卫显示尺寸取 ~10px）
+    const inflate = 10;
+    if (this.walls) {
+      this.walls.getChildren().forEach((w) => {
+        const b = w.body;
+        if (!b) return;
+        const x0 = Math.max(0, Math.floor((b.x - inflate) / cell));
+        const y0 = Math.max(0, Math.floor((b.y - inflate) / cell));
+        const x1 = Math.min(W - 1, Math.floor((b.x + b.width + inflate) / cell));
+        const y1 = Math.min(H - 1, Math.floor((b.y + b.height + inflate) / cell));
+        for (let y = y0; y <= y1; y++) {
+          for (let x = x0; x <= x1; x++) {
+            grid[y][x] = false;
+          }
+        }
+      });
+    }
+    // ★ 文物展柜也算障碍：守卫巡逻 / 追击路径会自然绕开（避免靠物理碰撞硬挤）★
+    if (this.relicGroup) {
+      this.relicGroup.getChildren().forEach((r) => {
+        const b = r.body;
+        if (!b) return;
+        const x0 = Math.max(0, Math.floor((b.x - inflate) / cell));
+        const y0 = Math.max(0, Math.floor((b.y - inflate) / cell));
+        const x1 = Math.min(W - 1, Math.floor((b.x + b.width + inflate) / cell));
+        const y1 = Math.min(H - 1, Math.floor((b.y + b.height + inflate) / cell));
+        for (let y = y0; y <= y1; y++) {
+          for (let x = x0; x <= x1; x++) {
+            grid[y][x] = false;
+          }
+        }
+      });
+    }
+    this._walkGrid = grid;
+    this._walkGridCell = cell;
+  }
+
+  // 文物被拾走后：把它原本占据的网格区域恢复为可走，避免守卫继续绕路
+  // 仅恢复"墙体未占据"的格子，避免误把贴墙的文物格变成可穿墙
+  _freeWalkGridAtRelic(relic) {
+    if (!this._walkGrid || !relic || !relic.body) return;
+    const cell = this._walkGridCell || 16;
+    const grid = this._walkGrid;
+    const H = grid.length;
+    const W = grid[0].length;
+    const inflate = 10;
+    const b = relic.body;
+    const x0 = Math.max(0, Math.floor((b.x - inflate) / cell));
+    const y0 = Math.max(0, Math.floor((b.y - inflate) / cell));
+    const x1 = Math.min(W - 1, Math.floor((b.x + b.width + inflate) / cell));
+    const y1 = Math.min(H - 1, Math.floor((b.y + b.height + inflate) / cell));
+    // 在文物原本影响的区域重新评估：墙没占的格子恢复可走
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (this._isCellInsideAnyWall(x, y, cell, inflate)) continue;
+        if (this._isCellInsideAnyOtherRelic(x, y, cell, inflate, relic)) continue;
+        grid[y][x] = true;
+      }
+    }
+  }
+
+  _isCellInsideAnyWall(cx, cy, cell, inflate) {
+    if (!this.walls) return false;
+    const px = cx * cell + cell / 2;
+    const py = cy * cell + cell / 2;
+    const arr = this.walls.getChildren();
+    for (const w of arr) {
+      const b = w.body;
+      if (!b) continue;
+      if (px >= b.x - inflate && px <= b.x + b.width + inflate
+        && py >= b.y - inflate && py <= b.y + b.height + inflate) return true;
+    }
+    return false;
+  }
+
+  _isCellInsideAnyOtherRelic(cx, cy, cell, inflate, exclude) {
+    if (!this.relicGroup) return false;
+    const px = cx * cell + cell / 2;
+    const py = cy * cell + cell / 2;
+    const arr = this.relicGroup.getChildren();
+    for (const r of arr) {
+      if (r === exclude) continue;
+      if (!r.active) continue;
+      const b = r.body;
+      if (!b) continue;
+      if (px >= b.x - inflate && px <= b.x + b.width + inflate
+        && py >= b.y - inflate && py <= b.y + b.height + inflate) return true;
+    }
+    return false;
+  }
+
+  // ————————————————————————————————————————
   //  守卫部署：使用生成器产出的巡逻路径点（瓦片坐标转为世界坐标）
   // ————————————————————————————————————————
   spawnGuards() {
+    // ★ 先烘焙寻路用的 walkGrid（基于墙体物理 body）★
+    this.buildWalkGrid();
+
     this.guards = [];
     const paths = (this._level && this._level.guardPaths) || [];
     const bounds = (this._level && this._level.guardBounds) || [];
@@ -1259,6 +1382,14 @@ export default class MuseumScene extends Phaser.Scene {
       for (const g of this.guards) {
         if (g.sprite && g.sprite.body) {
           this.physics.add.collider(g.sprite, this.walls);
+        }
+      }
+    }
+    // ★ 守卫也不能穿过文物展柜 ★
+    if (this.relicGroup) {
+      for (const g of this.guards) {
+        if (g.sprite && g.sprite.body) {
+          this.physics.add.collider(g.sprite, this.relicGroup);
         }
       }
     }
@@ -2890,6 +3021,8 @@ export default class MuseumScene extends Phaser.Scene {
     this.staticLights = this.staticLights.filter(
       (L) => Phaser.Math.Distance.Between(L.x, L.y, relic.x, relic.y) > 4
     );
+    // ★ 文物被取走 → walkGrid 对应格子重新可走（守卫不再绕开）★
+    this._freeWalkGridAtRelic(relic);
     relic.destroy();
     this.updateRelicHUD();
     if (this.invPanel && this.invPanel.visible) this.refreshInventoryPanel();
@@ -3286,6 +3419,12 @@ export default class MuseumScene extends Phaser.Scene {
     r.setData('relic', data).setDepth(2);
     this._fitRelicSprite(r, iconKey);
     if (r.body) r.body.setSize(12, 12);
+    // ★ 玩家死亡掉落的文物不挡路（避免地上一堆文物挡死自己/守卫）
+    //   relicGroup 是 staticGroup，但通过 checkCollision = false 让它变成纯触发器
+    if (r.body) {
+      r.body.checkCollision.none = true;
+    }
+    r.setData('isDropped', true);
     r.setData('basePos', { x, y });
     // 弹跳动画
     this.tweens.add({

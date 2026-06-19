@@ -143,6 +143,17 @@ export default class BootScene extends Phaser.Scene {
     for (const name of relicPngs) {
       this.load.image(`tex_relic_${name}`, `assets/relics/relic_${name}.png`);
     }
+
+    // —— Hero 目录下的新版守卫 / 船员四向行走帧 (4 dirs × 6 frames) ——
+    // guard/   → 博物馆守卫贴图
+    // pirates/ → 走私船船员贴图
+    const nkDirs = ['down', 'left', 'right', 'up'];
+    for (const dir of nkDirs) {
+      for (let i = 1; i <= 6; i++) {
+        this.load.image(`nk_guard_${dir}_${i}`, `assets/characters/hero/guard/${dir}${i}.png`);
+        this.load.image(`nk_pirate_${dir}_${i}`, `assets/characters/hero/pirates/${dir}${i}.png`);
+      }
+    }
   }
 
   create() {
@@ -228,6 +239,7 @@ export default class BootScene extends Phaser.Scene {
     // —— 注册 LimeZu 角色动画（供 HubScene/对话使用）——
     this.registerLZAnims();
     this.registerHeroAnims();
+    this.registerNkGuardAnims();
     this.registerCuratorAnims();
     this.registerEnemyAnims();
 
@@ -2157,6 +2169,49 @@ export default class BootScene extends Phaser.Scene {
           frameRate: 6,
           repeat: 0
         });
+      }
+    }
+  }
+
+  // —— Nightkeeper 新版守卫 / 船员动画（每方向 6 张独立 PNG）——
+  // 资产：assets/characters/hero/guard/{down|left|right|up}{1..6}.png
+  //       assets/characters/hero/pirates/{down|left|right|up}{1..6}.png
+  // 动画键：nkguard_walk_<dir> / nkguard_idle_<dir>
+  //         nkpirate_walk_<dir> / nkpirate_idle_<dir>
+  registerNkGuardAnims() {
+    const dirs = ['down', 'left', 'right', 'up'];
+    const sets = [
+      { prefix: 'nk_guard',  animPrefix: 'nkguard'  },
+      { prefix: 'nk_pirate', animPrefix: 'nkpirate' }
+    ];
+    for (const { prefix, animPrefix } of sets) {
+      // 检查首帧是否成功加载，没有就跳过
+      if (!this.textures.exists(`${prefix}_down_1`)) continue;
+      for (const dir of dirs) {
+        const frameKeys = [];
+        for (let i = 1; i <= 6; i++) {
+          frameKeys.push({ key: `${prefix}_${dir}_${i}` });
+        }
+        // walk: 6 帧循环
+        const walkKey = `${animPrefix}_walk_${dir}`;
+        if (!this.anims.exists(walkKey)) {
+          this.anims.create({
+            key: walkKey,
+            frames: frameKeys,
+            frameRate: 9,
+            repeat: -1
+          });
+        }
+        // idle: 仅第 1 帧（站立）
+        const idleKey = `${animPrefix}_idle_${dir}`;
+        if (!this.anims.exists(idleKey)) {
+          this.anims.create({
+            key: idleKey,
+            frames: [{ key: `${prefix}_${dir}_1` }],
+            frameRate: 1,
+            repeat: -1
+          });
+        }
       }
     }
   }
