@@ -157,13 +157,13 @@ export const WEAPONS = [
     icon: '🏹',
     price: 380,
     desc: '改良反曲弓，劲道惊人。一箭穿心，可破甲；声响较大。',
-    damage: 3,
+    damage: 1,
     range: 320,
     speed: 540,
     cooldownMs: 720,
     staminaCost: 20,
     knockMul: 1.4,
-    ammoMax: 6,
+    ammoMax: Infinity,
     noisy: true
   }
 ];

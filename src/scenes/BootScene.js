@@ -48,6 +48,11 @@ export default class BootScene extends Phaser.Scene {
       frameWidth: 256,
       frameHeight: 256
     });
+    // Bow hero frames (individual images, loaded as single-frame images)
+    this.load.image('hero_bow_1', 'assets/characters/hero/1.png');
+    this.load.image('hero_bow_2', 'assets/characters/hero/2.png');
+    this.load.image('hero_bow_3', 'assets/characters/hero/3.png');
+    this.load.image('hero_bow_4', 'assets/characters/hero/4.png');
     this.load.spritesheet('hero_blade_skill', 'assets/effects/hero_blade_skill.png', {
       frameWidth: 772,
       frameHeight: 230
@@ -1994,6 +1999,36 @@ export default class BootScene extends Phaser.Scene {
       makeKnifeAnim('hero_knife_attack_right', 9, 0, 3, 10, 0, true);
       makeKnifeAnim('hero_knife_attack_up', 10, 0, 3, 10, 0, true);
       makeKnifeAnim('hero_knife_attack_left', 11, 0, 3, 10, 0, true);
+    }
+
+    // —— Bow hero animations (individual image frames) ——
+    if (this.textures.exists('hero_bow_1')) {
+      // Idle animation: frames 1 and 2 (holding bow at side)
+      if (!this.anims.exists('hero_bow_idle')) {
+        this.anims.create({
+          key: 'hero_bow_idle',
+          frames: [
+            { key: 'hero_bow_1' },
+            { key: 'hero_bow_2' }
+          ],
+          frameRate: 3,
+          repeat: -1
+        });
+      }
+      // Shoot animation: frames 1 -> 3 -> 4 (draw bow, release)
+      if (!this.anims.exists('hero_bow_shoot')) {
+        this.anims.create({
+          key: 'hero_bow_shoot',
+          frames: [
+            { key: 'hero_bow_1', duration: 80 },
+            { key: 'hero_bow_3', duration: 200 },
+            { key: 'hero_bow_4', duration: 120 },
+            { key: 'hero_bow_1', duration: 80 }
+          ],
+          frameRate: 10,
+          repeat: 0
+        });
+      }
     }
 
     const bladeSkillFrameDurations = {

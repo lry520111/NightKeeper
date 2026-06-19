@@ -648,6 +648,10 @@ export default class MuseumScene extends Phaser.Scene {
     }    // —— 5. 玩家（C键切换：持刀 ↔ 原始 > LimeZu兜底）——
     this._charConfigs = {};
     this._charTypes = [];
+    if (this.textures.exists('hero_bow_1')) {
+      this._charTypes.push('bow');
+      this._charConfigs.bow = { tex:'hero_bow_1', scale:0.12, bodyW:100, bodyH:50, bodyOx:50, bodyOy:260, prefix:'hero_bow', directional:false, isBow:true };
+    }
     if (this.textures.exists('hero_knife')) {
       this._charTypes.push('knife');
       this._charConfigs.knife = { tex:'hero_knife', scale:0.2, bodyW:100, bodyH:50, bodyOx:78, bodyOy:204, prefix:'hero_knife', directional:true };
@@ -678,6 +682,7 @@ export default class MuseumScene extends Phaser.Scene {
       this.player.setScale(1.7);
     }
     this._useKnifeHero = false;
+    this._useBowHero = false;
     this.player.setDepth(5);
     if (this._templateObjectLayer) {
       this._playerFrontDepth = 7;
@@ -828,6 +833,12 @@ export default class MuseumScene extends Phaser.Scene {
     // Fix: re-initialize ammo now that _loadoutEff is available
     if (this._loadoutEff && this._loadoutEff.weapon && this._loadoutEff.weapon.kind === 'ranged') {
       this.playerState.ammo = this._loadoutEff.weapon.ammoMax || 0;
+      // Auto-switch to bow character if equipped bow and bow textures available
+      if (this._loadoutEff.weapon.projectile === 'arrow' && this._charTypes.includes('bow')) {
+        const bowIdx = this._charTypes.indexOf('bow');
+        this._charIndex = bowIdx;
+        this._applyCharConfig(bowIdx);
+      }
     }
 
     // —— 10. 倒计时（180 秒撤离时限；信标可缩短） ——
@@ -2491,9 +2502,15 @@ export default class MuseumScene extends Phaser.Scene {
     this.player.setScale(cfg.scale);
     this.player.body.setSize(cfg.bodyW, cfg.bodyH).setOffset(cfg.bodyOx, cfg.bodyOy);
     this._useKnifeHero = (type === 'knife');
+    this._useBowHero = (type === 'bow');
     this._heroAnimPrefix = cfg.prefix;
     const dir = this._playerDir4 || 'down';
-    if (this.anims.exists(`${cfg.prefix}_idle_${dir}`)) this.player.play(`${cfg.prefix}_idle_${dir}`);
+    if (this._useBowHero) {
+      // Bow hero uses shared idle anim (not directional)
+      if (this.anims.exists('hero_bow_idle')) this.player.play('hero_bow_idle', true);
+    } else if (this.anims.exists(`${cfg.prefix}_idle_${dir}`)) {
+      this.player.play(`${cfg.prefix}_idle_${dir}`);
+    }
   }
 
   _switchCharacter() {
@@ -2586,6 +2603,19 @@ export default class MuseumScene extends Phaser.Scene {
 
     if (this._useHeroPlayer) {
       const attacking = now < (ps.attackAnimUntil || 0);
+
+      // —— Bow hero: use shared idle/shoot anims (not directional) ——
+      if (this._useBowHero) {
+        const wantAnim = attacking ? 'hero_bow_shoot' : 'hero_bow_idle';
+        if (this.anims.exists(wantAnim)) {
+          const cur = this.player.anims.currentAnim;
+          if (!cur || cur.key !== wantAnim) {
+            this.player.play(wantAnim, attacking);
+          }
+        }
+        this.player.setFlipX(facingDir === 'left');
+      } else {
+      // —— Original knife / hongfa logic ——
       const useDirectional = this._useKnifeHero;
       const prefix = this._useKnifeHero ? 'hero_knife' : 'hero';
       const swordDir = attacking ? angleToDir4(ps.attackDir || 0) : facingDir;
@@ -2604,6 +2634,7 @@ export default class MuseumScene extends Phaser.Scene {
         }
       }
       this.player.setFlipX(!useDirectional && (attacking ? Math.cos(ps.attackDir || 0) > 0 : facingDir === 'left'));
+      }
       if (moving) {
         this._playerWalkAccum += dtSec;
         const stepTime = ps.sprint ? 0.20 : ps.stealth ? 0.45 : 0.30;
@@ -3995,7 +4026,11 @@ export default class MuseumScene extends Phaser.Scene {
     ps.attackAnimUntil = now + 360;
     ps.attackCooldownUntil = now + (wp.cooldownMs || 300);
     if (this._useHeroPlayer) {
-      if (this._useKnifeHero) {
+      if (this._useBowHero) {
+        // Bow hero: play shoot animation
+        if (this.anims.exists('hero_bow_shoot')) this.player.play('hero_bow_shoot', true);
+        this.player.setFlipX(Math.cos(ps.attackDir) < 0);
+      } else if (this._useKnifeHero) {
         const attackKey = `hero_knife_attack_${angleToDir4(ps.attackDir)}`;
         if (this.anims.exists(attackKey)) this.player.play(attackKey, true);
         this.player.setFlipX(false);
