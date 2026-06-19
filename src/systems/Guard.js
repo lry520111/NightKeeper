@@ -51,7 +51,8 @@ export default class Guard {
     //   museum → enemy_guard (gaurds.png)
     //   thug   → enemy_thug  (fighters.png)
     //   sailor → enemy_sailor (pirates_processed.png)
-    this.hqKey = style === 'thug' ? 'enemy_thug'
+    this.hqKey = style === 'thug'
+      ? (scene.textures && scene.textures.exists('enemy_thug_blackmarket') ? 'enemy_thug_blackmarket' : 'enemy_thug')
       : style === 'sailor' ? 'enemy_sailor'
       : 'enemy_guard';
     this.hqAnimPrefix = style === 'thug' ? 'thug'
@@ -112,7 +113,9 @@ export default class Guard {
     if (this.useHQ) {
       // HQ 229×229 帧：碰撞体设为中下部分（脚部区域）
       // sailor 贴图角色较小，需要更大的碰撞体偏移调整
-      if (this.style === 'sailor') {
+      if (this.style === 'thug' && this.hqKey === 'enemy_thug_blackmarket') {
+        this.sprite.body.setSize(86, 44).setOffset(69, 176);
+      } else if (this.style === 'sailor') {
         this.sprite.body.setSize(50, 40).setOffset(90, 170);
       } else {
         this.sprite.body.setSize(60, 50).setOffset(85, 160);
@@ -125,7 +128,9 @@ export default class Guard {
     }
     this.sprite.setDepth(5);
     // HQ 229px 帧缩放：sailor 贴图中角色较小，需要更大的 scale 补偿
-    const hqScale = this.style === 'sailor' ? 0.28 : 0.21;
+    const hqScale = (this.style === 'thug' && this.hqKey === 'enemy_thug_blackmarket')
+      ? 0.3
+      : (this.style === 'sailor' ? 0.28 : 0.21);
     this.sprite.setScale(this.useHQ ? hqScale : (this.useLZ ? 1.5 : 1.7));
     // 当前 4 方向
     this._dir4 = 'down';
@@ -245,8 +250,16 @@ export default class Guard {
 
   die() {
     this.dead = true;
-    this.sprite.setTint(0x666666);
-    this.sprite.setAlpha(0.55);
+    const deathKey = this.useHQ ? `${this.hqAnimPrefix}_death` : null;
+    const hasDeathAnim = deathKey && this.scene.anims.exists(deathKey);
+    if (hasDeathAnim) {
+      this.sprite.clearTint();
+      this.sprite.setAlpha(1);
+      this.sprite.play(deathKey, true);
+    } else {
+      this.sprite.setTint(0x666666);
+      this.sprite.setAlpha(0.55);
+    }
     if (this.sprite.body) {
       this.sprite.body.setVelocity(0, 0);
       this.sprite.body.enable = false;
@@ -340,13 +353,19 @@ export default class Guard {
     const dx = this.sprite.x - this._lastX;
     const dy = this.sprite.y - this._lastY;
     const moved = Math.hypot(dx, dy);
+    const bvx = this.sprite.body ? this.sprite.body.velocity.x : 0;
+    const bvy = this.sprite.body ? this.sprite.body.velocity.y : 0;
+    const speed = Math.hypot(bvx, bvy);
     this._lastX = this.sprite.x;
     this._lastY = this.sprite.y;
 
     if (this.useHQ) {
       // —— HQ spritesheet 4方向动画 ——
       let dir = this._dir4 || 'down';
-      if (moved > 0.4) {
+      if (speed > 2) {
+        if (Math.abs(bvx) > Math.abs(bvy)) dir = bvx > 0 ? 'right' : 'left';
+        else dir = bvy > 0 ? 'down' : 'up';
+      } else if (moved > 0.15) {
         if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? 'right' : 'left';
         else dir = dy > 0 ? 'down' : 'up';
       } else if (typeof this.facing === 'number') {
@@ -356,21 +375,27 @@ export default class Guard {
         else dir = fy > 0 ? 'down' : 'up';
       }
       this._dir4 = dir;
-      const moving = moved > 0.4;
+      const moving = speed > 2 || moved > 0.15;
       // Attack animation takes priority during windup/recover
       if (this.attackPhase === 'windup' || this.attackPhase === 'recover') {
-        const atkKey = `${this.hqAnimPrefix}_attack`;
+        const directionalAtkKey = `${this.hqAnimPrefix}_attack_${dir}`;
+        const atkKey = this.scene.anims.exists(directionalAtkKey)
+          ? directionalAtkKey
+          : `${this.hqAnimPrefix}_attack`;
         if (this.scene.anims.exists(atkKey)) {
           const cur = this.sprite.anims.currentAnim;
           if (!cur || cur.key !== atkKey) this.sprite.play(atkKey);
         }
       } else {
+        const movePrefix = (this.state === 'chase' && this.scene.anims.exists(`${this.hqAnimPrefix}_run_${dir}`))
+          ? 'run'
+          : 'walk';
         const animKey = moving
-          ? `${this.hqAnimPrefix}_walk_${dir}`
+          ? `${this.hqAnimPrefix}_${movePrefix}_${dir}`
           : `${this.hqAnimPrefix}_idle_${dir}`;
         if (this.scene.anims.exists(animKey)) {
           const cur = this.sprite.anims.currentAnim;
-          if (!cur || cur.key !== animKey) this.sprite.play(animKey);
+          if (!cur || cur.key !== animKey || !this.sprite.anims.isPlaying) this.sprite.play(animKey);
         }
       }
       this.sprite.setFlipX(false);

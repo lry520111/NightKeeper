@@ -41,8 +41,12 @@ export default class BootScene extends Phaser.Scene {
       frameHeight: 64
     });
     this.load.spritesheet('hero_sword', 'assets/characters/hero/hongfa_sword.png', {
-      frameWidth: 145,
-      frameHeight: 181
+      frameWidth: 256,
+      frameHeight: 256
+    });
+    this.load.spritesheet('hero_knife', 'assets/characters/hero/hongfa_knife.png', {
+      frameWidth: 256,
+      frameHeight: 256
     });
     this.load.spritesheet('hero_blade_skill', 'assets/effects/hero_blade_skill.png', {
       frameWidth: 772,
@@ -67,6 +71,10 @@ export default class BootScene extends Phaser.Scene {
     this.load.spritesheet('enemy_thug', enemyDir + 'fighters.png', {
       frameWidth: 229,
       frameHeight: 229
+    });
+    this.load.spritesheet('enemy_thug_blackmarket', enemyDir + 'enemy_thug_blackmarket.png', {
+      frameWidth: 224,
+      frameHeight: 224
     });
     this.load.spritesheet('enemy_sailor', enemyDir + 'pirates_processed.png', {
       frameWidth: 229,
@@ -1883,33 +1891,75 @@ export default class BootScene extends Phaser.Scene {
     makeAnim('hero_attack', 15, 19, 12, 0);
     makeAnim('hero_hurt_down', 20, 24, 8, 0);
 
-    const makeSwordAnim = (key, row, startCol, endCol, frameRate = 10, repeat = -1) => {
+    const makeSwordAnim = (key, row, startCol, endCol, frameRate = 10, repeat = -1, force = false) => {
+      if (force && this.anims.exists(key)) this.anims.remove(key);
       if (this.anims.exists(key)) return;
-      const start = row * 5 + startCol;
-      const end = row * 5 + endCol;
+      const start = row * 4 + startCol;
+      const end = row * 4 + endCol;
+      const frames = this.anims.generateFrameNumbers('hero_sword', { start, end })
+        .map((frame, index) => ({
+          ...frame,
+          duration: key.includes('_attack_') && index === 1 ? 120 : 0
+        }));
       this.anims.create({
         key,
-        frames: this.anims.generateFrameNumbers('hero_sword', { start, end }),
+        frames,
         frameRate,
         repeat
       });
     };
 
-    // Sword hero sheet: 12 rows x 5 columns, 145x181 per frame.
+    // Sword hero sheet: 12 rows x 4 columns, 64x64 per frame.
     // Rows 1-4: walk down/right/up/left; rows 5-8: idle down/right/up/left;
     // rows 9-12: attack down/right/up/left.
-    makeSwordAnim('hero_sword_walk_down', 0, 0, 4, 10);
-    makeSwordAnim('hero_sword_walk_right', 1, 0, 4, 10);
-    makeSwordAnim('hero_sword_walk_up', 2, 0, 4, 10);
-    makeSwordAnim('hero_sword_walk_left', 3, 0, 4, 10);
+    makeSwordAnim('hero_sword_walk_down', 0, 0, 3, 10);
+    makeSwordAnim('hero_sword_walk_right', 1, 0, 3, 10);
+    makeSwordAnim('hero_sword_walk_up', 2, 0, 3, 10);
+    makeSwordAnim('hero_sword_walk_left', 3, 0, 3, 10);
     makeSwordAnim('hero_sword_idle_down', 4, 0, 3, 4);
     makeSwordAnim('hero_sword_idle_right', 5, 0, 3, 4);
     makeSwordAnim('hero_sword_idle_up', 6, 0, 3, 4);
     makeSwordAnim('hero_sword_idle_left', 7, 0, 3, 4);
-    makeSwordAnim('hero_sword_attack_down', 8, 0, 4, 12, 0);
-    makeSwordAnim('hero_sword_attack_right', 9, 0, 4, 12, 0);
-    makeSwordAnim('hero_sword_attack_up', 10, 0, 4, 12, 0);
-    makeSwordAnim('hero_sword_attack_left', 11, 0, 4, 12, 0);
+    makeSwordAnim('hero_sword_attack_down', 8, 0, 3, 10, 0, true);
+    makeSwordAnim('hero_sword_attack_right', 9, 0, 3, 10, 0, true);
+    makeSwordAnim('hero_sword_attack_up', 10, 0, 3, 10, 0, true);
+    makeSwordAnim('hero_sword_attack_left', 11, 0, 3, 10, 0, true);
+
+    // —— 持刀主角 (hero_knife): 12行×5列, 116×123每帧 ——
+    // Row 0-3: walk_down/right/up/left (5帧)
+    // Row 4-7: idle_down/right/up/left (4帧)
+    // Row 8-11: attack_down/right/up/left (4帧)
+    if (this.textures.exists('hero_knife')) {
+      const makeKnifeAnim = (key, row, startCol, endCol, frameRate = 10, repeat = -1, force = false) => {
+        if (force && this.anims.exists(key)) this.anims.remove(key);
+        if (this.anims.exists(key)) return;
+        const start = row * 4 + startCol;
+        const end = row * 4 + endCol;
+        const frames = this.anims.generateFrameNumbers('hero_knife', { start, end })
+          .map((frame, index) => ({
+            ...frame,
+            duration: key.includes('_attack_') && index === 1 ? 120 : 0
+          }));
+        this.anims.create({
+          key,
+          frames,
+          frameRate,
+          repeat
+        });
+      };
+      makeKnifeAnim('hero_knife_walk_down', 0, 0, 3, 10);
+      makeKnifeAnim('hero_knife_walk_right', 1, 0, 3, 10);
+      makeKnifeAnim('hero_knife_walk_up', 2, 0, 3, 10);
+      makeKnifeAnim('hero_knife_walk_left', 3, 0, 3, 10);
+      makeKnifeAnim('hero_knife_idle_down', 4, 0, 3, 4);
+      makeKnifeAnim('hero_knife_idle_right', 5, 0, 3, 4);
+      makeKnifeAnim('hero_knife_idle_up', 6, 0, 3, 4);
+      makeKnifeAnim('hero_knife_idle_left', 7, 0, 3, 4);
+      makeKnifeAnim('hero_knife_attack_down', 8, 0, 3, 10, 0, true);
+      makeKnifeAnim('hero_knife_attack_right', 9, 0, 3, 10, 0, true);
+      makeKnifeAnim('hero_knife_attack_up', 10, 0, 3, 10, 0, true);
+      makeKnifeAnim('hero_knife_attack_left', 11, 0, 3, 10, 0, true);
+    }
 
     const bladeSkillFrameDurations = {
       6: 190,  // fifth from last
@@ -1956,16 +2006,40 @@ export default class BootScene extends Phaser.Scene {
   // High-quality enemy spritesheet animations (229×229 per frame, 5 cols × 6 rows).
   // Layout: Row1=walk_down, Row2=walk_right, Row3=walk_up, Row4=walk_left, Row5=attack, Row6=hurt
   registerEnemyAnims() {
-    const sheets = [
-      { key: 'enemy_guard', prefix: 'guard' },
-      { key: 'enemy_thug',  prefix: 'thug'  },
-      { key: 'enemy_sailor', prefix: 'sailor' }
-    ];
     const dirs = [
       { name: 'down',  row: 0 },
       { name: 'right', row: 1 },
       { name: 'up',    row: 2 },
       { name: 'left',  row: 3 }
+    ];
+
+    if (this.textures.exists('enemy_thug_blackmarket')) {
+      const makeThugAnim = (key, row, startCol, endCol, frameRate = 10, repeat = -1, force = true) => {
+        if (force && this.anims.exists(key)) this.anims.remove(key);
+        if (this.anims.exists(key)) return;
+        const start = row * 6 + startCol;
+        const end = row * 6 + endCol;
+        this.anims.create({
+          key,
+          frames: this.anims.generateFrameNumbers('enemy_thug_blackmarket', { start, end }),
+          frameRate,
+          repeat
+        });
+      };
+
+      for (const { name, row } of dirs) {
+        makeThugAnim(`thug_idle_${name}`, row, 0, 0, 1);
+        makeThugAnim(`thug_walk_${name}`, row, 0, 3, 6);
+        makeThugAnim(`thug_run_${name}`, row + 4, 0, 3, 8);
+        makeThugAnim(`thug_attack_${name}`, row + 8, 0, 3, 7, 0);
+      }
+      makeThugAnim('thug_death', 12, 0, 5, 6, 0);
+    }
+
+    const sheets = [
+      { key: 'enemy_guard', prefix: 'guard' },
+      ...(this.textures.exists('enemy_thug_blackmarket') ? [] : [{ key: 'enemy_thug',  prefix: 'thug'  }]),
+      { key: 'enemy_sailor', prefix: 'sailor' }
     ];
     for (const { key, prefix } of sheets) {
       if (!this.textures.exists(key)) continue;
@@ -1989,7 +2063,7 @@ export default class BootScene extends Phaser.Scene {
           this.anims.create({
             key: walkKey,
             frames: this.anims.generateFrameNumbers(key, { start, end }),
-            frameRate: 10,
+            frameRate: 7,
             repeat: -1
           });
         }
@@ -2000,7 +2074,7 @@ export default class BootScene extends Phaser.Scene {
         this.anims.create({
           key: atkKey,
           frames: this.anims.generateFrameNumbers(key, { start: 20, end: 24 }),
-          frameRate: 12,
+          frameRate: 8,
           repeat: 0
         });
       }
@@ -2010,7 +2084,7 @@ export default class BootScene extends Phaser.Scene {
         this.anims.create({
           key: hurtKey,
           frames: this.anims.generateFrameNumbers(key, { start: 25, end: 29 }),
-          frameRate: 8,
+          frameRate: 6,
           repeat: 0
         });
       }

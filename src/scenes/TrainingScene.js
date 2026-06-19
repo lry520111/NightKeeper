@@ -79,17 +79,21 @@ export default class TrainingScene extends Phaser.Scene {
     this.dummies = [];
     DUMMIES.forEach((spec) => this.createDummy(spec));
 
-    const useSwordHero = this.textures.exists('hero_sword');
-    this.player = this.physics.add.sprite(W / 2, H - 175, useSwordHero ? 'hero_sword' : 'hero_hongfa', 0);
-    this._useSwordHero = useSwordHero;
-    this._heroAnimPrefix = useSwordHero ? 'hero_sword' : 'hero';
-    if (useSwordHero) {
-      this.player.setScale(0.43);
-      this.player.body.setSize(52, 28).setOffset(46, 124);
-    } else {
-      this.player.setScale(1.05);
-      this.player.body.setSize(22, 12).setOffset(21, 48);
+    // —— 玩家（C键切换：持刀 ↔ 原始）——
+    this._charConfigs = {};
+    this._charTypes = [];
+    if (this.textures.exists('hero_knife')) {
+      this._charTypes.push('knife');
+      this._charConfigs.knife = { tex:'hero_knife', scale:0.265, bodyW:86, bodyH:44, bodyOx:85, bodyOy:208, prefix:'hero_knife', directional:true };
     }
+    if (this.textures.exists('hero_hongfa')) {
+      this._charTypes.push('hongfa');
+      this._charConfigs.hongfa = { tex:'hero_hongfa', scale:1.05, bodyW:22, bodyH:12, bodyOx:21, bodyOy:48, prefix:'hero', directional:false };
+    }
+    this._charIndex = 0;
+    this.player = this.physics.add.sprite(W / 2, H - 175, 'hero_hongfa', 0);
+    this._applyCharConfig(0);
+
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(this.player.y);
     this.physics.add.collider(this.player, this.obstacles);
@@ -104,9 +108,9 @@ export default class TrainingScene extends Phaser.Scene {
     if (this.anims.exists(idleUp)) this.player.play(idleUp);
 
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,U,E,ESC,SPACE');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,U,E,C,ESC,SPACE');
 
-    this.hud = this.add.text(18, 16, '训练场  WASD移动  J/空格攻击  U持刀技能  靠近下方门按E返回大厅', {
+    this.hud = this.add.text(18, 16, '训练场  WASD移动  J/空格攻击  U持刀技能  C切换角色  靠近下方门按E返回大厅', {
       fontFamily: '"PingFang SC", "Microsoft YaHei", serif',
       fontSize: '14px',
       color: '#ffe9a6',
@@ -160,6 +164,28 @@ export default class TrainingScene extends Phaser.Scene {
     });
   }
 
+  // ——————————— 角色切换 ———————————
+  _applyCharConfig(index) {
+    const type = this._charTypes[index];
+    if (!type) return;
+    const cfg = this._charConfigs[type];
+    if (!cfg) return;
+    this.player.setTexture(cfg.tex, 0);
+    this.player.setScale(cfg.scale);
+    this.player.body.setSize(cfg.bodyW, cfg.bodyH).setOffset(cfg.bodyOx, cfg.bodyOy);
+    this._useKnifeHero = (type === 'knife');
+    this._heroAnimPrefix = cfg.prefix;
+    const dir = this._playerDir || 'up';
+    if (this.anims.exists(`${cfg.prefix}_idle_${dir}`)) this.player.play(`${cfg.prefix}_idle_${dir}`);
+  }
+
+  _switchCharacter() {
+    if (this._charTypes.length < 2) return;
+    Audio.sfx.click();
+    this._charIndex = (this._charIndex + 1) % this._charTypes.length;
+    this._applyCharConfig(this._charIndex);
+  }
+
   update(time) {
     if (!this.player || !this.player.body) return;
 
@@ -173,6 +199,9 @@ export default class TrainingScene extends Phaser.Scene {
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys.U)) {
       this.tryBladeSkill(time);
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.C)) {
+      this._switchCharacter();
     }
 
     const nearExit = this.player.y > H - 92 && Math.abs(this.player.x - W / 2) < 130;
@@ -210,25 +239,26 @@ export default class TrainingScene extends Phaser.Scene {
   }
 
   updatePlayerAnim(attacking) {
+    const useDirectional = this._useKnifeHero;
     if (attacking) {
-      const attackKey = this._useSwordHero
-        ? `hero_sword_attack_${this._attackDir || this._playerDir}`
+      const attackKey = useDirectional
+        ? `${this._heroAnimPrefix}_attack_${this._attackDir || this._playerDir}`
         : 'hero_attack';
       if (this.anims.exists(attackKey) &&
           (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== attackKey)) {
         this.player.play(attackKey, true);
       }
-      this.player.setFlipX(!this._useSwordHero && this._playerDir !== 'left');
+      this.player.setFlipX(!useDirectional && this._playerDir !== 'left');
       return;
     }
 
     const moving = Math.abs(this.player.body.velocity.x) > 1 || Math.abs(this.player.body.velocity.y) > 1;
-    const animDir = this._useSwordHero ? this._playerDir : (this._playerDir === 'left' ? 'right' : this._playerDir);
+    const animDir = useDirectional ? this._playerDir : (this._playerDir === 'left' ? 'right' : this._playerDir);
     const key = moving ? `${this._heroAnimPrefix}_walk_${animDir}` : `${this._heroAnimPrefix}_idle_${animDir}`;
     if (this.anims.exists(key) && (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== key)) {
       this.player.play(key);
     }
-    this.player.setFlipX(!this._useSwordHero && this._playerDir === 'left');
+    this.player.setFlipX(!useDirectional && this._playerDir === 'left');
   }
 
   tryAttack(time) {

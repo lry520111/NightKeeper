@@ -1,0 +1,94 @@
+{
+  "frameWidth": 116,
+  "frameHeight": 123,
+  "columns": 5,
+  "rows": 12,
+  "totalWidth": 580,
+  "totalHeight": 1476,
+  "animations": [
+    {
+      "row": 0,
+      "animation": "walk_down",
+      "frames": 5,
+      "startFrame": 0,
+      "endFrame": 4
+    },
+    {
+      "row": 1,
+      "animation": "walk_right",
+      "frames": 5,
+      "startFrame": 5,
+      "endFrame": 9
+    },
+    {
+      "row": 2,
+      "animation": "walk_up",
+      "frames": 5,
+      "startFrame": 10,
+      "endFrame": 14
+    },
+    {
+      "row": 3,
+      "animation": "walk_left",
+      "frames": 5,
+      "startFrame": 15,
+      "endFrame": 19
+    },
+    {
+      "row": 4,
+      "animation": "idle_down",
+      "frames": 4,
+      "startFrame": 20,
+      "endFrame": 23
+    },
+    {
+      "row": 5,
+      "animation": "idle_right",
+      "frames": 4,
+      "startFrame": 25,
+      "endFrame": 28
+    },
+    {
+      "row": 6,
+      "animation": "idle_up",
+      "frames": 4,
+      "startFrame": 30,
+      "endFrame": 33
+    },
+    {
+      "row": 7,
+      "animation": "idle_left",
+      "frames": 4,
+      "startFrame": 35,
+      "endFrame": 38
+    },
+    {
+      "row": 8,
+      "animation": "attack_down",
+      "frames": 4,
+      "startFrame": 40,
+      "endFrame": 43
+    },
+    {
+      "row": 9,
+      "animation": "attack_right",
+      "frames": 4,
+      "startFrame": 45,
+      "endFrame": 48
+    },
+    {
+      "row": 10,
+      "animation": "attack_up",
+      "frames": 4,
+      "startFrame": 50,
+      "endFrame": 53
+    },
+    {
+      "row": 11,
+      "animation": "attack_left",
+      "frames": 4,
+      "startFrame": 55,
+      "endFrame": 58
+    }
+  ]
+}

@@ -645,44 +645,51 @@ export default class MuseumScene extends Phaser.Scene {
     } else {
       this.decorLights = [];
       this.lanterns = [];
-    }    // —— 5. 玩家（出生点由生成器提供） ——
-    // 优先使用新主角帧图：5 行 × 5 列，64×64；旧 LimeZu 角色仅作 fallback。
-    const useSwordHero = this.textures.exists('hero_sword');
-    const useHeroPlayer = useSwordHero || this.textures.exists('hero_hongfa');
-    const useLZPlayer = !useHeroPlayer && this.textures.exists('lz_adam_idle');
+    }    // —— 5. 玩家（C键切换：持刀 ↔ 原始 > LimeZu兜底）——
+    this._charConfigs = {};
+    this._charTypes = [];
+    if (this.textures.exists('hero_knife')) {
+      this._charTypes.push('knife');
+      this._charConfigs.knife = { tex:'hero_knife', scale:0.2, bodyW:100, bodyH:50, bodyOx:78, bodyOy:204, prefix:'hero_knife', directional:true };
+    }
+    if (this.textures.exists('hero_hongfa')) {
+      this._charTypes.push('hongfa');
+      this._charConfigs.hongfa = { tex:'hero_hongfa', scale:0.85, bodyW:22, bodyH:12, bodyOx:21, bodyOy:48, prefix:'hero', directional:false };
+    }
+    this._useLZPlayer = this._charTypes.length === 0 && this.textures.exists('lz_adam_idle');
+    this._useHeroPlayer = this._charTypes.length > 0 || this._useLZPlayer;
+    this._charIndex = 0;
+    const initTex = this._charTypes.length > 0 ? this._charConfigs[this._charTypes[0]].tex
+      : (this._useLZPlayer ? 'lz_adam_idle' : 'tex_player');
     this.player = this.physics.add.sprite(
       level.spawn.x * TILE + TILE / 2,
       level.spawn.y * TILE + TILE / 2,
-      useSwordHero ? 'hero_sword' : (useHeroPlayer ? 'hero_hongfa' : (useLZPlayer ? 'lz_adam_idle' : 'tex_player')),
-      useHeroPlayer ? 0 : (useLZPlayer ? 18 : 0)  // hero: down row first frame; LimeZu: down row first frame
+      initTex,
+      this._charTypes.length > 0 ? 0 : (this._useLZPlayer ? 18 : 0)
     );
     this.player.setCollideWorldBounds(true);
-    if (useSwordHero) {
-      this.player.body.setSize(52, 28).setOffset(46, 124);
-    } else if (useHeroPlayer) {
-      this.player.body.setSize(22, 12).setOffset(21, 48);
-    } else if (useLZPlayer) {
-      // LimeZu 16×32 像素帧：脚部 body 居中
+    if (this._charTypes.length > 0) {
+      this._applyCharConfig(0);
+    } else if (this._useLZPlayer) {
       this.player.body.setSize(10, 12).setOffset(3, 18);
+      this.player.setScale(1.7);
     } else {
       this.player.body.setSize(12, 18).setOffset(2, 4);
+      this.player.setScale(1.7);
     }
+    this._useKnifeHero = false;
     this.player.setDepth(5);
     if (this._templateObjectLayer) {
       this._playerFrontDepth = 7;
       this._playerBackDepth = 5;
       this.player.setDepth(this._playerFrontDepth);
     }
-    this.player.setScale(useSwordHero ? 0.43 : (useHeroPlayer ? 0.85 : 1.7));
-    // 标记：后续切换动画时用
-    this._useSwordHero = useSwordHero;
-    this._useHeroPlayer = useHeroPlayer;
-    this._useLZPlayer = useLZPlayer;
-    if (useSwordHero && this.anims.exists('hero_sword_idle_down')) {
-      this.player.play('hero_sword_idle_down');
-    } else if (useHeroPlayer && this.anims.exists('hero_idle_down')) {
-      this.player.play('hero_idle_down');
-    } else if (useLZPlayer && this.anims.exists('adam_idle_down')) {
+    // 标记
+    if (this._charTypes.length > 0) {
+      const initType = this._charTypes[0];
+      const prefix = this._charConfigs[initType].prefix;
+      if (this.anims.exists(`${prefix}_idle_down`)) this.player.play(`${prefix}_idle_down`);
+    } else if (this._useLZPlayer && this.anims.exists('adam_idle_down')) {
       this.player.play('adam_idle_down');
     }
     // 玩家朝向（弧度），鼠标方向决定光锥朝向
@@ -755,6 +762,7 @@ export default class MuseumScene extends Phaser.Scene {
       H: Phaser.Input.Keyboard.KeyCodes.H,
       G: Phaser.Input.Keyboard.KeyCodes.G,
       V: Phaser.Input.Keyboard.KeyCodes.V,
+      C: Phaser.Input.Keyboard.KeyCodes.C,
       F1: Phaser.Input.Keyboard.KeyCodes.F1,
       F2: Phaser.Input.Keyboard.KeyCodes.F2
     });
@@ -767,6 +775,7 @@ export default class MuseumScene extends Phaser.Scene {
     this.keys.H.on('down', () => this.useMedkit());
     this.keys.G.on('down', () => this.useSmokeBomb());
     this.keys.V.on('down', () => this.useQinggong());
+    this.keys.C.on('down', () => this._switchCharacter());
     // F1/F2: toggle debug collision visualization
     this.input.keyboard.on('keydown', (evt) => {
       const code = evt.keyCode || evt.key;
@@ -2141,7 +2150,7 @@ export default class MuseumScene extends Phaser.Scene {
 
     // 提示
     this.hintText = this.add
-      .text(940, 14, 'WASD移动 · 鼠标瞄向 · Shift潜行 · Ctrl疾跑 · J/左键攻击 · K格挡 · E拾取 · F阅读 · Tab背包', {
+      .text(940, 14, 'WASD移动 · 鼠标瞄向 · Shift潜行 · Ctrl疾跑 · J/左键攻击 · K格挡 · E拾取 · F阅读 · Tab背包 · C切换角色', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '11px',
         color: '#a08434'
@@ -2321,6 +2330,28 @@ export default class MuseumScene extends Phaser.Scene {
     return `${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
   }
 
+  // ——————————— 角色切换 ———————————
+  _applyCharConfig(index) {
+    const type = this._charTypes[index];
+    if (!type) return;
+    const cfg = this._charConfigs[type];
+    if (!cfg) return;
+    this.player.setTexture(cfg.tex, 0);
+    this.player.setScale(cfg.scale);
+    this.player.body.setSize(cfg.bodyW, cfg.bodyH).setOffset(cfg.bodyOx, cfg.bodyOy);
+    this._useKnifeHero = (type === 'knife');
+    this._heroAnimPrefix = cfg.prefix;
+    const dir = this._playerDir4 || 'down';
+    if (this.anims.exists(`${cfg.prefix}_idle_${dir}`)) this.player.play(`${cfg.prefix}_idle_${dir}`);
+  }
+
+  _switchCharacter() {
+    if (this._ended || this._charTypes.length < 2) return;
+    Audio.sfx.click();
+    this._charIndex = (this._charIndex + 1) % this._charTypes.length;
+    this._applyCharConfig(this._charIndex);
+  }
+
   update() {
     if (!this.player || !this.player.body || this._ended) return;
 
@@ -2404,12 +2435,14 @@ export default class MuseumScene extends Phaser.Scene {
 
     if (this._useHeroPlayer) {
       const attacking = now < (ps.attackAnimUntil || 0);
+      const useDirectional = this._useKnifeHero;
+      const prefix = this._useKnifeHero ? 'hero_knife' : 'hero';
       const swordDir = attacking ? angleToDir4(ps.attackDir || 0) : facingDir;
-      const animDir = this._useSwordHero ? swordDir : (facingDir === 'left' ? 'right' : facingDir);
-      const wantAnim = this._useSwordHero
+      const animDir = useDirectional ? swordDir : (facingDir === 'left' ? 'right' : facingDir);
+      const wantAnim = useDirectional
         ? (attacking
-            ? `hero_sword_attack_${swordDir}`
-            : (moving ? `hero_sword_walk_${animDir}` : `hero_sword_idle_${animDir}`))
+            ? `${prefix}_attack_${swordDir}`
+            : (moving ? `${prefix}_walk_${animDir}` : `${prefix}_idle_${animDir}`))
         : (attacking
             ? 'hero_attack'
             : (now < ps.staggerUntil ? 'hero_hurt_down' : (moving ? `hero_walk_${animDir}` : `hero_idle_${animDir}`)));
@@ -2419,7 +2452,7 @@ export default class MuseumScene extends Phaser.Scene {
           this.player.play(wantAnim, attacking || wantAnim === 'hero_hurt_down');
         }
       }
-      this.player.setFlipX(!this._useSwordHero && (attacking ? Math.cos(ps.attackDir || 0) > 0 : facingDir === 'left'));
+      this.player.setFlipX(!useDirectional && (attacking ? Math.cos(ps.attackDir || 0) > 0 : facingDir === 'left'));
       if (moving) {
         this._playerWalkAccum += dtSec;
         const stepTime = ps.sprint ? 0.20 : ps.stealth ? 0.45 : 0.30;
@@ -2755,7 +2788,7 @@ export default class MuseumScene extends Phaser.Scene {
     });
     layer.add(quoteTxt);
 
-    // 提示“Tab 查看完整介绍”
+    // 提示"Tab 查看完整介绍"
     const hint = this.add.text(W - 12, H - 14, 'Tab 查阅详情', {
       fontFamily: '"PingFang SC", serif',
       fontSize: '10px',
@@ -3561,8 +3594,8 @@ export default class MuseumScene extends Phaser.Scene {
     ps.attackCooldownUntil = now + ((wp && wp.cooldownMs) || 360);
     ps.attackHitDone = false;
     if (this._useHeroPlayer) {
-      if (this._useSwordHero) {
-        const attackKey = `hero_sword_attack_${angleToDir4(ps.attackDir)}`;
+      if (this._useKnifeHero) {
+        const attackKey = `hero_knife_attack_${angleToDir4(ps.attackDir)}`;
         if (this.anims.exists(attackKey)) this.player.play(attackKey, true);
         this.player.setFlipX(false);
       } else if (this.anims.exists('hero_attack')) {
@@ -3768,8 +3801,8 @@ export default class MuseumScene extends Phaser.Scene {
     ps.attackAnimUntil = now + 360;
     ps.attackCooldownUntil = now + (wp.cooldownMs || 300);
     if (this._useHeroPlayer) {
-      if (this._useSwordHero) {
-        const attackKey = `hero_sword_attack_${angleToDir4(ps.attackDir)}`;
+      if (this._useKnifeHero) {
+        const attackKey = `hero_knife_attack_${angleToDir4(ps.attackDir)}`;
         if (this.anims.exists(attackKey)) this.player.play(attackKey, true);
         this.player.setFlipX(false);
       } else if (this.anims.exists('hero_attack')) {
@@ -4284,7 +4317,7 @@ export default class MuseumScene extends Phaser.Scene {
       }
     }
 
-    // 玩家获得一段掩护期：警觉逸出为 0，并为玩家准备一个“烟雾”状态供 Guard 读取
+    // 玩家获得一段掩护期：警觉逸出为 0，并为玩家准备一个"烟雾"状态供 Guard 读取
     const ps = this.playerState;
     ps.smokedUntil = this.time.now + DURATION;
 

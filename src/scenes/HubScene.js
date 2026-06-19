@@ -93,23 +93,24 @@ export default class HubScene extends Phaser.Scene {
     // —— 5. 馆长 NPC ——
     this.curator = this.createCurator(CURATOR);
 
-    // —— 6. 玩家（hero_hongfa：64×64 五行动作表，脚底物理盒）——
-    const useSwordHero = this.textures.exists('hero_sword');
+    // —— 6. 玩家（C键切换：持刀 ↔ 原始）——
+    this._charConfigs = {};
+    this._charTypes = [];
+    if (this.textures.exists('hero_knife')) {
+      this._charTypes.push('knife');
+      this._charConfigs.knife = { tex:'hero_knife', scale:0.265, bodyW:86, bodyH:44, bodyOx:85, bodyOy:208, prefix:'hero_knife', directional:true };
+    }
+    if (this.textures.exists('hero_hongfa')) {
+      this._charTypes.push('hongfa');
+      this._charConfigs.hongfa = { tex:'hero_hongfa', scale:1.1, bodyW:22, bodyH:12, bodyOx:21, bodyOy:48, prefix:'hero', directional:false };
+    }
+    this._charIndex = 0;
     this.player = this.physics.add.sprite(
       HUB_ANCHORS.player.x,
       HUB_ANCHORS.player.y,
-      useSwordHero ? 'hero_sword' : 'hero_hongfa',
-      0
+      'hero_hongfa', 0
     );
-    this._useSwordHero = useSwordHero;
-    this._heroAnimPrefix = useSwordHero ? 'hero_sword' : 'hero';
-    if (useSwordHero) {
-      this.player.setScale(0.43);
-      this.player.body.setSize(52, 28).setOffset(46, 124);
-    } else {
-      this.player.setScale(1.1);
-      this.player.body.setSize(22, 12).setOffset(21, 48);
-    }
+    this._applyCharConfig(this._charIndex);
     this.player.setDepth(30);
 
     // 物理边界
@@ -149,7 +150,7 @@ export default class HubScene extends Phaser.Scene {
       .setDepth(49);
     hintBg.setStrokeStyle(1, 0x6b5824, 0.5);
     this.add
-      .text(ROOM_W - 25, ROOM_H - 30, 'WASD 走动 · E 交互/对话 · B 图鉴 · ESC 回标题 · F1 调试', {
+      .text(ROOM_W - 25, ROOM_H - 30, 'WASD 走动 · E 交互/对话 · B 图鉴 · C 切换角色 · ESC 回标题 · F1 调试', {
         fontFamily: '"PingFang SC", serif',
         fontSize: '11px',
         color: '#cdb98a',
@@ -159,7 +160,7 @@ export default class HubScene extends Phaser.Scene {
 
     // —— 9. 输入 ——
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,E,B,ESC,F1');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,E,B,C,ESC,F1');
 
     this.keys.E.on('down', () => this.tryInteract());
     this.keys.B.on('down', () => {
@@ -173,6 +174,7 @@ export default class HubScene extends Phaser.Scene {
       this.scene.start('TitleScene');
     });
     this.keys.F1.on('down', () => this.toggleDebug());
+    this.keys.C.on('down', () => this._switchCharacter());
 
     // —— 10. 交互浮空提示（"E  与XXX交谈"）——
     this.hintText = this.add
@@ -360,6 +362,28 @@ export default class HubScene extends Phaser.Scene {
     this.player.setDepth(behindObject ? 12 : 30);
   }
 
+  // ——————————— 角色切换 ———————————
+  _applyCharConfig(index) {
+    const type = this._charTypes[index];
+    if (!type) return;
+    const cfg = this._charConfigs[type];
+    if (!cfg) return;
+    this.player.setTexture(cfg.tex, 0);
+    this.player.setScale(cfg.scale);
+    this.player.body.setSize(cfg.bodyW, cfg.bodyH).setOffset(cfg.bodyOx, cfg.bodyOy);
+    this._useKnifeHero = (type === 'knife');
+    this._heroAnimPrefix = cfg.prefix;
+    const idleKey = `${cfg.prefix}_idle_${this._playerDir || 'down'}`;
+    if (this.anims.exists(idleKey)) this.player.play(idleKey);
+  }
+
+  _switchCharacter() {
+    if (this._dialogOpen || this._charTypes.length < 2) return;
+    Audio.sfx.click();
+    this._charIndex = (this._charIndex + 1) % this._charTypes.length;
+    this._applyCharConfig(this._charIndex);
+  }
+
   // ——————————— 主循环 ———————————
   update() {
     if (!this.player || this._dialogOpen) {
@@ -387,7 +411,8 @@ export default class HubScene extends Phaser.Scene {
       if (Math.abs(vx) > Math.abs(vy)) dir = vx > 0 ? 'right' : 'left';
       else dir = vy > 0 ? 'down' : 'up';
     }
-    const animDir = this._useSwordHero ? dir : (dir === 'left' ? 'right' : dir);
+    const useDirectional = this._useKnifeHero;
+    const animDir = useDirectional ? dir : (dir === 'left' ? 'right' : dir);
     const wantAnim = moving
       ? `${this._heroAnimPrefix}_walk_${animDir}`
       : `${this._heroAnimPrefix}_idle_${animDir}`;
@@ -395,7 +420,7 @@ export default class HubScene extends Phaser.Scene {
         (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== wantAnim)) {
       this.player.play(wantAnim);
     }
-    this.player.setFlipX(!this._useSwordHero && dir === 'left');
+    this.player.setFlipX(!useDirectional && dir === 'left');
     this._playerDir = dir;
     this._updatePlayerOcclusionDepth();
 

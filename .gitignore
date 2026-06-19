@@ -9,6 +9,7 @@ dist/
 *.log
 npm-debug.log*
 .cache/
+.temp/
 
 # 比赛手册等本地资料，不入库
 *.pdf
