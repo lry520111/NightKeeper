@@ -325,6 +325,33 @@ export default class CodexScene extends Phaser.Scene {
   }
 
   /** 绘制单张文物卡片（已扩大并展示 intro/quote） */
+  fitCardText(text, maxUnits, maxLines) {
+    const raw = String(text || '').replace(/\s+/g, ' ').trim();
+    const lines = [];
+    let line = '';
+    let units = 0;
+    let consumed = 0;
+
+    for (const ch of raw) {
+      const unit = /[\x00-\x7f]/.test(ch) ? 0.55 : 1;
+      if (units + unit > maxUnits && line) {
+        lines.push(line);
+        if (lines.length >= maxLines) break;
+        line = '';
+        units = 0;
+      }
+      line += ch;
+      units += unit;
+      consumed += 1;
+    }
+
+    if (lines.length < maxLines && line) lines.push(line);
+    const fitted = lines.join('\n');
+    return consumed < raw.length && fitted
+      ? `${fitted.replace(/[，。；、,.!?！？：:]*$/, '')}…`
+      : fitted;
+  }
+
   drawCard(layer, x, y, relic, found, meta) {
     const rarityColorHex = RARITY_COLOR[relic.rarity] || '#9ca3af';
     const rarityColorNum = Phaser.Display.Color.HexStringToColor(rarityColorHex).color;
@@ -357,7 +384,12 @@ export default class CodexScene extends Phaser.Scene {
     layer.add(iconBg);
     if (relic.icon && this.textures.exists(relic.icon)) {
       const img = this.add.image(iconCx, iconCy, relic.icon);
-      img.setScale(1.0);
+      const src = this.textures.get(relic.icon).getSourceImage();
+      const maxIconSize = 48;
+      const scale = src
+        ? Math.min(maxIconSize / src.width, maxIconSize / src.height, 1)
+        : 1;
+      img.setScale(scale);
       if (!found) img.setTint(0x101010);
       layer.add(img);
     }
@@ -401,11 +433,11 @@ export default class CodexScene extends Phaser.Scene {
 
     // 介绍正文（intro，AI 生成）
     const intro = relic.intro || relic.desc || '';
-    const introTxt = this.add.text(x + 12, y + 78, intro, {
+    const introTxt = this.add.text(x + 12, y + 78, this.fitCardText(intro, 39, 2), {
       fontFamily: '"PingFang SC", serif',
       fontSize: '11px',
       color: '#bfa86b',
-      wordWrap: { width: CARD_W - 24 },
+      wordWrap: { width: CARD_W - 24, useAdvancedWrap: true },
       lineSpacing: 3
     });
     layer.add(introTxt);
@@ -420,7 +452,7 @@ export default class CodexScene extends Phaser.Scene {
 
     // 夜枭批语（quote）
     if (relic.quote) {
-      const quoteTxt = this.add.text(x + CARD_W - 12, y + CARD_H - 22, relic.quote, {
+      const quoteTxt = this.add.text(x + CARD_W - 12, y + CARD_H - 22, this.fitCardText(relic.quote, 24, 1), {
         fontFamily: '"PingFang SC", serif',
         fontSize: '11px',
         color: '#d4af37',

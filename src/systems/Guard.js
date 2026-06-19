@@ -6,10 +6,12 @@ import { findPath, smoothPath, pixelToCell, cellToPixel, hasLineOfSight, nearest
 // ——— 视野参数 ———
 const VIEW_RANGE = 210;          // 视野距离（像素）— 看得更远
 const VIEW_HALF_ANGLE = Math.PI / 5.2; // 视野半角（约 35° → 总 70°）— 视野更宽
-const TURN_SPEED = 3.6;          // 朝向转动速度（弧度/秒）— 转头更快
-const PATROL_SPEED = 52;         // 巡逻速度 — 放慢以减压
-const CHASE_SPEED = 110;         // 追击速度 — 玩家有更多反应空间
-const WAIT_AT_WAYPOINT_MS = 700; // 路径点停顿 — 停得更短
+const TURN_SPEED = 2.2;          // 守卫视野/朝向转动速度
+const PATROL_SPEED = 38;         // 巡逻速度
+const CHASE_SPEED = 82;          // 追击速度
+const WAIT_AT_WAYPOINT_MS = 900; // 路径点停顿
+const WALL_AVOID_WAIT_MS = 950;
+const WALL_AVOID_STEP = 96;
 // ★ 警惕性增强：被探照灯照到后 ~0.4秒 触发 “被发现了”
 const ALERT_FILL_RATE = 240;     // 每秒警觉值（满 100）— 锈心 ~0.42 秒满
 const ALERT_DECAY_RATE = 18;     // 每秒衰减 — 一旦警觉，很难躲回
@@ -119,6 +121,7 @@ export default class Guard {
     this._reverseUntil = 0;         // 反向移动持续到的时间戳
     this._reverseAngle = 0;         // 反向移动的角度（来自卡住瞬间 facing 的反方向）
     this._stuckCount = 0;           // 连续卡住次数（决定反向移动时长）
+    this._patrolDetourTarget = null;
 
     const start = waypoints[0];
     // —— 初始生成点：选择路径中点附近的点，避免守卫刚刷出来就贴脸玩家 ——
@@ -363,6 +366,7 @@ export default class Guard {
       // 状态变了 → 路径作废
       this._currentPath = null;
       this._pathTargetIdx = 0;
+      if (this.state !== 'patrol') this._patrolDetourTarget = null;
     }
 
     // —— 硬直期间不行动 ——
@@ -412,6 +416,71 @@ export default class Guard {
   }
 
   // —— 卡墙检测：每隔一段时间看看实际位移，若太小就清路径
+  handlePatrolBlocked(now) {
+    this.sprite.setVelocity(0, 0);
+    this._currentPath = null;
+    this._pathTargetIdx = 0;
+    this._reverseUntil = 0;
+    this._stuckCount = Math.min(this._stuckCount + 1, 4);
+    this.waitUntil = now + WALL_AVOID_WAIT_MS;
+
+    const angle = this.findClearPatrolAngle();
+    if (angle === null) {
+      this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+      return;
+    }
+
+    this.facing = angle;
+    let step = WALL_AVOID_STEP;
+    let target = null;
+    while (step >= 32) {
+      const x = this.sprite.x + Math.cos(angle) * step;
+      const y = this.sprite.y + Math.sin(angle) * step;
+      if (!this.isBlockedPoint(x, y, 12)) {
+        target = { x, y };
+        break;
+      }
+      step -= 16;
+    }
+    this._patrolDetourTarget = target;
+    if (!target) this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+  }
+
+  findClearPatrolAngle() {
+    const base = this.facing || 0;
+    const candidates = [
+      base + Math.PI / 2,
+      base - Math.PI / 2,
+      base + Math.PI,
+      0,
+      Math.PI / 2,
+      Math.PI,
+      -Math.PI / 2
+    ];
+    for (const a of candidates) {
+      const x = this.sprite.x + Math.cos(a) * 42;
+      const y = this.sprite.y + Math.sin(a) * 42;
+      if (!this.isBlockedPoint(x, y, 12)) return a;
+    }
+    return null;
+  }
+
+  isBlockedPoint(x, y, inflate = 8) {
+    const b = this.patrolBounds;
+    if (b && (x < b.x || x > b.x2 || y < b.y || y > b.y2)) return true;
+    const walls = this.scene && this.scene.walls;
+    if (!walls || !walls.getChildren) return false;
+    for (const wall of walls.getChildren()) {
+      if (!wall.body) continue;
+      const wb = wall.body;
+      if (x >= wb.x - inflate && x <= wb.x + wb.width + inflate &&
+          y >= wb.y - inflate && y <= wb.y + wb.height + inflate) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   checkStuck() {
     const now = this.scene.time.now;
     if (now - this._stuckCheckTime < STUCK_CHECK_INTERVAL) return;
@@ -437,6 +506,10 @@ export default class Guard {
     const wantsToMove = this.attackPhase === 'idle'
       && (this.state === 'chase' || (this.state === 'patrol' && now >= this.waitUntil));
     if (wantsToMove && moved < STUCK_MIN_MOVE) {
+      if (this.state === 'patrol') {
+        this.handlePatrolBlocked(now);
+        return;
+      }
       this._currentPath = null;
       this._pathTargetIdx = 0;
       // 巡逻卡住时跳到下一个 waypoint
@@ -519,7 +592,7 @@ export default class Guard {
       this.facing += Math.sin(now / 380) * 0.025;
       return;
     }
-    const target = this.waypoints[this.wpIdx];
+    const target = this._patrolDetourTarget || this.waypoints[this.wpIdx];
     if (!target) return;
 
     // 没有路径或到该重算的时间 → 规划一条
@@ -546,9 +619,14 @@ export default class Guard {
     const distToWp = Math.hypot(dx, dy);
     if (distToWp < 10) {
       this.sprite.setVelocity(0, 0);
-      const waitTime = 400 + Math.floor(Math.random() * 1400);
+      const waitTime = WAIT_AT_WAYPOINT_MS + Math.floor(Math.random() * 1200);
       this.waitUntil = now + waitTime;
-      this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+      if (this._patrolDetourTarget) {
+        this._patrolDetourTarget = null;
+        this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+      } else {
+        this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+      }
       this._currentPath = null;
       this._pathTargetIdx = 0;
       return;
