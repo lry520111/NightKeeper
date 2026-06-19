@@ -61,6 +61,14 @@ export default class BootScene extends Phaser.Scene {
       frameWidth: 772,
       frameHeight: 230
     });
+    this.load.spritesheet('hero_skill2_right', 'assets/effects/hero_skill2_right.png', {
+      frameWidth: 821,
+      frameHeight: 320
+    });
+    this.load.spritesheet('hero_skill2_left', 'assets/effects/hero_skill2_left.png', {
+      frameWidth: 821,
+      frameHeight: 320
+    });
     this.load.spritesheet('curator_idle', 'assets/characters/curator/curator_idle.png', {
       frameWidth: 148,
       frameHeight: 287
@@ -2057,6 +2065,22 @@ export default class BootScene extends Phaser.Scene {
       this.anims.create({
         key: 'hero_blade_skill_right_anim',
         frames: makeBladeSkillFrames('hero_blade_skill_right'),
+        frameRate: 7,
+        repeat: 0
+      });
+    }
+
+    const makeSkill2Frames = (textureKey) => (
+      this.anims.generateFrameNumbers(textureKey, { start: 0, end: 21 })
+    );
+    for (const [key, tex] of [
+      ['hero_skill2_right_anim', 'hero_skill2_right'],
+      ['hero_skill2_left_anim', 'hero_skill2_left']
+    ]) {
+      if (this.anims.exists(key)) this.anims.remove(key);
+      this.anims.create({
+        key,
+        frames: makeSkill2Frames(tex),
         frameRate: 8,
         repeat: 0
       });

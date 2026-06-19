@@ -61,6 +61,42 @@ const HERO_BLADE_SKILL_HIT_RECTS = [
 ];
 const HERO_BLADE_SKILL_FRAME_Y_OFFSETS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 10];
 const HERO_BLADE_SKILL_FRAME_X_OFFSETS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14];
+const HERO_SKILL2 = {
+  cost: 38,
+  cooldownMs: 2600,
+  animMs: 3150,
+  damage: 1,
+  knockMul: 2.2
+};
+const HERO_SKILL2_FW = 821;
+const HERO_SKILL2_FH = 320;
+const HERO_SKILL2_ANCHOR_X = 495;
+const HERO_SKILL2_SCALE = 0.66;
+const HERO_SKILL2_FINAL_OFFSET_X = -105;
+const HERO_SKILL2_FRAME_X_OFFSETS = Array(22).fill(0);
+const HERO_SKILL2_FRAME_Y_OFFSETS = [0, 0, 9, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const HERO_SKILL2_HIT_RECTS = [
+  null, null, null,
+  { x: 315, y: 195, w: 205, h: 120 },
+  { x: 250, y: 145, w: 360, h: 175 },
+  { x: 245, y: 145, w: 315, h: 175 },
+  { x: 205, y: 105, w: 340, h: 215 },
+  { x: 220, y: 105, w: 350, h: 220 },
+  { x: 225, y: 115, w: 335, h: 205 },
+  { x: 235, y: 100, w: 260, h: 215 },
+  { x: 225, y: 60, w: 385, h: 260 },
+  { x: 245, y: 60, w: 330, h: 260 },
+  { x: 230, y: 70, w: 390, h: 250 },
+  { x: 220, y: 45, w: 390, h: 275 },
+  { x: 230, y: 55, w: 350, h: 265 },
+  { x: 215, y: 45, w: 370, h: 275 },
+  { x: 250, y: 45, w: 385, h: 270 },
+  { x: 230, y: 50, w: 420, h: 250 },
+  { x: 230, y: 45, w: 420, h: 275 },
+  { x: 330, y: 125, w: 150, h: 115 },
+  null,
+  null,
+];
 
 // 光照层颜色（近似纯黑、略带紫调，像月夜）
 const angleToDir4 = (angle = 0) => {
@@ -743,6 +779,8 @@ export default class MuseumScene extends Phaser.Scene {
       attackArc:   (equippedWeapon && equippedWeapon.arc) || (Math.PI / 3),
       bladeSkillUntil: 0,
       bladeSkillCooldownUntil: 0,
+      skill2Until: 0,
+      skill2CooldownUntil: 0,
       ammo: initialAmmo,     // 远程弹药剩余
       qinggongUntil: 0,      // 轻功符效果结束时间
       qinggongMul: 1         // 轻功期间的速度倍率
@@ -761,6 +799,7 @@ export default class MuseumScene extends Phaser.Scene {
       F: Phaser.Input.Keyboard.KeyCodes.F,
       J: Phaser.Input.Keyboard.KeyCodes.J,
       U: Phaser.Input.Keyboard.KeyCodes.U,
+      Y: Phaser.Input.Keyboard.KeyCodes.Y,
       K: Phaser.Input.Keyboard.KeyCodes.K,
       TAB: Phaser.Input.Keyboard.KeyCodes.TAB,
       ESC: Phaser.Input.Keyboard.KeyCodes.ESC,
@@ -768,6 +807,7 @@ export default class MuseumScene extends Phaser.Scene {
       G: Phaser.Input.Keyboard.KeyCodes.G,
       V: Phaser.Input.Keyboard.KeyCodes.V,
       C: Phaser.Input.Keyboard.KeyCodes.C,
+      R: Phaser.Input.Keyboard.KeyCodes.R,
       F1: Phaser.Input.Keyboard.KeyCodes.F1,
       F2: Phaser.Input.Keyboard.KeyCodes.F2
     });
@@ -2539,7 +2579,8 @@ export default class MuseumScene extends Phaser.Scene {
     else if (ps.sprint) speed = 230;
     if (ps.blocking) speed = 60;
     // 攻击挥刀瞬间略减速
-    if (now < ps.bladeSkillUntil) speed *= 0.15;
+    if (now < ps.skill2Until) speed = 0;
+    else if (now < ps.bladeSkillUntil) speed *= 0.15;
     else if (now < ps.attackUntil) speed *= 0.45;
     // 轻功符：期间统一乘以 qinggongMul（覆盖静步压低、同时与疾跑叠加）
     if (now < ps.qinggongUntil) speed = Math.max(speed, 230) * (ps.qinggongMul || 1.7);
@@ -2710,6 +2751,13 @@ export default class MuseumScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.U)) {
       this.tryPlayerBladeSkill();
     }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.Y)) {
+      this.tryPlayerSkill2();
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.R)) {
+      this.toggleRuler();
+    }
+    this.updateRulerText();
 
     // —— 检测附近可拾取文物 ——
     const nearestRelic = this.findNearest(this.relicGroup.getChildren(), 28);
@@ -3755,6 +3803,7 @@ export default class MuseumScene extends Phaser.Scene {
     const now = this.time.now;
     if (now < ps.attackCooldownUntil) return;
     if (now < ps.bladeSkillUntil) return;
+    if (now < ps.skill2Until) return;
     if (ps.blocking) return;        // 格挡中不能出刀
 
     // 装备的武器决定伤害 / 范围 / 冷却 / 耗体力
@@ -3801,6 +3850,7 @@ export default class MuseumScene extends Phaser.Scene {
     const ps = this.playerState;
     const now = this.time.now;
     if (now < ps.bladeSkillCooldownUntil || now < ps.attackCooldownUntil) return;
+    if (now < ps.skill2Until) return;
     if (ps.blocking || now < ps.staggerUntil) return;
     if (ps.stam < HERO_BLADE_SKILL.cost) {
       this._floatText(this.player.x, this.player.y - 22, '体力不足', '#7fd8ff');
@@ -3999,12 +4049,205 @@ export default class MuseumScene extends Phaser.Scene {
     }
   }
 
+  tryPlayerSkill2() {
+    if (this._ended || !this.player || !this.playerState) return;
+    const ps = this.playerState;
+    const now = this.time.now;
+    if (now < ps.skill2CooldownUntil || now < ps.attackCooldownUntil) return;
+    if (now < ps.bladeSkillUntil || ps.blocking || now < ps.staggerUntil) return;
+    if (ps.stam < HERO_SKILL2.cost) {
+      this._floatText(this.player.x, this.player.y - 22, '体力不足', '#7fd8ff');
+      if (Audio && Audio.sfx && Audio.sfx.bad) Audio.sfx.bad();
+      return;
+    }
+
+    ps.stam = Math.max(0, ps.stam - HERO_SKILL2.cost);
+    const dir = this._playerDir4 || 'right';
+    const facingX = dir === 'left' ? -1 : (dir === 'right' ? 1 : (this._playerFacingX || 1));
+    const aim = facingX < 0 ? Math.PI : 0;
+
+    ps.attackDir = aim;
+    ps.attackUntil = now + HERO_SKILL2.animMs;
+    ps.attackAnimUntil = now + HERO_SKILL2.animMs;
+    ps.attackCooldownUntil = now + 460;
+    ps.attackHitDone = true;
+    ps.skill2Until = now + HERO_SKILL2.animMs;
+    ps.skill2CooldownUntil = now + HERO_SKILL2.cooldownMs;
+    this.playHeroSkill2Fx(facingX);
+    if (Audio && Audio.sfx && Audio.sfx.slash) Audio.sfx.slash();
+    if (typeof this.updateWeaponHUD === 'function') this.updateWeaponHUD();
+  }
+
+  playHeroSkill2Fx(facingX) {
+    const animKey = facingX > 0 ? 'hero_skill2_left_anim' : 'hero_skill2_right_anim';
+    const texKey = facingX > 0 ? 'hero_skill2_left' : 'hero_skill2_right';
+    if (!this._useHeroPlayer || !this.anims.exists(animKey)) return;
+    if (this._heroSkill2Sprite) this._heroSkill2Sprite.destroy();
+
+    this.player.setVisible(false);
+    this.player.setVelocity(0, 0);
+    this._heroSkill2HitFrames = new Set();
+
+    const playerFootY = this.player.y + this.player.displayHeight / 2;
+    const baseFxX = this.player.x;
+    const baseFxY = playerFootY;
+    const fx = this.add.sprite(baseFxX, baseFxY, texKey, 0)
+      .setOrigin(this.getHeroSkill2AnchorX(facingX) / HERO_SKILL2_FW, 1)
+      .setScale(HERO_SKILL2_SCALE)
+      .setDepth(this.player.depth + 3);
+    fx.play(animKey);
+    this._heroSkill2Sprite = fx;
+
+    const onFrame = (anim, frame) => {
+      const frameIndex = Math.max(0, (frame && frame.index ? frame.index - 1 : 0));
+      fx.x = baseFxX + this.getHeroSkill2FrameXOffset(frameIndex, facingX);
+      fx.y = baseFxY + this.getHeroSkill2FrameYOffset(frameIndex);
+      this.resolveHeroSkill2FrameHit(fx, frameIndex, facingX);
+    };
+    fx.on(Phaser.Animations.Events.ANIMATION_UPDATE, onFrame);
+    this.resolveHeroSkill2FrameHit(fx, 0, facingX);
+
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      fx.off(Phaser.Animations.Events.ANIMATION_UPDATE, onFrame);
+      if (this._heroSkill2Sprite === fx) this._heroSkill2Sprite = null;
+      if (this.player && this.player.active) {
+        const finalFrame = HERO_SKILL2_FRAME_X_OFFSETS.length - 1;
+        const finalFxX = baseFxX + this.getHeroSkill2FrameXOffset(finalFrame, facingX);
+        const finalFxY = baseFxY + this.getHeroSkill2FrameYOffset(finalFrame);
+        const finalDx = Math.abs(HERO_SKILL2_FINAL_OFFSET_X) * HERO_SKILL2_SCALE * (facingX > 0 ? 1 : -1);
+        let targetX = finalFxX + finalDx;
+        let targetY = finalFxY - this.player.displayHeight / 2;
+        const safe = this.findSafeSkillLanding(this.player.x, this.player.y, targetX, targetY);
+        targetX = safe.x;
+        targetY = safe.y;
+        this.player.setPosition(targetX, targetY);
+        this.player.setVisible(true);
+      }
+      if (fx && fx.active) fx.destroy();
+    };
+    fx.once(Phaser.Animations.Events.ANIMATION_COMPLETE, cleanup);
+    this.time.delayedCall(HERO_SKILL2.animMs + 220, cleanup);
+  }
+
+  getHeroSkill2AnchorX(facingX) {
+    return facingX > 0 ? HERO_SKILL2_FW - HERO_SKILL2_ANCHOR_X : HERO_SKILL2_ANCHOR_X;
+  }
+
+  getHeroSkill2FrameXOffset(frameIndex, facingX) {
+    const x = HERO_SKILL2_FRAME_X_OFFSETS[Math.max(0, Math.min(frameIndex, HERO_SKILL2_FRAME_X_OFFSETS.length - 1))] || 0;
+    return facingX > 0 ? x : -x;
+  }
+
+  getHeroSkill2FrameYOffset(frameIndex) {
+    return HERO_SKILL2_FRAME_Y_OFFSETS[Math.max(0, Math.min(frameIndex, HERO_SKILL2_FRAME_Y_OFFSETS.length - 1))] || 0;
+  }
+
+  getHeroSkill2HitRect(frameIndex, facingX) {
+    const r = HERO_SKILL2_HIT_RECTS[Math.max(0, Math.min(frameIndex, HERO_SKILL2_HIT_RECTS.length - 1))];
+    if (!r) return null;
+    if (facingX < 0) return r;
+    return {
+      x: HERO_SKILL2_FW - r.x - r.w,
+      y: r.y,
+      w: r.w,
+      h: r.h,
+    };
+  }
+
+  getHeroSkill2WorldRect(fx, frameIndex, facingX) {
+    const r = this.getHeroSkill2HitRect(frameIndex, facingX);
+    if (!r) return null;
+    const s = fx.scaleX;
+    const ox = this.getHeroSkill2AnchorX(facingX);
+    const oy = HERO_SKILL2_FH;
+    const x0 = fx.x + (r.x - ox) * s;
+    const x1 = fx.x + (r.x + r.w - ox) * s;
+    const y0 = fx.y + (r.y - oy) * s;
+    const y1 = fx.y + (r.y + r.h - oy) * s;
+    return new Phaser.Geom.Rectangle(Math.min(x0, x1), y0, Math.abs(x1 - x0), y1 - y0);
+  }
+
+  resolveHeroSkill2FrameHit(fx, frameIndex, facingX) {
+    if (!this.guards || !this.player) return;
+    if (this._heroSkill2HitFrames && this._heroSkill2HitFrames.has(frameIndex)) return;
+    const hitRect = this.getHeroSkill2WorldRect(fx, frameIndex, facingX);
+    if (!hitRect) return;
+    if (this._heroSkill2HitFrames) this._heroSkill2HitFrames.add(frameIndex);
+
+    const aim = facingX < 0 ? Math.PI : 0;
+    const dirX = Math.cos(aim);
+    const dirY = Math.sin(aim);
+    let hitAny = false;
+
+    for (const g of this.guards) {
+      if (!g || g.dead || !g.sprite || !g.sprite.active) continue;
+      const body = g.sprite.body;
+      const targetRect = body
+        ? new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height)
+        : new Phaser.Geom.Rectangle(g.sprite.x - 18, g.sprite.y - 34, 36, 68);
+      if (!Phaser.Geom.Rectangle.Overlaps(hitRect, targetRect)) continue;
+
+      const kx = dirX * HERO_SKILL2.knockMul;
+      const ky = dirY * HERO_SKILL2.knockMul;
+      const dead = g.takeDamage(HERO_SKILL2.damage, kx, ky);
+      if (dead) this._runStats.kills += 1;
+      this.showBubble(g.sprite, dead ? '斩' : `-${HERO_SKILL2.damage}`, { color: '#9ee8ff', fontSize: '17px', duration: 720, dy: -24 });
+      this._spawnImpactRing(g.sprite.x, g.sprite.y, false);
+      this.spawnHitSparks(g.sprite.x, g.sprite.y, false);
+      hitAny = true;
+    }
+
+    if (hitAny) {
+      this._applyHitstop(55);
+      this.cameras.main.shake(90, 0.0032);
+    }
+  }
+
+  findSafeSkillLanding(startX, startY, targetX, targetY) {
+    if (!this.walls) return { x: targetX, y: targetY };
+    const dx = targetX - startX;
+    const dy = targetY - startY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= 1) return { x: targetX, y: targetY };
+
+    const steps = Math.ceil(dist / 8);
+    const stepX = dx / steps;
+    const stepY = dy / steps;
+    const body = this.player.body;
+    const halfW = body ? body.width / 2 : 8;
+    const halfH = body ? body.height / 2 : 8;
+    let safeX = startX;
+    let safeY = startY;
+    for (let i = 1; i <= steps; i++) {
+      const testX = startX + stepX * i;
+      const testY = startY + stepY * i;
+      let blocked = false;
+      for (const wall of this.walls.getChildren()) {
+        if (!wall.body) continue;
+        const wb = wall.body;
+        if (testX + halfW > wb.x && testX - halfW < wb.x + wb.width &&
+            testY + halfH > wb.y && testY - halfH < wb.y + wb.height) {
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked) break;
+      safeX = testX;
+      safeY = testY;
+    }
+    return { x: safeX, y: safeY };
+  }
+
   tryPlayerRangedAttack() {
     if (this._ended) return;
     const ps = this.playerState;
     const now = this.time.now;
     if (now < ps.attackCooldownUntil) return;
     if (now < ps.bladeSkillUntil) return;
+    if (now < ps.skill2Until) return;
     if (ps.blocking) return;
     const wp = (this._loadoutEff && this._loadoutEff.weapon) || null;
     if (!wp || wp.kind !== 'ranged') {
@@ -4486,6 +4729,53 @@ export default class MuseumScene extends Phaser.Scene {
   }
 
   /** 武器 HUD：名称 + （远程）弹药 · 冷却 */
+  toggleRuler() {
+    if (this._rulerLayer) {
+      this._rulerLayer.destroy(true);
+      this._rulerLayer = null;
+      this._rulerCoordText = null;
+      return;
+    }
+
+    const bounds = this.physics && this.physics.world ? this.physics.world.bounds : { x: 0, y: 0, width: 1280, height: 720 };
+    const x0 = bounds.x || 0;
+    const y0 = bounds.y || 0;
+    const x1 = x0 + (bounds.width || 1280);
+    const y1 = y0 + (bounds.height || 720);
+    const layer = this.add.container(0, 0).setDepth(10000);
+    const g = this.add.graphics();
+    g.lineStyle(1, 0x70d7ff, 0.22);
+    for (let x = x0; x <= x1; x += 100) g.lineBetween(x, y0, x, y1);
+    for (let y = y0; y <= y1; y += 100) g.lineBetween(x0, y, x1, y);
+    g.lineStyle(1, 0xfff2a8, 0.65);
+    for (let x = x0; x <= x1; x += 500) g.lineBetween(x, y0, x, y1);
+    for (let y = y0; y <= y1; y += 500) g.lineBetween(x0, y, x1, y);
+    layer.add(g);
+
+    const labelStyle = {
+      fontFamily: '"Consolas", monospace',
+      fontSize: '11px',
+      color: '#d8f7ff',
+      backgroundColor: '#061114aa',
+      padding: { x: 2, y: 1 },
+    };
+    for (let x = x0; x <= x1; x += 200) layer.add(this.add.text(x + 3, y0 + 4, `${Math.round(x)}`, labelStyle));
+    for (let y = y0; y <= y1; y += 200) layer.add(this.add.text(x0 + 4, y + 3, `${Math.round(y)}`, labelStyle));
+    this._rulerCoordText = this.add.text(12, 690, '', labelStyle)
+      .setScrollFactor(0)
+      .setDepth(10001);
+    layer.add(this._rulerCoordText);
+    this._rulerLayer = layer;
+    this.updateRulerText();
+  }
+
+  updateRulerText() {
+    if (!this._rulerCoordText || !this.player) return;
+    const cam = this.cameras && this.cameras.main;
+    const scroll = cam ? ` cam ${Math.round(cam.scrollX)}, ${Math.round(cam.scrollY)}` : '';
+    this._rulerCoordText.setText(`player ${Math.round(this.player.x)}, ${Math.round(this.player.y)}${scroll}`);
+  }
+
   updateWeaponHUD() {
     if (!this.weaponHUD) return;
     const wp = (this._loadoutEff && this._loadoutEff.weapon) || null;
