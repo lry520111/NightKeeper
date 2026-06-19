@@ -17,7 +17,7 @@ import SaveSlotsScene from './scenes/SaveSlotsScene.js';
 import RelicChatScene from './scenes/RelicChatScene.js';
 import CuratorMenuScene from './scenes/CuratorMenuScene.js';
 import TrainingScene from './scenes/TrainingScene.js';
-
+import BossRoomScene from './scenes/BossRoomScene.js';
 const config = {
   type: Phaser.AUTO,
   parent: 'game-root',
@@ -69,7 +69,8 @@ const config = {
     SaveSlotsScene,
     RelicChatScene,
     CuratorMenuScene,
-    TrainingScene
+    TrainingScene,
+    BossRoomScene
   ]
 };
 

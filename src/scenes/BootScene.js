@@ -172,6 +172,27 @@ export default class BootScene extends Phaser.Scene {
         this.load.image(`nk_pirate_${dir}_${i}`, `assets/characters/hero/pirates/${dir}${i}.png`);
       }
     }
+
+    // —— Boss 房间地图 + Boss 角色贴图 ——
+    // 房间背景图（玩家/Boss 在其上方战斗，边缘放一圈碰撞箱）
+    this.load.image('boss_room_bg', 'assets/rooms/boss_room.png');
+
+    // Boss 待机 (idle) 7 帧
+    for (let i = 1; i <= 7; i++) {
+      this.load.image(`boss_idle_${i}`, `assets/characters/enemies/boss_new/boss/%E5%BE%85%E6%9C%BA/idle-sprites/${i}.png`);
+    }
+    // Boss 四向行走（每方向 7 帧）
+    for (const d of nkDirs) {
+      for (let i = 1; i <= 7; i++) {
+        this.load.image(`boss_walk_${d}_${i}`, `assets/characters/enemies/boss_new/boss/%E5%9B%9B%E5%90%91%E8%A1%8C%E8%B5%B0/walk/${d}${i}.png`);
+      }
+    }
+    // Boss 三个技能（各 10 帧）
+    for (let s = 1; s <= 3; s++) {
+      for (let i = 1; i <= 10; i++) {
+        this.load.image(`boss_skill${s}_${i}`, `assets/characters/enemies/boss_new/boss/skill${s}/skill${s}-sprites/${i}.png`);
+      }
+    }
   }
 
   create() {
@@ -2342,7 +2363,7 @@ export default class BootScene extends Phaser.Scene {
           // NPC 没有专门的 run 表：将 run 别名指向 idle
           const runAlias = `${ch}_run_${d.name}`;
           if (!this.anims.exists(runAlias)) {
-            this.anims.create({
+          this.anims.create({
               key: runAlias,
               frames: this.anims.generateFrameNumbers(idleKey, { start: base, end }),
               frameRate: 9,
@@ -2350,6 +2371,46 @@ export default class BootScene extends Phaser.Scene {
             });
           }
         }
+      }
+    }
+
+    // —— Boss 动画注册 ——
+    this._registerBossAnims();
+  }
+
+  _registerBossAnims() {
+    // idle（7 帧循环）
+    if (!this.anims.exists('boss_idle') && this.textures.exists('boss_idle_1')) {
+      this.anims.create({
+        key: 'boss_idle',
+        frames: Array.from({ length: 7 }, (_, i) => ({ key: `boss_idle_${i + 1}` })),
+        frameRate: 7,
+        repeat: -1,
+      });
+    }
+    // walk 四向（每方向 7 帧循环）
+    const dirs = ['down', 'left', 'right', 'up'];
+    for (const d of dirs) {
+      const animKey = `boss_walk_${d}`;
+      if (!this.anims.exists(animKey) && this.textures.exists(`boss_walk_${d}_1`)) {
+        this.anims.create({
+          key: animKey,
+          frames: Array.from({ length: 7 }, (_, i) => ({ key: `boss_walk_${d}_${i + 1}` })),
+          frameRate: 10,
+          repeat: -1,
+        });
+      }
+    }
+    // skill1/2/3（每技能 10 帧不循环）
+    for (let s = 1; s <= 3; s++) {
+      const animKey = `boss_skill${s}`;
+      if (!this.anims.exists(animKey) && this.textures.exists(`boss_skill${s}_1`)) {
+        this.anims.create({
+          key: animKey,
+          frames: Array.from({ length: 10 }, (_, i) => ({ key: `boss_skill${s}_${i + 1}` })),
+          frameRate: 12,
+          repeat: 0,
+        });
       }
     }
   }

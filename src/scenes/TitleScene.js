@@ -125,10 +125,30 @@ export default class TitleScene extends Phaser.Scene {
         label: '［ 结局预览 · 开发 ］',
         size: '12px',
         color: '#5a4a20',
-        gapBelow: 0,
+        gapBelow: 22,
         onClick: () => {
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('EndingPreviewScene'));
+        }
+      },
+      {
+        // 开发期 / 演示期工具：跳过黑市直接进入 Boss 房
+        label: '［ Boss 房 · 开发 ］',
+        size: '12px',
+        color: '#5a4a20',
+        gapBelow: 0,
+        onClick: () => {
+          this.cameras.main.fadeOut(300, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('BossRoomScene', {
+              biome: 'blackmarket',
+              inventory: { items: [], totalValue: 0 },
+              playerHP: 6,
+              runStats: { kills: 0, alerts: 0, devEntry: true },
+              bonusGold: 0,
+              bonusRep: 0,
+            });
+          });
         }
       }
     ];

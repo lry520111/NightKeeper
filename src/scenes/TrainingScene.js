@@ -44,33 +44,26 @@ const BLADE_SKILL_HIT_RECTS = [
 const BLADE_SKILL_FRAME_Y_OFFSETS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 10];
 const BLADE_SKILL_FRAME_X_OFFSETS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14];
 const SKILL2_COOLDOWN = 2400;
-const SKILL2_DURATION = 3150;
-const SKILL2_FW = 821;
+const SKILL2_DURATION = 3150;const SKILL2_FW = 821;
 const SKILL2_FH = 320;
 const SKILL2_ANCHOR_X = 495;
 const SKILL2_SCALE = 0.66;
 const SKILL2_FINAL_OFFSET_X = -105;
 const SKILL2_FRAME_X_OFFSETS = Array(22).fill(0);
 const SKILL2_FRAME_Y_OFFSETS = [0, 0, 9, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+// Sparse hitboxes: only 5 key frames deal damage (was 17 frames).
 const SKILL2_HIT_RECTS = [
-  null, null, null,
-  { x: 315, y: 195, w: 205, h: 120 },
+  null, null, null, null,
   { x: 250, y: 145, w: 360, h: 175 },
-  { x: 245, y: 145, w: 315, h: 175 },
-  { x: 205, y: 105, w: 340, h: 215 },
-  { x: 220, y: 105, w: 350, h: 220 },
-  { x: 225, y: 115, w: 335, h: 205 },
+  null, null, null,
   { x: 235, y: 100, w: 260, h: 215 },
-  { x: 225, y: 60, w: 385, h: 260 },
-  { x: 245, y: 60, w: 330, h: 260 },
+  null, null, null,
   { x: 230, y: 70, w: 390, h: 250 },
-  { x: 220, y: 45, w: 390, h: 275 },
-  { x: 230, y: 55, w: 350, h: 265 },
-  { x: 215, y: 45, w: 370, h: 275 },
+  null, null, null,
   { x: 250, y: 45, w: 385, h: 270 },
-  { x: 230, y: 50, w: 420, h: 250 },
+  null, null,
   { x: 230, y: 45, w: 420, h: 275 },
-  { x: 330, y: 125, w: 150, h: 115 },
+  null,
   null,
   null,
 ];

@@ -69,33 +69,26 @@ const HERO_SKILL2 = {
   animMs: 3150,
   damage: 1,
   knockMul: 2.2
-};
-const HERO_SKILL2_FW = 821;
+};const HERO_SKILL2_FW = 821;
 const HERO_SKILL2_FH = 320;
 const HERO_SKILL2_ANCHOR_X = 495;
 const HERO_SKILL2_SCALE = 0.66;
 const HERO_SKILL2_FINAL_OFFSET_X = -105;
 const HERO_SKILL2_FRAME_X_OFFSETS = Array(22).fill(0);
 const HERO_SKILL2_FRAME_Y_OFFSETS = [0, 0, 9, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+// Sparse hitboxes: only 5 key frames deal damage (was 17 frames).
 const HERO_SKILL2_HIT_RECTS = [
-  null, null, null,
-  { x: 315, y: 195, w: 205, h: 120 },
+  null, null, null, null,
   { x: 250, y: 145, w: 360, h: 175 },
-  { x: 245, y: 145, w: 315, h: 175 },
-  { x: 205, y: 105, w: 340, h: 215 },
-  { x: 220, y: 105, w: 350, h: 220 },
-  { x: 225, y: 115, w: 335, h: 205 },
+  null, null, null,
   { x: 235, y: 100, w: 260, h: 215 },
-  { x: 225, y: 60, w: 385, h: 260 },
-  { x: 245, y: 60, w: 330, h: 260 },
+  null, null, null,
   { x: 230, y: 70, w: 390, h: 250 },
-  { x: 220, y: 45, w: 390, h: 275 },
-  { x: 230, y: 55, w: 350, h: 265 },
-  { x: 215, y: 45, w: 370, h: 275 },
+  null, null, null,
   { x: 250, y: 45, w: 385, h: 270 },
-  { x: 230, y: 50, w: 420, h: 250 },
+  null, null,
   { x: 230, y: 45, w: 420, h: 275 },
-  { x: 330, y: 125, w: 150, h: 115 },
+  null,
   null,
   null,
 ];
@@ -675,11 +668,13 @@ export default class MuseumScene extends Phaser.Scene {
       .staticImage(exitTx * TILE, exitTy * TILE, 'tex_exit')
       .setOrigin(0, 0)
       .setDepth(1);
+    const exitLabel = (this.biome && this.biome.id === 'blackmarket') ? 'Boss 房' : '撤 离';
+    const exitColor = (this.biome && this.biome.id === 'blackmarket') ? '#ff7a8c' : '#7ae8e8';
     this.add
-      .text(this.exitZone.x + 16, this.exitZone.y - 14, '撤 离', {
+      .text(this.exitZone.x + 16, this.exitZone.y - 14, exitLabel, {
         fontFamily: '"PingFang SC", serif',
         fontSize: '12px',
-        color: '#7ae8e8'
+        color: exitColor
       })
       .setOrigin(0.5)
       .setDepth(2);
@@ -2989,13 +2984,24 @@ export default class MuseumScene extends Phaser.Scene {
           this.exitZone.y + 16
         ) < 30;
       if (inExit) {
-        const cnt = this.inventory.items.length;
-        this.pickupPrompt
-          .setText(cnt > 0 ? `E  撤离（带回 ${cnt} 件，价值 ${this.inventory.totalValue()}）` : 'E  撤离（空手而归）')
-          .setPosition(this.exitZone.x + 16, this.exitZone.y - 6)
-          .setVisible(true);
-        if (Phaser.Input.Keyboard.JustDown(this.keys.E)) {
-          this.endRun(true);
+        const isBlackmarket = (this.biome && this.biome.id === 'blackmarket');
+        if (isBlackmarket) {
+          this.pickupPrompt
+            .setText('E  进入 Boss 房（影鸦巢穴）')
+            .setPosition(this.exitZone.x + 16, this.exitZone.y - 6)
+            .setVisible(true);
+          if (Phaser.Input.Keyboard.JustDown(this.keys.E)) {
+            this._enterBossRoom();
+          }
+        } else {
+          const cnt = this.inventory.items.length;
+          this.pickupPrompt
+            .setText(cnt > 0 ? `E  撤离（带回 ${cnt} 件，价值 ${this.inventory.totalValue()}）` : 'E  撤离（空手而归）')
+            .setPosition(this.exitZone.x + 16, this.exitZone.y - 6)
+            .setVisible(true);
+          if (Phaser.Input.Keyboard.JustDown(this.keys.E)) {
+            this.endRun(true);
+          }
         }
       } else {
         this.pickupPrompt.setVisible(false);
@@ -3301,6 +3307,30 @@ export default class MuseumScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('ResultScene', { success, items, value, reason, bonusGold, bonusRep, runStats });
     });  }
+
+  // 黑市左上角入口 → 进入 Boss 房
+  _enterBossRoom() {
+    if (this._ended) return;
+    this._ended = true;
+    Audio.heartbeat.stop();
+    this.physics.pause();
+    // 把当前局内进度送入 BossRoomScene；击败 Boss 后会接到 ResultScene 完成结算
+    const inventoryPayload = {
+      items: this.inventory.list(),
+      totalValue: this.inventory.totalValue(),
+    };
+    this.cameras.main.fadeOut(450, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('BossRoomScene', {
+        biome: this.biome && this.biome.id,
+        inventory: inventoryPayload,
+        playerHP: this.playerState ? this.playerState.hp : undefined,
+        runStats: this._runStats,
+        bonusGold: this._bonusGold || 0,
+        bonusRep: this._bonusRep || 0,
+      });
+    });
+  }
 
   // ============================================================
   //  容器系统
