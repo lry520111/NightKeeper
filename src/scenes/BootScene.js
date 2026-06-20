@@ -121,6 +121,38 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('hub_object', 'assets/maps/hub02/hub_object.png');
     this.load.image('training_ground', 'assets/maps/training/training_ground.png');
 
+    const titleShots = [
+      'shot01_museum_exterior.png',
+      'shot02_relic_case.png',
+      'shot03_theft_panels.png',
+      'shot04_blackmarket.png',
+      'shot05_blackmarket_panels.png',
+      'shot06_ship.png',
+      'shot07_ship_panels.png',
+      'shot08_protagonist_hall.png',
+      'shot09_protagonist_panels.png',
+      'shot10_relic_returned.png',
+    ];
+    titleShots.forEach((file, idx) => {
+      this.load.image(`title_anim_${String(idx + 1).padStart(2, '0')}`, `assets/title/${file}`);
+    });
+    const titlePanels = [
+      ['title_panel_6_1', 'shot05_panel_1.png'],
+      ['title_panel_6_2', 'shot05_panel_2.png'],
+      ['title_panel_6_3', 'shot05_panel_3.png'],
+      ['title_panel_6_4', 'shot05_panel_4.png'],
+      ['title_panel_8_1', 'shot07_panel_1.png'],
+      ['title_panel_8_2', 'shot07_panel_2.png'],
+      ['title_panel_8_3', 'shot07_panel_3.png'],
+      ['title_panel_8_4', 'shot07_panel_4.png'],
+      ['title_panel_10_1', 'shot09_panel_blackmarket.png'],
+      ['title_panel_10_2', 'shot09_panel_ship.png'],
+      ['title_hero_cutout', 'title_hero_cutout.png'],
+    ];
+    titlePanels.forEach(([key, file]) => {
+      this.load.image(key, `assets/title/${file}`);
+    });
+
     // —— 任务关卡（博物馆）8 张高质量房间贴图 ——
     // 与 hub_02 同画风（深色砖墙 + 暗红/暗金中式纹饰），运行时按 roomTemplates 拼接
     // 室内尺寸、门洞坐标、墙体碰撞均在 src/data/roomTemplates.js 中以世界像素为单位标注
