@@ -9,10 +9,10 @@ const TITLE_SHOTS = [
   { key: 'title_anim_01', duration: 4000, start: 1.04, end: 1.1, offsetX: -78, panX: 18, panY: 14, fog: true, shimmer: true },
   { key: 'title_anim_02', duration: 3000, start: 1.08, end: 1.18, offsetX: -165, panX: 10, panY: 0, zoom: true, sweep: true, sweepAlpha: 0.1, relicGlow: true },
   { key: 'title_anim_03', duration: 5000, start: 1.0, end: 1.0, panX: 0, panY: 0, comic: true },
-  { key: 'title_anim_04', duration: 6000, start: 1.04, end: 1.04, offsetX: -18, panX: -78, panY: 0, cluePanels: ['title_panel_6_1', 'title_panel_6_2', 'title_panel_6_3', 'title_panel_6_4'], clueSide: 'left', lantern: true, investigation: true },
+  { key: 'title_anim_04', duration: 6000, start: 1.0, end: 1.05, offsetX: -18, panX: 30, panY: 0, zoom: true, alarm: true, cluePanels: ['title_panel_6_1', 'title_panel_6_2', 'title_panel_6_3', 'title_panel_6_4'], clueSide: 'left', lantern: true, investigation: true },
   { key: 'title_anim_06', duration: 6000, start: 1.05, end: 1.12, offsetX: -42, panX: 10, panY: 3, zoom: true, cluePanels: ['title_panel_8_1', 'title_panel_8_2', 'title_panel_8_3', 'title_panel_8_4'], clueSide: 'right', ship: true, fog: true },
-  { key: 'title_anim_08', duration: 8000, start: 1.03, end: 1.13, panX: 0, panY: 8, zoom: true, convergencePanels: ['title_panel_10_1', 'title_panel_10_2'], convergence: true, alarm: true },
-  { key: 'title_anim_10', duration: 6000, start: 1.06, end: 1.1, panX: 0, panY: 0, zoom: true, returned: true, sweep: true, sweepAlpha: 0.08 },
+  { key: 'title_bg_09', duration: 10000, start: 1.0, end: 1.0, panX: 0, panY: 0, convergencePanels: ['title_panel_10_1', 'title_panel_10_2'], convergence: true },
+  { key: 'title_anim_10', duration: 9000, start: 1.06, end: 1.1, panX: 0, panY: 0, zoom: true, returned: true, sweep: true, sweepAlpha: 0.08 },
 ];
 
 export default class TitleScene extends Phaser.Scene {
@@ -777,66 +777,82 @@ export default class TitleScene extends Phaser.Scene {
   _playTitleConvergence(shot, width, height) {
     this._titleComicObjects = this._titleComicObjects || [];
     this._titleComicTimers = this._titleComicTimers || [];
-    const scale = this._coverScale(shot.key, width, height) * (shot.start || 1);
+    const bgScale = this._coverScale(shot.key, width, height) * (shot.start || 1);
     const baseX = width / 2 + (shot.offsetX || 0);
     const baseY = height / 2 + (shot.offsetY || 0);
 
-    const makePanel = (key, fromX, fromY, delay, duration) => {
-      if (!this.textures.exists(key)) return null;
-      const image = this.add.image(baseX + fromX, baseY + fromY, key)
+    // 10-1 / 10-2 一起原地淡入，不再滑动
+    const panels = shot.convergencePanels || [];
+    let p10_1 = null;
+    let p10_2 = null;
+
+    if (panels[0] && this.textures.exists(panels[0])) {
+      p10_1 = this.add.image(baseX, baseY, panels[0])
         .setOrigin(0.5)
-        .setScale(scale)
+        .setScale(bgScale)
         .setAlpha(0)
         .setDepth(-23);
-      this._titleComicObjects.push(image);
-      this.tweens.add({
-        targets: image,
-        x: baseX,
-        y: baseY,
-        alpha: 1,
-        delay,
-        duration,
-        ease: 'Sine.out'
-      });
-      return image;
-    };
+      this._titleComicObjects.push(p10_1);
+    }
+    if (panels[1] && this.textures.exists(panels[1])) {
+      p10_2 = this.add.image(baseX, baseY, panels[1])
+        .setOrigin(0.5)
+        .setScale(bgScale)
+        .setAlpha(0)
+        .setDepth(-22);
+      this._titleComicObjects.push(p10_2);
+    }
 
-    const panels = shot.convergencePanels || [];
-    const blackmarket = makePanel(panels[0], -18, -14, 2000, 1000);
-    const ship = makePanel(panels[1], 18, -14, 3800, 1000);
-    const hero = this.textures.exists('title_hero_cutout')
-      ? this.add.image(width * 0.505, height * 0.635, 'title_hero_cutout')
+    // 两幅面板一起淡入
+    this.tweens.add({
+      targets: [p10_1, p10_2].filter(Boolean),
+      alpha: 1,
+      delay: 2000,
+      duration: 900,
+      ease: 'Sine.out'
+    });
+
+    // === 人物（hero.png，图层必须在 10-1 和 10-2 之上）===
+    // 位置与大小参考 参考.png（1672×941 画布中 hero.png 的定位）
+    const heroTex = this.textures.exists('title_hero_09') ? 'title_hero_09' : null;
+    const hero = heroTex
+      ? this.add.image(width * 0.515, height * 0.825, heroTex)
         .setOrigin(0.5, 1)
-        .setScale(1.02)
+        .setScale(1.25)
         .setAlpha(0)
         .setDepth(-15)
       : null;
+
     if (hero) {
       this._titleComicObjects.push(hero);
+      // 人物随画布淡入
       this.tweens.add({
         targets: hero,
         alpha: 1,
-        y: height * 0.625,
         duration: 900,
+        delay: 400,
         ease: 'Sine.out'
       });
+      // 极缓慢放大，增加呼吸感
       this.tweens.add({
         targets: hero,
-        scale: 1.07,
-        duration: 5200,
-        delay: 1800,
+        scale: 1.30,
+        duration: 6200,
+        delay: 3400,
         ease: 'Sine.inOut'
       });
     }
 
+    // 面板抖动缩放（淡入完成后立即开始）
     this.tweens.add({
-      targets: [blackmarket, ship].filter(Boolean),
-      scale: scale * 1.025,
+      targets: [p10_1, p10_2].filter(Boolean),
+      scale: bgScale * 1.025,
       duration: 4000,
-      delay: 5200,
+      delay: 3000,
       ease: 'Sine.inOut'
     });
 
+    // 光晕效果
     const rim = this.add.circle(width * 0.505, height * 0.58, Math.min(width, height) * 0.075, 0xd4af37, 0)
       .setDepth(-17)
       .setBlendMode(Phaser.BlendModes.ADD);
@@ -845,14 +861,15 @@ export default class TitleScene extends Phaser.Scene {
       targets: rim,
       alpha: { from: 0, to: 0.055 },
       scale: { from: 0.9, to: 1.06 },
-      delay: 5600,
+      delay: 5000,
       duration: 1200,
       ease: 'Sine.inOut',
       yoyo: true,
       repeat: 1
     });
 
-    this._titleComicTimers.push(this.time.delayedCall(6600, () => {
+    // 扫光
+    this._titleComicTimers.push(this.time.delayedCall(6000, () => {
       this._titleSweep
         .setPosition(width * 0.46, height * 0.58)
         .setAngle(-24)
@@ -867,11 +884,12 @@ export default class TitleScene extends Phaser.Scene {
       });
     }));
 
+    // 收尾压暗
     const dim = this.add.rectangle(0, 0, width, height, 0x000000, 0)
       .setOrigin(0, 0)
       .setDepth(-16);
     this._titleComicObjects.push(dim);
-    this._titleComicTimers.push(this.time.delayedCall(7500, () => {
+    this._titleComicTimers.push(this.time.delayedCall(7300, () => {
       this.tweens.add({ targets: dim, alpha: 0.24, duration: 500, ease: 'Sine.inOut' });
     }));
   }
@@ -905,8 +923,9 @@ export default class TitleScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setDepth(-16);
     this._titleComicObjects.push(dim);
-    this._titleComicTimers.push(this.time.delayedCall(Math.max(0, shot.duration - 500), () => {
-      this.tweens.add({ targets: dim, alpha: 0.32, duration: 500, ease: 'Sine.inOut' });
+    // 缓慢变黑：提前 3000ms 开始，2500ms 内渐变至全黑
+    this._titleComicTimers.push(this.time.delayedCall(Math.max(0, shot.duration - 3000), () => {
+      this.tweens.add({ targets: dim, alpha: 1, duration: 2500, ease: 'Sine.inOut' });
     }));
   }
 

@@ -4,7 +4,7 @@ import Audio from '../systems/AudioFx.js';
 const W = 1280;
 const H = 720;
 const PLAYER_SPEED = 190;
-const ATTACK_RANGE = 92;
+const ATTACK_RANGE = 32;
 const ATTACK_ARC = Math.PI * 0.58;
 const ATTACK_COOLDOWN = 260;
 const BLADE_SKILL_RANGE = 280;
@@ -114,9 +114,28 @@ export default class TrainingScene extends Phaser.Scene {
       this._charTypes.push('hongfa');
       this._charConfigs.hongfa = { tex:'hero_hongfa', scale:1.05, bodyW:22, bodyH:12, bodyOx:21, bodyOy:48, prefix:'hero', directional:false };
     }
+    if (this.textures.exists('hero_bow_walk_down_1')) {
+      this._charTypes.push('bow');
+      this._charConfigs.bow = { tex:'hero_bow_walk_down_1', scale:0.28, bodyW:36, bodyH:22, bodyOx:55, bodyOy:193, prefix:'hero_bow', directional:true };
+    }
     this._charIndex = 0;
     this.player = this.physics.add.sprite(W / 2, H - 175, 'hero_hongfa', 0);
     this._applyCharConfig(0);
+
+    // 鼠标瞄准追踪 + 左键射击
+    this._mouseWorldX = W / 2;
+    this._mouseWorldY = H / 2;
+    this.input.on('pointermove', (pointer) => {
+      const cam = this.cameras.main;
+      this._mouseWorldX = pointer.x + cam.scrollX;
+      this._mouseWorldY = pointer.y + cam.scrollY;
+    });
+    this.input.on('pointerdown', (pointer) => {
+      if (pointer.leftButtonDown()) {
+        this.tryAttack(this.time.now);
+      }
+    });
+    this._projectiles = [];
 
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(this.player.y);
@@ -135,9 +154,9 @@ export default class TrainingScene extends Phaser.Scene {
     if (this.anims.exists(idleUp)) this.player.play(idleUp);
 
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,U,Y,E,C,R,ESC,SPACE');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,U,Y,E,C,R,M,ESC,SPACE');
 
-    this.hud = this.add.text(18, 16, '训练场  WASD移动  J/空格攻击  U持刀技能  Y第二技能  C切换角色  R标尺  靠近下方门按E返回大厅', {
+    this.hud = this.add.text(18, 16, '训练场  WASD移动  鼠标瞄准  J/空格攻击  U持刀技能  Y第二技能  C切换角色  M设置  R标尺  靠近下方门按E返回大厅', {
       fontFamily: '"PingFang SC", "Microsoft YaHei", serif',
       fontSize: '14px',
       color: '#ffe9a6',
@@ -197,11 +216,70 @@ export default class TrainingScene extends Phaser.Scene {
     if (!type) return;
     const cfg = this._charConfigs[type];
     if (!cfg) return;
+
+    // 移除旧的归一化器监听
+    if (this.player._proFrameNormalizer) {
+      this.player.off('animationupdate', this.player._proFrameNormalizer);
+      this.player.off('animationstart', this.player._proFrameNormalizer);
+      this.player.off('animationcomplete', this.player._proAnimCompleteNormalizer);
+      this.player._proFrameNormalizer = null;
+      this.player._proAnimCompleteNormalizer = null;
+    }
+    if (this.player._bowFrameNormalizer) {
+      this.player.off('animationupdate', this.player._bowFrameNormalizer);
+      this.player._bowFrameNormalizer = null;
+    }
+
     this.player.setTexture(cfg.tex, 0);
     this.player.setScale(cfg.scale);
     this.player.body.setSize(cfg.bodyW, cfg.bodyH).setOffset(cfg.bodyOx, cfg.bodyOy);
     this._useKnifeHero = (type === 'knife');
+    this._useBowHero = (type === 'bow');
     this._heroAnimPrefix = cfg.prefix;
+
+    // —— pro_attack / block 帧归一化器：持刀/弓角色播放攻击动画时保持身体大小一致 ——
+    const _isProBlockAnimKey = (key) => (
+      typeof key === 'string'
+      && (key.startsWith('hero_pro_attack') || key.startsWith('hero_block'))
+    );
+    {
+      const proScaleMul = 1.9;
+      const proFixedScale = cfg.scale * proScaleMul;
+      const proNormalizer = (anim) => {
+        if (!anim || typeof anim.key !== 'string') return;
+        if (_isProBlockAnimKey(anim.key)) {
+          if (this.player.scale !== proFixedScale) this.player.setScale(proFixedScale);
+        } else {
+          if (this.player.scale !== cfg.scale) this.player.setScale(cfg.scale);
+        }
+      };
+      const proAnimCompleteNormalizer = (anim) => {
+        if (!anim || typeof anim.key !== 'string') return;
+        if (_isProBlockAnimKey(anim.key)) {
+          if (this.player.scale !== cfg.scale) this.player.setScale(cfg.scale);
+        }
+      };
+      this.player.on('animationupdate', proNormalizer);
+      this.player.on('animationstart', proNormalizer);
+      this.player.on('animationcomplete', proAnimCompleteNormalizer);
+      this.player._proFrameNormalizer = proNormalizer;
+      this.player._proAnimCompleteNormalizer = proAnimCompleteNormalizer;
+    }
+    // —— 弓帧高度归一化器 ——
+    if (type === 'bow') {
+      const refTex = this.textures.get(cfg.tex);
+      const refH = (refTex && refTex.getSourceImage && refTex.getSourceImage().height) || 204;
+      const bowNormalizer = (anim, frame) => {
+        if (!frame || !frame.frame || !frame.frame.realHeight) return;
+        const fh = frame.frame.realHeight;
+        if (fh <= 0) return;
+        const s = cfg.scale * (refH / fh);
+        if (Math.abs(this.player.scale - s) > 0.001) this.player.setScale(s);
+      };
+      this.player.on('animationupdate', bowNormalizer);
+      this.player._bowFrameNormalizer = bowNormalizer;
+    }
+
     const dir = this._playerDir || 'up';
     if (this.anims.exists(`${cfg.prefix}_idle_${dir}`)) this.player.play(`${cfg.prefix}_idle_${dir}`);
   }
@@ -213,8 +291,43 @@ export default class TrainingScene extends Phaser.Scene {
     this._applyCharConfig(this._charIndex);
   }
 
-  update(time) {
+  update(time, delta) {
+    if (this._settingsOpen) { this._updateSettings(); return; }
     if (!this.player || !this.player.body) return;
+
+    // —— 处理飞行弹射物（弓箭等） ——
+    if (this._projectiles && this._projectiles.length > 0) {
+      const dt = delta || 16;
+      for (let i = this._projectiles.length - 1; i >= 0; i--) {
+        const p = this._projectiles[i];
+        p.g.x += p.vx * (dt / 1000);
+        p.g.y += p.vy * (dt / 1000);
+        p.life -= dt;
+        if (p.skipFrames > 0) { p.skipFrames--; continue; }
+
+        let hit = false;
+        for (const d of this.dummies) {
+          const dx = p.g.x - d.x;
+          const dy = p.g.y - (d.y - 18);
+          if (Math.hypot(dx, dy) < 27) {
+            this.hitDummy(d, Math.atan2(p.vy, p.vx));
+            hit = true;
+            break;
+          }
+        }
+
+        const oob = p.g.x < 0 || p.g.x > W || p.g.y < 0 || p.g.y > H;
+        if (hit || oob || p.life <= 0) {
+          if (p.g && p.g.active) p.g.destroy();
+          this._projectiles.splice(i, 1);
+          if (hit) {
+            this._hits += 1;
+            this.comboText.setText(`命中 ${this._hits}`);
+            this.cameras.main.shake(40, 0.0015);
+          }
+        }
+      }
+    }
 
     if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
       this.returnToHub();
@@ -232,6 +345,9 @@ export default class TrainingScene extends Phaser.Scene {
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys.R)) {
       this.toggleRuler();
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.M)) {
+      this._toggleSettings();
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys.C)) {
       this._switchCharacter();
@@ -274,8 +390,37 @@ export default class TrainingScene extends Phaser.Scene {
   }
 
   updatePlayerAnim(attacking) {
-    const useDirectional = this._useKnifeHero;
+    const useDirectional = this._useKnifeHero || this._useBowHero;
     if (attacking) {
+      if (this._useBowHero) {
+        // 弓：播放 4 方向射击动画
+        const shootDir = this._attackDir || this._playerDir;
+        const shootKey = `hero_bow_shoot_${shootDir}`;
+        if (this.anims.exists(shootKey)) {
+          if (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== shootKey) {
+            this.player.play(shootKey, true);
+          }
+          this.player.setFlipX(false);
+        } else if (this.anims.exists('hero_bow_shoot')) {
+          if (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== 'hero_bow_shoot') {
+            this.player.play('hero_bow_shoot', true);
+          }
+          this.player.setFlipX(this._playerDir === 'left');
+        }
+        return;
+      }
+      if (this._useKnifeHero) {
+        // 刀：优先使用 4 方向 pro_attack 高质量连击
+        const dir4 = this._attackDir || this._playerDir;
+        const proKey = `hero_pro_attack_${dir4}`;
+        if (this.anims.exists(proKey)) {
+          if (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== proKey) {
+            this.player.play(proKey, true);
+          }
+          this.player.setFlipX(false);
+          return;
+        }
+      }
       const attackKey = useDirectional
         ? `${this._heroAnimPrefix}_attack_${this._attackDir || this._playerDir}`
         : 'hero_attack';
@@ -300,14 +445,35 @@ export default class TrainingScene extends Phaser.Scene {
     if (time < this._cooldownUntil) return;
     if (time < this._skillUntil) return;
     if (time < this._skill2Until) return;
+
+    // —— 弓：射箭到鼠标指向的位置 ——
+    if (this._useBowHero) {
+      this._cooldownUntil = time + 1000;
+      this._attackUntil = time + 400;
+      const aim = Math.atan2(
+        this._mouseWorldY - this.player.y,
+        this._mouseWorldX - this.player.x
+      );
+      // 根据鼠标方向判定攻击朝向（用于选择正确方向的射击动画）
+      if (Math.abs(Math.cos(aim)) > Math.abs(Math.sin(aim))) {
+        this._attackDir = Math.cos(aim) > 0 ? 'right' : 'left';
+      } else {
+        this._attackDir = Math.sin(aim) > 0 ? 'down' : 'up';
+      }
+      this.spawnBowProjectile(aim);
+      if (Audio && Audio.sfx && Audio.sfx.bow) Audio.sfx.bow();
+      return;
+    }
+
+    // —— 近战（刀/红发） ——
     this._cooldownUntil = time + ATTACK_COOLDOWN;
-    this._attackUntil = time + 210;
+    this._attackUntil = time + 480;
     this._attackDir = this._playerDir;
 
     const angle = dirToAngle(this._playerDir);
     const sx = this.player.x;
     const sy = this.player.y - 8;
-    this.drawSlash(sx, sy, angle);
+    // this.drawSlash(sx, sy, angle); // 隐藏攻击区域框
 
     let hitCount = 0;
     for (const d of this.dummies) {
@@ -325,6 +491,27 @@ export default class TrainingScene extends Phaser.Scene {
       this.comboText.setText(`命中 ${this._hits}`);
       this.cameras.main.shake(45, 0.0018);
     }
+  }
+
+  /** 生成箭矢弹射物，飞向鼠标瞄准方向 */
+  spawnBowProjectile(aim) {
+    const px = this.player.x + Math.cos(aim) * 10;
+    const py = this.player.y + Math.sin(aim) * 10;
+    const speed = 520;
+    const g = this.add.graphics().setDepth(430);
+    g.fillStyle(0xffeebb, 1).fillRect(-7, -1.2, 14, 2.4);
+    g.fillStyle(0x8b5a3c, 1).fillRect(5, -2, 2.5, 4);
+    g.fillStyle(0x3a3a3a, 1).fillCircle(-7, 0, 1.5);
+    g.x = px;
+    g.y = py;
+    g.rotation = aim;
+    this._projectiles.push({
+      g,
+      vx: Math.cos(aim) * speed,
+      vy: Math.sin(aim) * speed,
+      life: 1500,
+      skipFrames: 2,
+    });
   }
 
   tryBladeSkill(time) {
@@ -684,5 +871,85 @@ export default class TrainingScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('HubScene');
     });
+  }
+
+  // ===========================================================
+  // 设置面板（M 键）
+  // ===========================================================
+  _toggleSettings() {
+    if (this._settingsOpen) { this._closeSettings(); return; }
+    this._openSettings();
+  }
+  _openSettings() {
+    if (this._settingsOpen) return;
+    this._settingsOpen = true;
+    const bg = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.65).setDepth(3000);
+    const panel = this.add.rectangle(W / 2, H / 2, 420, 260, 0x1a1220, 0.92)
+      .setStrokeStyle(2, 0xd4af37, 0.8).setDepth(3001);
+    const title = this.add.text(W / 2, H / 2 - 95, '⚙ 设  置', {
+      fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '20px', color: '#ffe9a6',
+    }).setOrigin(0.5).setDepth(3002);
+    const closeHint = this.add.text(W / 2, H / 2 + 115, 'M / ESC 关闭  ·  W/S 切换  ·  ← → 调整', {
+      fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '12px', color: '#9a8a6a',
+    }).setOrigin(0.5).setDepth(3002);
+    this._settingsData = { bg, panel, title, closeHint, selected: 0 };
+    this._settingsBgmVol = 0.50;
+    this._settingsSfxVol = 0.50;
+    this._drawSettingsSliders();
+  }
+  _drawSettingsSliders() {
+    const d = this._settingsData; if (!d) return;
+    if (d.bgmLabel) { d.bgmLabel.destroy(); d.barBgBgm.destroy(); d.barBgm.destroy(); }
+    if (d.sfxLabel) { d.sfxLabel.destroy(); d.barBgSfx.destroy(); d.barSfx.destroy(); }
+    const cx = W / 2, cy = H / 2, bw = 240, selBgm = d.selected === 0, selSfx = d.selected === 1;
+    d.bgmLabel = this.add.text(cx - bw / 2, cy - 55, `BGM 音量  ${Math.round(this._settingsBgmVol * 100)}%`, {
+      fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '14px',
+      color: selBgm ? '#fff4b8' : '#b0a080',
+    }).setDepth(3002);
+    d.barBgBgm = this.add.rectangle(cx, cy - 32, bw, 10, 0x0d0808, 0.9)
+      .setStrokeStyle(1, selBgm ? 0xf0d060 : 0x554428, 0.7).setDepth(3002);
+    d.barBgm = this.add.rectangle(cx - bw / 2, cy - 32, bw * this._settingsBgmVol, 8, selBgm ? 0xf0d060 : 0x8a7a44, 1)
+      .setOrigin(0, 0.5).setDepth(3003);
+    d.sfxLabel = this.add.text(cx - bw / 2, cy + 10, `SFX 音量  ${Math.round(this._settingsSfxVol * 100)}%`, {
+      fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '14px',
+      color: selSfx ? '#fff4b8' : '#b0a080',
+    }).setDepth(3002);
+    d.barBgSfx = this.add.rectangle(cx, cy + 33, bw, 10, 0x0d0808, 0.9)
+      .setStrokeStyle(1, selSfx ? 0xf0d060 : 0x554428, 0.7).setDepth(3002);
+    d.barSfx = this.add.rectangle(cx - bw / 2, cy + 33, bw * this._settingsSfxVol, 8, selSfx ? 0xf0d060 : 0x8a7a44, 1)
+      .setOrigin(0, 0.5).setDepth(3003);
+  }
+  _closeSettings() {
+    const d = this._settingsData;
+    if (d) {
+      [d.bg, d.panel, d.title, d.closeHint, d.bgmLabel, d.barBgBgm, d.barBgm, d.sfxLabel, d.barBgSfx, d.barSfx]
+        .forEach(i => { if (i && i.destroy) i.destroy(); });
+    }
+    this._settingsOpen = false; this._settingsData = null;
+  }
+  _updateSettings() {
+    if (!this._settingsOpen || !this._settingsData) return;
+    const d = this._settingsData;
+    if (Phaser.Input.Keyboard.JustDown(this.keys.W) || Phaser.Input.Keyboard.JustDown(this.cursors.up))
+      { d.selected = d.selected === 0 ? 1 : 0; if (Audio && Audio.sfx && Audio.sfx.click) Audio.sfx.click(); }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.S) || Phaser.Input.Keyboard.JustDown(this.cursors.down))
+      { d.selected = d.selected === 1 ? 0 : 1; if (Audio && Audio.sfx && Audio.sfx.click) Audio.sfx.click(); }
+    const step = this.cursors.shift.isDown ? 0.02 : 0.02;
+    let chg = false;
+    if (this.cursors.left.isDown || this.keys.A.isDown) {
+      d.selected === 0 ? (this._settingsBgmVol = Math.max(0, this._settingsBgmVol - step)) : (this._settingsSfxVol = Math.max(0, this._settingsSfxVol - step));
+      chg = true;
+    }
+    if (this.cursors.right.isDown || this.keys.D.isDown) {
+      d.selected === 0 ? (this._settingsBgmVol = Math.min(1, this._settingsBgmVol + step)) : (this._settingsSfxVol = Math.min(1, this._settingsSfxVol + step));
+      chg = true;
+    }
+    if (chg) {
+      if (Audio && Audio.bgm && Audio.bgm.setVolume) Audio.bgm.setVolume(this._settingsBgmVol);
+      if (Audio && Audio.setVolume) Audio.setVolume(this._settingsSfxVol);
+      this._drawSettingsSliders();
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.M) || Phaser.Input.Keyboard.JustDown(this.keys.ESC))
+      this._closeSettings();
   }
 }

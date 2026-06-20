@@ -780,6 +780,10 @@ export default class MuseumScene extends Phaser.Scene {
       stealth: false,        // Shift
       sprint: false,         // Ctrl
       blocking: false,       // K（按住）
+      blockBufferUntil: 0,   // 按下 K 那一瞬间产生的"格挡有效宽容窗口"：即便玩家在窗口内松开 K，仍按 blocking=true 处理（抢拍容错）
+      blockReleaseUntil: 0,  // 完美格挡反击动画播放保护
+      blockFacing: null,     // 进入格挡那一刻锁定的 4 方向（'down'|'left'|'right'|'up'）——期间不随鼠标/键盘转
+      blockFacingAngle: 0,   // 上述朝向对应的弧度，用于受击时判定是否正面抵挡
       attackUntil: 0,        // 攻击动画/判定有效期
       attackAnimUntil: 0,    // 主角攻击帧图播放保护，避免被走路动画立刻覆盖
       attackHitDone: false,  // 本次挥刀是否已结算
@@ -819,6 +823,7 @@ export default class MuseumScene extends Phaser.Scene {
       G: Phaser.Input.Keyboard.KeyCodes.G,
       V: Phaser.Input.Keyboard.KeyCodes.V,
       C: Phaser.Input.Keyboard.KeyCodes.C,
+      M: Phaser.Input.Keyboard.KeyCodes.M,
       F1: Phaser.Input.Keyboard.KeyCodes.F1,
       F2: Phaser.Input.Keyboard.KeyCodes.F2
     });
@@ -2362,17 +2367,35 @@ export default class MuseumScene extends Phaser.Scene {
     // 顶部金线
     this.add.rectangle(0, 28, 1280, 1, 0xd4af37, 0.6).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
 
-    // —— 左下：血条 + 体力条 + 状态图标 ——
+
+    // —— 左上：主角血条（ui_hero_hp 样式，与 Boss 房一致）——
+    if (this.textures.exists('ui_hero_hp')) {
+      this.heroHpFrame = this.add.image(16, 18, 'ui_hero_hp')
+        .setOrigin(0, 0)
+        .setDisplaySize(306, 106)
+        .setDepth(100)
+        .setScrollFactor(0);
+      this._heroHpMaxWidth = 178;
+      this.hpBarBg = this.add.rectangle(118, 57, this._heroHpMaxWidth, 15, 0x130606, 0.9)
+        .setOrigin(0, 0.5).setScrollFactor(0).setDepth(101);
+      this.hpBar = this.add.rectangle(118, 57, this._heroHpMaxWidth, 15, 0xc84132, 0.96)
+        .setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
+    } else {
+      const bx = 20;
+      const by = 690;
+      this.add.text(bx, by - 14, '气', {
+        fontFamily: '"PingFang SC", serif', fontSize: '11px', color: '#ff8a8a'
+      }).setScrollFactor(0).setDepth(101);
+      this.hpBarBg = this.add.rectangle(bx + 18, by - 9, 140, 8, 0x2a0d0d, 0.9)
+        .setOrigin(0, 0.5).setScrollFactor(0).setDepth(101)
+        .setStrokeStyle(1, 0x6b2a2a, 0.8);
+      this.hpBar = this.add.rectangle(bx + 19, by - 9, 138, 6, 0xe54b4b, 1)
+        .setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
+    }
+
+    // —— 左下：体力条 + 状态图标 ——
     const bx = 20;
     const by = 690;
-    this.add.text(bx, by - 14, '气', {
-      fontFamily: '"PingFang SC", serif', fontSize: '11px', color: '#ff8a8a'
-    }).setScrollFactor(0).setDepth(101);
-    this.hpBarBg = this.add.rectangle(bx + 18, by - 9, 140, 8, 0x2a0d0d, 0.9)
-      .setOrigin(0, 0.5).setScrollFactor(0).setDepth(101)
-      .setStrokeStyle(1, 0x6b2a2a, 0.8);
-    this.hpBar = this.add.rectangle(bx + 19, by - 9, 138, 6, 0xe54b4b, 1)
-      .setOrigin(0, 0.5).setScrollFactor(0).setDepth(102);
 
     this.add.text(bx, by + 4, '力', {
       fontFamily: '"PingFang SC", serif', fontSize: '11px', color: '#7ae8c8'
@@ -2685,16 +2708,66 @@ export default class MuseumScene extends Phaser.Scene {
       this.player.off('animationupdate', this.player._bowFrameNormalizer);
       this.player._bowFrameNormalizer = null;
     }
+    // —— attack_pro / 格挡 帧归一化器：用于持刀主角在播放侧视攻击/格挡时按帧高度统一上屏高度 ——
+    // 这些帧（attack_pro/, block1/, block2/）尺寸不一致且与 hero_knife 256x256 不同，
+    // 必须按帧高度自适应缩放，避免攻击瞬间贴图突然变大/变小。
+    if (this.player._proFrameNormalizer) {
+      this.player.off('animationupdate', this.player._proFrameNormalizer);
+      this.player.off('animationstart', this.player._proFrameNormalizer);
+      this.player.off('animationcomplete', this.player._proAnimCompleteNormalizer);
+      this.player._proFrameNormalizer = null;
+      this.player._proAnimCompleteNormalizer = null;
+    }
+    // 列出需要应用 proFixedScale 的动画前缀（attack_pro / 4 方向 block hold/release 以及旧 hero_block_hold/release/idle）
+    const _isProBlockAnimKey = (key) => (
+      typeof key === 'string'
+      && (key.startsWith('hero_pro_attack') || key.startsWith('hero_block'))
+    );
+    {
+      // 固定缩放倍率：attack_pro 和 block 素材中，单帧画布尺寸不一（含剑光留白会让帧变高），
+      // 若按帧高度归一化反而会让横挥帧（身体占满）被放大。统一用一个常数倍率即可让"身体高度"一致。
+      // 经验值：knife/hongfa cfg.scale * 1.9 对应 on-screen 身高 ~37px，与走路帧一致。
+      const proScaleMul = (cfg.tex === 'hero_knife' || cfg.tex === 'hero_hongfa') ? 1.9 : 1.9;
+      const proFixedScale = cfg.scale * proScaleMul;
+      // 关键修复：必须同时监听 animationstart（以便切回 idle 第 1 帧时立刻纠正 scale），
+      // 否则会出现"动画结束→idle 首帧仍保留攻击大 scale→第 2 帧才变小"的视觉跳变。
+      const proNormalizer = (anim/* , frame */) => {
+        if (!anim || typeof anim.key !== 'string') return;
+        if (_isProBlockAnimKey(anim.key)) {
+          if (this.player.scale !== proFixedScale) this.player.setScale(proFixedScale);
+        } else {
+          // 任何非 pro/block 动画一律恢复角色配置 scale（覆盖 knife/hongfa/sword/walk/idle/hurt 等）
+          if (this.player.scale !== cfg.scale) this.player.setScale(cfg.scale);
+        }
+      };
+      // animationcomplete：当 hero_pro_attack / hero_block_release 单次播完那一刻立即把 scale
+      // 拉回 cfg.scale，确保引擎下一次切换动画前不会用"放大 scale"渲染 idle 贴图哪怕一帧。
+      const proAnimCompleteNormalizer = (anim/* , frame */) => {
+        if (!anim || typeof anim.key !== 'string') return;
+        if (_isProBlockAnimKey(anim.key)) {
+          if (this.player.scale !== cfg.scale) this.player.setScale(cfg.scale);
+        }
+      };      this.player.on('animationupdate', proNormalizer);
+      this.player.on('animationstart', proNormalizer);
+      this.player.on('animationcomplete', proAnimCompleteNormalizer);
+      this.player._proFrameNormalizer = proNormalizer;
+      this.player._proAnimCompleteNormalizer = proAnimCompleteNormalizer;
+    }
     if (this._useBowHero) {
       const refTex = this.textures.get(cfg.tex);
       const refH = (refTex && refTex.getSourceImage && refTex.getSourceImage().height) || 204;
       const targetH = refH * cfg.scale;
       // Per-frame visual fudge: the "draw bow" frame (walk_*_5) has the arm/bow
       // extended outward, so even after height-normalization the silhouette reads
-      // as larger than the surrounding frames. Shrink it slightly to match.
-      const frameFudge = (texKey) => {
+      // as larger than the surrounding frames. Shrink it slightly to match —
+      // BUT only during walk/idle. During the shoot animation, walk_*_5 is the
+      // critical "raised bow" pose and must NOT be shrunk, otherwise the player
+      // sees no visible draw-and-loose action.
+      const frameFudge = (texKey, animKey) => {
+        const isShootAnim = typeof animKey === 'string' && animKey.startsWith('hero_bow_shoot_');
+        if (isShootAnim) return 1; // 射击动画：所有帧保持原尺寸，"举弓"动作完整呈现
         if (typeof texKey === 'string' && /_walk_(?:down|up|left|right)_5$/.test(texKey)) {
-          return 0.88;
+          return 0.88; // 仅在走路循环中压一下 walk_5
         }
         return 1;
       };
@@ -2702,7 +2775,7 @@ export default class MuseumScene extends Phaser.Scene {
         if (!anim || typeof anim.key !== 'string' || !anim.key.startsWith('hero_bow_')) return;
         const src = frame && frame.frame && frame.frame.height;
         if (!src) return;
-        const fudge = frameFudge(frame && frame.textureKey);
+        const fudge = frameFudge(frame && frame.textureKey, anim.key);
         const s = (targetH / src) * fudge;
         this.player.setScale(s);
       };
@@ -2730,6 +2803,8 @@ export default class MuseumScene extends Phaser.Scene {
   }
 
   update() {
+    if (this._settingsOpen) { this._updateSettings(); return; }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.M)) { this._toggleSettings(); return; }
     if (!this.player || !this.player.body || this._ended) return;
 
     // —— 战斗状态读入 ——
@@ -2739,7 +2814,24 @@ export default class MuseumScene extends Phaser.Scene {
     const dtSec = Math.min(0.05, (now - (this._lastTime || now)) / 1000);
     ps.stealth = this.keys.SHIFT.isDown;
     // 疾跑：体力 > 0 且按 Ctrl 且未在格挡
-    ps.blocking = this.keys.K.isDown && ps.stam > 5;
+    const _wasBlocking = ps.blocking;
+    // —— 格挡输入：按下 K 瞬间触发 250ms 容错窗口，窗口内即便松开也算 blocking ——
+    // 这样"按一下"和"按住"都能用：短按一拍能抢节奏抵挡，按住则持续生效（消耗体力）
+    const BLOCK_BUFFER_MS = 250;
+    if (Phaser.Input.Keyboard.JustDown(this.keys.K) && ps.stam > 5) {
+      ps.blockBufferUntil = now + BLOCK_BUFFER_MS;
+    }
+    const kHeld = this.keys.K.isDown && ps.stam > 5;
+    const kBuffered = now < (ps.blockBufferUntil || 0) && ps.stam > 5;
+    ps.blocking = kHeld || kBuffered;
+    if (ps.blocking && !_wasBlocking) {
+      // 刚进入格挡：锁定当前 4 方向为"格挡朝向"，之后整个按住期间不再随鼠标/键盘变化
+      const lockDir = this._playerDir4 || 'down';
+      ps.blockFacing = lockDir;
+      ps.blockFacingAngle = ({ right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 })[lockDir];
+    } else if (!ps.blocking && _wasBlocking) {
+      ps.blockFacing = null;
+    }
     ps.sprint = this.keys.CTRL.isDown && !ps.stealth && !ps.blocking && ps.stam > 0;
 
     // —— 移动速度（受 静步 / 疾跑 / 格挡 影响） ——
@@ -2850,20 +2942,74 @@ export default class MuseumScene extends Phaser.Scene {
       const prefix = this._useKnifeHero ? 'hero_knife' : 'hero';
       const swordDir = attacking ? angleToDir4(ps.attackDir || 0) : facingDir;
       const animDir = useDirectional ? swordDir : (facingDir === 'left' ? 'right' : facingDir);
-      const wantAnim = useDirectional
-        ? (attacking
-            ? `${prefix}_attack_${swordDir}`
-            : (moving ? `${prefix}_walk_${animDir}` : `${prefix}_idle_${animDir}`))
-        : (attacking
-            ? 'hero_attack'
-            : (now < ps.staggerUntil ? 'hero_hurt_down' : (moving ? `hero_walk_${animDir}` : `hero_idle_${animDir}`)));
+      // 持刀主角攻击优先使用 4 方向 attack_pro 高质量连击动画
+      const proDirKey = `hero_pro_attack_${swordDir}`;
+      const useProAttack = useDirectional && attacking
+        && this.anims.exists(proDirKey);
+      // 格挡期间使用锁定朝向，避免贴图跟随鼠标上下左右转圈
+      const blockDir = ps.blockFacing || facingDir;
+      // 持刀主角格挡反击（一次性，最高优先级，盖过任何走路）
+      const blockReleaseDirKey = `hero_block_release_${blockDir}`;
+      const blockReleasing = useDirectional && (now < (ps.blockReleaseUntil || 0))
+        && (this.anims.exists(blockReleaseDirKey) || this.anims.exists('hero_block_release'));
+      // 持刀主角按住格挡：4 个方向各自的静帧
+      const blockingNow = useDirectional && ps.blocking && !attacking && !blockReleasing
+        && (now >= ps.staggerUntil);
+      let wantAnim;
+      if (blockReleasing) {
+        if (this.anims.exists(blockReleaseDirKey)) wantAnim = blockReleaseDirKey;
+        else wantAnim = 'hero_block_release';
+      } else if (blockingNow) {
+        const blockHoldDirKey = `hero_block_hold_${blockDir}`;
+        if (this.anims.exists(blockHoldDirKey)) {
+          wantAnim = blockHoldDirKey;
+        } else if (this.anims.exists('hero_block_idle')) {
+          wantAnim = 'hero_block_idle';
+        } else {
+          wantAnim = `${prefix}_idle_${animDir}`;
+        }
+      } else if (useProAttack) {
+        wantAnim = proDirKey;
+      } else if (useDirectional) {
+        wantAnim = attacking
+          ? `${prefix}_attack_${swordDir}`
+          : (moving ? `${prefix}_walk_${animDir}` : `${prefix}_idle_${animDir}`);
+      } else {
+        wantAnim = attacking
+          ? 'hero_attack'
+          : (now < ps.staggerUntil ? 'hero_hurt_down' : (moving ? `hero_walk_${animDir}` : `hero_idle_${animDir}`));
+      }
       if (this.anims.exists(wantAnim)) {
         const cur = this.player.anims.currentAnim;
         if (!cur || cur.key !== wantAnim) {
-          this.player.play(wantAnim, attacking || wantAnim === 'hero_hurt_down');
+          // hero_block_hold (旧) 是循环动画，需要从头重播；新的方向化 hold/release 单帧动画不需要重播
+          this.player.play(
+            wantAnim,
+            attacking || wantAnim === 'hero_hurt_down' || wantAnim === 'hero_block_hold'
+          );
         }
       }
-      this.player.setFlipX(!useDirectional && (attacking ? Math.cos(ps.attackDir || 0) > 0 : facingDir === 'left'));
+      // FlipX 处理：
+      // • 方向化 block hold/release 贴图本身已包含 4 方向，无需翻转
+      // • 仅在 fallback 到旧侧视动画（hero_block_hold/release 不带后缀）时才需按朝向镜像
+      if (blockReleasing || blockingNow) {
+        const usingDirBlock = (typeof wantAnim === 'string')
+          && (wantAnim.startsWith('hero_block_hold_') || wantAnim.startsWith('hero_block_release_'));
+        if (usingDirBlock) {
+          this.player.setFlipX(false);
+        } else {
+          this.player.setFlipX(blockDir === 'left');
+        }
+      } else if (useProAttack) {
+        // 上下方向时按当前面向决定翻转
+        if (swordDir === 'up' || swordDir === 'down') {
+          this.player.setFlipX(facingDir === 'left');
+        } else {
+          this.player.setFlipX(swordDir === 'left');
+        }
+      } else {
+        this.player.setFlipX(!useDirectional && (attacking ? Math.cos(ps.attackDir || 0) > 0 : facingDir === 'left'));
+      }
       }
       if (moving) {
         this._playerWalkAccum += dtSec;
@@ -4037,8 +4183,7 @@ export default class MuseumScene extends Phaser.Scene {
     // 装备的武器决定伤害 / 范围 / 冷却 / 耗体力
     const wp = (this._loadoutEff && this._loadoutEff.weapon) || null;
     const isMelee = !wp || wp.kind === 'melee';
-    if (!isMelee) {
-      // 左键 也能远程攻击（装备了远程武器时以远程为准）
+    if (!isMelee && this._useBowHero) {
       this.tryPlayerRangedAttack();
       return;
     }
@@ -4052,14 +4197,30 @@ export default class MuseumScene extends Phaser.Scene {
     // —— 近身肉搏自动索敌：若 1.6 倍攻击距离内存在活守卫，则将攻击方向锁定到最近者 ——
     ps.attackDir = this._resolveMeleeAimAssist(baseAim, ps.attackRange);
     ps.attackUntil = now + 220;     // 判定窗口
-    ps.attackAnimUntil = now + 420;
+    ps.attackAnimUntil = now + 480;
     ps.attackCooldownUntil = now + ((wp && wp.cooldownMs) || 360);
     ps.attackHitDone = false;
     if (this._useHeroPlayer) {
       if (this._useKnifeHero) {
-        const attackKey = `hero_knife_attack_${angleToDir4(ps.attackDir)}`;
-        if (this.anims.exists(attackKey)) this.player.play(attackKey, true);
-        this.player.setFlipX(false);
+        const dir4 = angleToDir4(ps.attackDir);
+        // 4 方向独立 attack_pro 动画（每方向自带正确朝向贴图，无需 flipX）
+        const proDirKey = `hero_pro_attack_${dir4}`;
+        if (this.anims.exists(proDirKey)) {
+          this.player.setFlipX(false);
+          this.player.play(proDirKey, true);
+        } else if (this.anims.exists('hero_pro_attack')) {
+          // fallback: 旧统一动画，左方向 flipX 镜像
+          let flipLeft = (dir4 === 'left');
+          if (dir4 === 'up' || dir4 === 'down') {
+            flipLeft = (this._playerDir4 === 'left');
+          }
+          this.player.setFlipX(flipLeft);
+          this.player.play('hero_pro_attack', true);
+        } else {
+          const attackKey = `hero_knife_attack_${dir4}`;
+          if (this.anims.exists(attackKey)) this.player.play(attackKey, true);
+          this.player.setFlipX(false);
+        }
       } else if (this.anims.exists('hero_attack')) {
         this.player.setFlipX(Math.cos(ps.attackDir) > 0);
         this.player.play('hero_attack', true);
@@ -4067,7 +4228,7 @@ export default class MuseumScene extends Phaser.Scene {
     }
 
     // 视觉：玩家前方扇形刀光
-    this.spawnSlashGfx(ps.attackDir, ps.attackRange, ps.attackArc);
+    // this.spawnSlashGfx(ps.attackDir, ps.attackRange, ps.attackArc); // 隐藏攻击区域框
     if (Audio && Audio.sfx && Audio.sfx.slash) Audio.sfx.slash();
   }
 
@@ -4497,7 +4658,8 @@ export default class MuseumScene extends Phaser.Scene {
     ps.stam = Math.max(0, ps.stam - cost);
     ps.ammo -= 1;
     ps.attackDir = this.player.getData('aim') || 0;
-    ps.attackAnimUntil = now + 360;
+    // 弓射击动画总时长 ~360ms（60+50+130+40+50+30），给 40ms 缓冲确保末帧完整播完
+    ps.attackAnimUntil = now + 400;
     ps.attackCooldownUntil = now + (wp.cooldownMs || 300);
     if (this._useHeroPlayer) {
       if (this._useBowHero) {
@@ -4512,9 +4674,25 @@ export default class MuseumScene extends Phaser.Scene {
           this.player.setFlipX(Math.cos(ps.attackDir) < 0);
         }
       } else if (this._useKnifeHero) {
-        const attackKey = `hero_knife_attack_${angleToDir4(ps.attackDir)}`;
-        if (this.anims.exists(attackKey)) this.player.play(attackKey, true);
-        this.player.setFlipX(false);
+        const dir4 = angleToDir4(ps.attackDir);
+        // 4 方向独立 attack_pro 动画（每方向自带正确朝向贴图，无需 flipX）
+        const proDirKey = `hero_pro_attack_${dir4}`;
+        if (this.anims.exists(proDirKey)) {
+          this.player.setFlipX(false);
+          this.player.play(proDirKey, true);
+        } else if (this.anims.exists('hero_pro_attack')) {
+          // fallback: 旧统一动画，左方向 flipX 镜像
+          let flipLeft = (dir4 === 'left');
+          if (dir4 === 'up' || dir4 === 'down') {
+            flipLeft = (this._playerDir4 === 'left');
+          }
+          this.player.setFlipX(flipLeft);
+          this.player.play('hero_pro_attack', true);
+        } else {
+          const attackKey = `hero_knife_attack_${dir4}`;
+          if (this.anims.exists(attackKey)) this.player.play(attackKey, true);
+          this.player.setFlipX(false);
+        }
       } else if (this.anims.exists('hero_attack')) {
         this.player.setFlipX(Math.cos(ps.attackDir) < 0);
         this.player.play('hero_attack', true);
@@ -4522,7 +4700,14 @@ export default class MuseumScene extends Phaser.Scene {
     }
 
     this.spawnProjectile(wp, ps.attackDir);
-    if (wp.noisy && Audio && Audio.sfx && Audio.sfx.slash) Audio.sfx.slash();
+    // 远程武器音效：弓 → 专属"chua-chua"；其它 noisy 远程 → 沿用 slash
+    if (Audio && Audio.sfx) {
+      if (wp.projectile === 'arrow' && Audio.sfx.bow) {
+        Audio.sfx.bow();
+      } else if (wp.noisy && Audio.sfx.slash) {
+        Audio.sfx.slash();
+      }
+    }
     this.updateWeaponHUD();
   }
 
@@ -4781,20 +4966,41 @@ export default class MuseumScene extends Phaser.Scene {
     const now = this.time.now;
     if (now < ps.invulnUntil) return;
 
-    // 格挡判定：玩家正面 90° 内来袭 + K 按住 + 体力 ≥ 18
+    // 格挡判定：玩家正面半圆（180°）内来袭 + K 按住 + 体力 ≥ 18
+    // 朝向以"进入格挡那一刻锁定的朝向"为准（与贴图一致），不再跟随鼠标转
+    // 阈值从 π/4(±45°/90°扇形) 放宽到 π/2(±90°/180°扇形)：
+    // 配合"按 K 瞬间锁定朝向"的设计，只要敌人不在玩家背后，就能正面格挡，体感更接近真实盾防
     const fromX = guard.sprite.x;
     const fromY = guard.sprite.y;
     const ang = Math.atan2(fromY - this.player.y, fromX - this.player.x);
-    const aim = this.player.getData('aim') || 0;
-    const diff = Math.abs(Phaser.Math.Angle.Wrap(ang - aim));
-    const blockOk = ps.blocking && ps.stam >= 18 && diff < Math.PI / 4;
+    const blockAim = (typeof ps.blockFacingAngle === 'number')
+      ? ps.blockFacingAngle
+      : (this.player.getData('aim') || 0);
+    const diff = Math.abs(Phaser.Math.Angle.Wrap(ang - blockAim));
+    const blockOk = ps.blocking && ps.stam >= 18 && diff < Math.PI / 2;
 
     if (blockOk) {
-      // 完美格挡：守卫硬直、玩家消耗体力，不扣血
+      // 完美格挡：守卫硬直 + 击退，玩家消耗体力，不扣血
       ps.stam = Math.max(0, ps.stam - 22);
       guard.staggerUntil = now + 600;
       guard.attackPhase = 'recover';
       guard.attackPhaseUntil = now + 320;
+      // —— 弹反击退：把守卫沿"玩家→守卫"方向推开较远一段（不掉血） ——
+      // 速度系数 380 px/s，并配合 _kbProtectUntil 让 Guard.update 在保护期内用慢衰减(0.97)
+      // 这样守卫会真正被弹飞约 80~100 像素，而不是滑两步就停
+      if (guard.sprite && guard.sprite.body) {
+        const dx = guard.sprite.x - this.player.x;
+        const dy = guard.sprite.y - this.player.y;
+        const len = Math.max(1, Math.hypot(dx, dy));
+        const KB = 380;
+        guard.sprite.setVelocity((dx / len) * KB, (dy / len) * KB);
+        guard._kbProtectUntil = now + 350; // 慢衰减保护期，让击退距离明显
+      }
+      // —— 击退后保持警觉：直接锁死 chase，避免守卫被弹到视野外/丢失警觉而停止追击 ——
+      // 与 takeDamage 中的处理保持一致：alert 拉满 + 切 chase + 续命 8s
+      if (typeof guard.alert === 'number') guard.alert = 100; // ALERT_FULL
+      guard.state = 'chase';
+      guard.chaseUntil = now + 8000;
       this.cameras.main.shake(60, 0.002);
       this.showBubble(this.player, '挡！', { color: '#7ae8c8', fontSize: '16px', duration: 600, dy: -22 });
       // 闪光
@@ -4803,6 +5009,22 @@ export default class MuseumScene extends Phaser.Scene {
       Audio.sfx.block();
       this.spawnHitSparks(this.player.x, this.player.y, false);
       ps.invulnUntil = now + 250;
+      // 持刀英雄：播放完美格挡反击动画（一次性，~320ms）
+      // 优先用 4 方向反击贴图；fallback 到旧侧视动画时仅左右方向可用
+      if (this._useHeroPlayer && this._useKnifeHero) {
+        const lockDir = ps.blockFacing || this._playerDir4 || 'down';
+        const dirKey = `hero_block_release_${lockDir}`;
+        if (this.anims.exists(dirKey)) {
+          ps.blockReleaseUntil = now + 320;
+          this.player.setFlipX(false);
+          this.player.play(dirKey, true);
+        } else if (this.anims.exists('hero_block_release')
+            && (lockDir === 'left' || lockDir === 'right')) {
+          ps.blockReleaseUntil = now + 320;
+          this.player.setFlipX(lockDir === 'left');
+          this.player.play('hero_block_release', true);
+        }
+      }
       return;
     }
 
@@ -4922,7 +5144,8 @@ export default class MuseumScene extends Phaser.Scene {
   updatePlayerHUD() {
     const ps = this.playerState;
     if (this.hpBar) {
-      const w = (ps.hp / ps.hpMax) * 138;
+      const maxW = this._heroHpMaxWidth || 138;
+      const w = (ps.hp / ps.hpMax) * maxW;
       this.hpBar.width = Math.max(0, w);
       this.hpBar.fillColor = ps.hp <= 1 ? 0xff3030 : 0xe54b4b;
     }
@@ -5084,5 +5307,50 @@ export default class MuseumScene extends Phaser.Scene {
     this._floatText(this.player.x, this.player.y - 22, '轻功起 · 足下无声', '#a0e8a8');
     if (Audio && Audio.sfx && Audio.sfx.click) Audio.sfx.click();
     this.updateConsumableHUD();
+  }
+
+  // ===========================================================
+  // 设置面板（M 键）
+  // ===========================================================
+  _toggleSettings() { this._settingsOpen ? this._closeSettings() : this._openSettings(); }
+  _openSettings() {
+    if (this._settingsOpen) return;
+    this._settingsOpen = true;
+    const VW = this.cameras.main.width, VH = this.cameras.main.height;
+    const bg = this.add.rectangle(VW / 2, VH / 2, VW, VH, 0x000000, 0.65).setDepth(3000);
+    const panel = this.add.rectangle(VW / 2, VH / 2, 420, 260, 0x1a1220, 0.92).setStrokeStyle(2, 0xd4af37, 0.8).setDepth(3001);
+    const title = this.add.text(VW / 2, VH / 2 - 95, '⚙ 设  置', { fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '20px', color: '#ffe9a6' }).setOrigin(0.5).setDepth(3002);
+    const closeHint = this.add.text(VW / 2, VH / 2 + 115, 'M / ESC 关闭  ·  W/S 切换  ·  ← → 调整', { fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '12px', color: '#9a8a6a' }).setOrigin(0.5).setDepth(3002);
+    this._settingsData = { bg, panel, title, closeHint, selected: 0, VW, VH };
+    this._settingsBgmVol = 0.50; this._settingsSfxVol = 0.50;
+    this._drawSettingsSliders();
+  }
+  _drawSettingsSliders() {
+    const d = this._settingsData; if (!d) return;
+    if (d.bgmLabel) { d.bgmLabel.destroy(); d.barBgBgm.destroy(); d.barBgm.destroy(); }
+    if (d.sfxLabel) { d.sfxLabel.destroy(); d.barBgSfx.destroy(); d.barSfx.destroy(); }
+    const cx = d.VW / 2, cy = d.VH / 2, bw = 240, selBgm = d.selected === 0, selSfx = d.selected === 1;
+    d.bgmLabel = this.add.text(cx - bw / 2, cy - 55, `BGM 音量  ${Math.round(this._settingsBgmVol * 100)}%`, { fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '14px', color: selBgm ? '#fff4b8' : '#b0a080' }).setDepth(3002);
+    d.barBgBgm = this.add.rectangle(cx, cy - 32, bw, 10, 0x0d0808, 0.9).setStrokeStyle(1, selBgm ? 0xf0d060 : 0x554428, 0.7).setDepth(3002);
+    d.barBgm = this.add.rectangle(cx - bw / 2, cy - 32, bw * this._settingsBgmVol, 8, selBgm ? 0xf0d060 : 0x8a7a44, 1).setOrigin(0, 0.5).setDepth(3003);
+    d.sfxLabel = this.add.text(cx - bw / 2, cy + 10, `SFX 音量  ${Math.round(this._settingsSfxVol * 100)}%`, { fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '14px', color: selSfx ? '#fff4b8' : '#b0a080' }).setDepth(3002);
+    d.barBgSfx = this.add.rectangle(cx, cy + 33, bw, 10, 0x0d0808, 0.9).setStrokeStyle(1, selSfx ? 0xf0d060 : 0x554428, 0.7).setDepth(3002);
+    d.barSfx = this.add.rectangle(cx - bw / 2, cy + 33, bw * this._settingsSfxVol, 8, selSfx ? 0xf0d060 : 0x8a7a44, 1).setOrigin(0, 0.5).setDepth(3003);
+  }
+  _closeSettings() {
+    const d = this._settingsData;
+    if (d) { [d.bg,d.panel,d.title,d.closeHint,d.bgmLabel,d.barBgBgm,d.barBgm,d.sfxLabel,d.barBgSfx,d.barSfx].forEach(i=>{if(i&&i.destroy)i.destroy();}); }
+    this._settingsOpen = false; this._settingsData = null;
+  }
+  _updateSettings() {
+    if (!this._settingsOpen || !this._settingsData) return;
+    const d = this._settingsData;
+    if (Phaser.Input.Keyboard.JustDown(this.keys.W) || Phaser.Input.Keyboard.JustDown(this.cursors.up)) { d.selected = d.selected === 0 ? 1 : 0; Audio && Audio.sfx && Audio.sfx.click && Audio.sfx.click(); }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.S) || Phaser.Input.Keyboard.JustDown(this.cursors.down)) { d.selected = d.selected === 1 ? 0 : 1; Audio && Audio.sfx && Audio.sfx.click && Audio.sfx.click(); }
+    const step = this.cursors.shift.isDown ? 0.02 : 0.02; let chg = false;
+    if (this.cursors.left.isDown || this.keys.A.isDown) { d.selected === 0 ? (this._settingsBgmVol = Math.max(0, this._settingsBgmVol - step)) : (this._settingsSfxVol = Math.max(0, this._settingsSfxVol - step)); chg = true; }
+    if (this.cursors.right.isDown || this.keys.D.isDown) { d.selected === 0 ? (this._settingsBgmVol = Math.min(1, this._settingsBgmVol + step)) : (this._settingsSfxVol = Math.min(1, this._settingsSfxVol + step)); chg = true; }
+    if (chg) { Audio && Audio.bgm && Audio.bgm.setVolume && Audio.bgm.setVolume(this._settingsBgmVol); Audio && Audio.setVolume && Audio.setVolume(this._settingsSfxVol); this._drawSettingsSliders(); }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.M) || Phaser.Input.Keyboard.JustDown(this.keys.ESC)) this._closeSettings();
   }
 }

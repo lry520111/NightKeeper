@@ -12,7 +12,7 @@ const CHASE_SPEED = 82;          // 追击速度
 const WAIT_AT_WAYPOINT_MS = 900; // 路径点停顿
 const WALL_AVOID_WAIT_MS = 950;
 const WALL_AVOID_STEP = 96;
-// ★ 警惕性增强：被探照灯照到后 ~0.4秒 触发 “被发现了”
+// ★ 警惕性增强：被探照灯照到后 ~0.4秒 触发 "被发现了"
 const ALERT_FILL_RATE = 240;     // 每秒警觉值（满 100）— 锈心 ~0.42 秒满
 const ALERT_DECAY_RATE = 18;     // 每秒衰减 — 一旦警觉，很难躲回
 const ALERT_FULL = 100;
@@ -172,10 +172,10 @@ export default class Guard {
     }
     this.sprite.setDepth(5);
 
-    // —— 缩放：新版独立帧用 0.18，HQ 229px 用旧规则 ——
+    // —— 缩放：新版独立帧用 0.23，HQ 229px 用旧规则 ——
     let scale;
     if (this.useNew) {
-      scale = 0.20; // 新版 PNG 大约 200~256px，缩到合理大小
+      scale = 0.23; // 新版 PNG 大约 200~256px，比之前 0.20 略大一档，体型更醒目
     } else if (this.useHQ) {
       scale = (this.style === 'thug' && this.hqKey === 'enemy_thug_blackmarket')
         ? 0.3 : (this.style === 'sailor' ? 0.28 : 0.21);
@@ -374,7 +374,11 @@ export default class Guard {
 
     // —— 行为 ——
     if (inStagger) {
-      this.sprite.setVelocity(this.sprite.body.velocity.x * 0.85, this.sprite.body.velocity.y * 0.85);
+      // 击退保护期内（_kbProtectUntil）速度衰减得更慢，让"弹反/受击"看起来真的被推飞一段；
+      // 保护期外恢复原本的快速衰减，避免守卫在地上一直滑
+      const kbProtect = this.scene.time.now < (this._kbProtectUntil || 0);
+      const damp = kbProtect ? 0.97 : 0.85;
+      this.sprite.setVelocity(this.sprite.body.velocity.x * damp, this.sprite.body.velocity.y * damp);
     } else if (this.scene.time.now < this._reverseUntil) {
       // ★ 反向逃离：上一轮被判定为卡墙，强制朝反方向冲一段时间，避免一直怼墙 ★
       const spd = this.state === 'chase' ? CHASE_SPEED * 0.85 : PATROL_SPEED * 1.0;
@@ -398,7 +402,7 @@ export default class Guard {
     this.checkStuck();
 
     // —— 视野锥渲染 ——
-    this.drawCone();
+    // this.drawCone(); // 隐藏守卫监视框
 
     // —— 攻击蓄力提示渲染 ——
     this.drawWindup();
@@ -750,9 +754,17 @@ export default class Guard {
       }
       this._dir4 = dir;
       const moving = speed > 2 || moved > 0.15;
-      const animKey = moving
-        ? `${this.nkAnimPrefix}_walk_${dir}`
-        : `${this.nkAnimPrefix}_idle_${dir}`;
+      // 攻击阶段（windup / recover）优先播放方向化攻击动画，给玩家明确的起手提示
+      const inAttack = (this.attackPhase === 'windup' || this.attackPhase === 'recover');
+      const attackKey = `${this.nkAnimPrefix}_attack_${dir}`;
+      let animKey;
+      if (inAttack && this.scene.anims.exists(attackKey)) {
+        animKey = attackKey;
+      } else {
+        animKey = moving
+          ? `${this.nkAnimPrefix}_walk_${dir}`
+          : `${this.nkAnimPrefix}_idle_${dir}`;
+      }
       if (this.scene.anims.exists(animKey)) {
         const cur = this.sprite.anims.currentAnim;
         if (!cur || cur.key !== animKey) this.sprite.play(animKey);

@@ -93,22 +93,44 @@ export default class HubScene extends Phaser.Scene {
     // —— 5. 馆长 NPC ——
     this.curator = this.createCurator(CURATOR);
 
-    // —— 6. 玩家（C键切换：持刀 ↔ 原始）——
+    // —— 6. 玩家（C键切换：持刀 ↔ 持弓 ↔ 原始）——
     this._charConfigs = {};
     this._charTypes = [];
     if (this.textures.exists('hero_knife')) {
       this._charTypes.push('knife');
       this._charConfigs.knife = { tex:'hero_knife', scale:0.265, bodyW:86, bodyH:44, bodyOx:85, bodyOy:208, prefix:'hero_knife', directional:true };
     }
+    if (this.textures.exists('hero_bow_walk_down_1')) {
+      this._charTypes.push('bow');
+      this._charConfigs.bow = { tex:'hero_bow_walk_down_1', scale:0.25, bodyW:36, bodyH:22, bodyOx:55, bodyOy:193, prefix:'hero_bow', directional:true };
+    }
     if (this.textures.exists('hero_hongfa')) {
       this._charTypes.push('hongfa');
       this._charConfigs.hongfa = { tex:'hero_hongfa', scale:1.1, bodyW:22, bodyH:12, bodyOx:21, bodyOy:48, prefix:'hero', directional:false };
     }
-    this._charIndex = 0;
+    // 默认角色按当前装备自动判断：
+    //   - 装备远程武器（弓 → arrow） → 'bow'
+    //   - 装备近战刀                  → 'knife'
+    //   - 其它                         → 列表第一个可用项
+    let defaultType = this._charTypes[0];
+    try {
+      const eff = SaveData.resolveEffects && SaveData.resolveEffects();
+      const w = eff && eff.weapon;
+      if (w) {
+        if (w.kind === 'ranged' && w.projectile === 'arrow' && this._charTypes.includes('bow')) {
+          defaultType = 'bow';
+        } else if (w.kind === 'melee' && this._charTypes.includes('knife')) {
+          defaultType = 'knife';
+        }
+      }
+    } catch (_) { /* 容错：取默认 */ }
+    this._charIndex = Math.max(0, this._charTypes.indexOf(defaultType));
+    const initCfg = this._charConfigs[this._charTypes[this._charIndex]] || this._charConfigs.hongfa;
+    const initTex = (initCfg && initCfg.tex) || 'hero_hongfa';
     this.player = this.physics.add.sprite(
       HUB_ANCHORS.player.x,
       HUB_ANCHORS.player.y,
-      'hero_hongfa', 0
+      initTex, 0
     );
     this._applyCharConfig(this._charIndex);
     this.player.setDepth(30);
@@ -160,7 +182,7 @@ export default class HubScene extends Phaser.Scene {
 
     // —— 9. 输入 ——
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,E,B,C,ESC,F1');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,E,B,C,M,ESC,F1');
 
     this.keys.E.on('down', () => this.tryInteract());
     this.keys.B.on('down', () => {
@@ -373,6 +395,7 @@ export default class HubScene extends Phaser.Scene {
     this.player.body.setSize(cfg.bodyW, cfg.bodyH).setOffset(cfg.bodyOx, cfg.bodyOy);
     this._useKnifeHero = (type === 'knife');
     this._heroAnimPrefix = cfg.prefix;
+    this._heroDirectional = !!cfg.directional;
     const idleKey = `${cfg.prefix}_idle_${this._playerDir || 'down'}`;
     if (this.anims.exists(idleKey)) this.player.play(idleKey);
   }
@@ -386,6 +409,8 @@ export default class HubScene extends Phaser.Scene {
 
   // ——————————— 主循环 ———————————
   update() {
+    if (this._settingsOpen) { this._updateSettings(); return; }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.M)) { this._toggleSettings(); return; }
     if (!this.player || this._dialogOpen) {
       if (this.player) this.player.setVelocity(0, 0);
       return;
@@ -411,7 +436,7 @@ export default class HubScene extends Phaser.Scene {
       if (Math.abs(vx) > Math.abs(vy)) dir = vx > 0 ? 'right' : 'left';
       else dir = vy > 0 ? 'down' : 'up';
     }
-    const useDirectional = this._useKnifeHero;
+    const useDirectional = !!this._heroDirectional;
     const animDir = useDirectional ? dir : (dir === 'left' ? 'right' : dir);
     const wantAnim = moving
       ? `${this._heroAnimPrefix}_walk_${animDir}`
@@ -539,5 +564,50 @@ export default class HubScene extends Phaser.Scene {
       delay: 800,
       onComplete: () => this._warnTxt && this._warnTxt.destroy(),
     });
+  }
+
+  // ===========================================================
+  // 设置面板（M 键）
+  // ===========================================================
+  _toggleSettings() { this._settingsOpen ? this._closeSettings() : this._openSettings(); }
+  _openSettings() {
+    if (this._settingsOpen) return;
+    this._settingsOpen = true;
+    const VW = this.cameras.main.width, VH = this.cameras.main.height;
+    const bg = this.add.rectangle(VW / 2, VH / 2, VW, VH, 0x000000, 0.65).setDepth(3000);
+    const panel = this.add.rectangle(VW / 2, VH / 2, 420, 260, 0x1a1220, 0.92).setStrokeStyle(2, 0xd4af37, 0.8).setDepth(3001);
+    const title = this.add.text(VW / 2, VH / 2 - 95, '⚙ 设  置', { fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '20px', color: '#ffe9a6' }).setOrigin(0.5).setDepth(3002);
+    const closeHint = this.add.text(VW / 2, VH / 2 + 115, 'M / ESC 关闭  ·  W/S 切换  ·  ← → 调整', { fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '12px', color: '#9a8a6a' }).setOrigin(0.5).setDepth(3002);
+    this._settingsData = { bg, panel, title, closeHint, selected: 0, VW, VH };
+    this._settingsBgmVol = 0.50; this._settingsSfxVol = 0.50;
+    this._drawSettingsSliders();
+  }
+  _drawSettingsSliders() {
+    const d = this._settingsData; if (!d) return;
+    if (d.bgmLabel) { d.bgmLabel.destroy(); d.barBgBgm.destroy(); d.barBgm.destroy(); }
+    if (d.sfxLabel) { d.sfxLabel.destroy(); d.barBgSfx.destroy(); d.barSfx.destroy(); }
+    const cx = d.VW / 2, cy = d.VH / 2, bw = 240, selBgm = d.selected === 0, selSfx = d.selected === 1;
+    d.bgmLabel = this.add.text(cx - bw / 2, cy - 55, `BGM 音量  ${Math.round(this._settingsBgmVol * 100)}%`, { fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '14px', color: selBgm ? '#fff4b8' : '#b0a080' }).setDepth(3002);
+    d.barBgBgm = this.add.rectangle(cx, cy - 32, bw, 10, 0x0d0808, 0.9).setStrokeStyle(1, selBgm ? 0xf0d060 : 0x554428, 0.7).setDepth(3002);
+    d.barBgm = this.add.rectangle(cx - bw / 2, cy - 32, bw * this._settingsBgmVol, 8, selBgm ? 0xf0d060 : 0x8a7a44, 1).setOrigin(0, 0.5).setDepth(3003);
+    d.sfxLabel = this.add.text(cx - bw / 2, cy + 10, `SFX 音量  ${Math.round(this._settingsSfxVol * 100)}%`, { fontFamily: '"PingFang SC","Microsoft YaHei",serif', fontSize: '14px', color: selSfx ? '#fff4b8' : '#b0a080' }).setDepth(3002);
+    d.barBgSfx = this.add.rectangle(cx, cy + 33, bw, 10, 0x0d0808, 0.9).setStrokeStyle(1, selSfx ? 0xf0d060 : 0x554428, 0.7).setDepth(3002);
+    d.barSfx = this.add.rectangle(cx - bw / 2, cy + 33, bw * this._settingsSfxVol, 8, selSfx ? 0xf0d060 : 0x8a7a44, 1).setOrigin(0, 0.5).setDepth(3003);
+  }
+  _closeSettings() {
+    const d = this._settingsData;
+    if (d) { [d.bg,d.panel,d.title,d.closeHint,d.bgmLabel,d.barBgBgm,d.barBgm,d.sfxLabel,d.barBgSfx,d.barSfx].forEach(i=>{if(i&&i.destroy)i.destroy();}); }
+    this._settingsOpen = false; this._settingsData = null;
+  }
+  _updateSettings() {
+    if (!this._settingsOpen || !this._settingsData) return;
+    const d = this._settingsData;
+    if (Phaser.Input.Keyboard.JustDown(this.keys.W) || Phaser.Input.Keyboard.JustDown(this.cursors.up)) { d.selected = d.selected === 0 ? 1 : 0; Audio && Audio.sfx && Audio.sfx.click && Audio.sfx.click(); }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.S) || Phaser.Input.Keyboard.JustDown(this.cursors.down)) { d.selected = d.selected === 1 ? 0 : 1; Audio && Audio.sfx && Audio.sfx.click && Audio.sfx.click(); }
+    const step = this.cursors.shift.isDown ? 0.02 : 0.02; let chg = false;
+    if (this.cursors.left.isDown || this.keys.A.isDown) { d.selected === 0 ? (this._settingsBgmVol = Math.max(0, this._settingsBgmVol - step)) : (this._settingsSfxVol = Math.max(0, this._settingsSfxVol - step)); chg = true; }
+    if (this.cursors.right.isDown || this.keys.D.isDown) { d.selected === 0 ? (this._settingsBgmVol = Math.min(1, this._settingsBgmVol + step)) : (this._settingsSfxVol = Math.min(1, this._settingsSfxVol + step)); chg = true; }
+    if (chg) { Audio && Audio.bgm && Audio.bgm.setVolume && Audio.bgm.setVolume(this._settingsBgmVol); Audio && Audio.setVolume && Audio.setVolume(this._settingsSfxVol); this._drawSettingsSliders(); }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.M) || Phaser.Input.Keyboard.JustDown(this.keys.ESC)) this._closeSettings();
   }
 }

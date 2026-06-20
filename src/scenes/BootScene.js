@@ -8,6 +8,9 @@ export default class BootScene extends Phaser.Scene {
   }
 
   preload() {
+    this.load.image('ui_boss_hp', 'assets/ui/bossxie.png');
+    this.load.image('ui_hero_hp', 'assets/ui/heoroxie.png');
+
     // —— LimeZu Modern Interiors 角色 sprite sheet（原版 16×32 像素风）——
     //   每张 384×32，单帧 16×32 → 24 帧 × 1 行
     //   方向顺序（实测）：right(0-5) / up(6-11) / left(12-17) / down(18-23)
@@ -52,7 +55,13 @@ export default class BootScene extends Phaser.Scene {
     this.load.image('hero_bow_1', 'assets/characters/hero/1.png');
     this.load.image('hero_bow_2', 'assets/characters/hero/2.png');
     this.load.image('hero_bow_3', 'assets/characters/hero/3.png');
+    // 朝左版本的"举弓拉满弦"专用帧，用于 hero_bow_shoot_left（避免对朝右素材做 flipX 之后弓身/箭羽镜像不正确）
+    this.load.image('hero_bow_3_reflect', 'assets/characters/hero/3_reflect.png');
     this.load.image('hero_bow_4', 'assets/characters/hero/4.png');
+    // 朝上 / 朝下专用的"举弓拉满弦"帧，用于 hero_bow_shoot_up / hero_bow_shoot_down
+    // （hero_bow_3 是侧视朝右姿态，对正背面 / 正面射击不合适）
+    this.load.image('hero_bow_up',   'assets/characters/hero/up.png');
+    this.load.image('hero_bow_down', 'assets/characters/hero/down.png');
     // Bow hero 4-direction walk frames (6 frames per direction)
     {
       const dirs = ['down', 'up', 'left', 'right'];
@@ -60,6 +69,46 @@ export default class BootScene extends Phaser.Scene {
         for (let i = 1; i <= 6; i++) {
           this.load.image(`hero_bow_walk_${d}_${i}`, `assets/characters/hero/walk_bow/${d}${i}.png`);
         }
+      }
+    }
+    // —— 高质量近战连击帧 attack_pro（侧视，朝右；左方向通过 flipX 镜像复用） ——
+    // 编号不连续：1..23, 25..28, 34，共 28 帧
+    {
+      const proIndices = [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+        14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+        25, 26, 27, 28, 34
+      ];
+      for (const i of proIndices) {
+        this.load.image(`hero_pro_attack_${i}`, `assets/characters/hero/attack_pro/${i}.png`);
+      }
+    }
+    // —— 格挡帧（4 方向，每方向 1 张静帧） ——
+    // block1/*.png：举剑硬挡（按住 K 时显示）—— 1=down, 2=left, 3=right, 4=up
+    // block2/*.png：弹反/反击（成功格挡触发，一次性）—— 1=right, 2=left, 3=down, 4=up
+    // 同时保留旧的 hero_block_hold_<n> / hero_block_release_<n> 数字别名，避免 BootScene
+    // 旧的动画注册块（按 1..4 索引创建）找不到纹理。
+    const _blockHoldDirMap = { 1: 'down', 2: 'left', 3: 'right', 4: 'up' };
+    const _blockReleaseDirMap = { 1: 'right', 2: 'left', 3: 'down', 4: 'up' };
+    for (let i = 1; i <= 4; i++) {
+      const holdDir = _blockHoldDirMap[i];
+      const relDir  = _blockReleaseDirMap[i];
+      // 数字别名（向后兼容）
+      this.load.image(`hero_block_hold_${i}`,    `assets/characters/hero/block1/${i}.png`);
+      this.load.image(`hero_block_release_${i}`, `assets/characters/hero/block2/${i}.png`);
+      // 方向键名（运行时按朝向选择）
+      this.load.image(`hero_block_hold_${holdDir}`,    `assets/characters/hero/block1/${i}.png`);
+      this.load.image(`hero_block_release_${relDir}`,  `assets/characters/hero/block2/${i}.png`);
+    }
+
+    // —— 博物馆守卫攻击动作 (guards_hit, 4 dirs × 6 frames) ——
+    // 用于在 attackPhase=windup/recover 阶段替换走路帧，给玩家挥刀起手提示
+    for (const dir of ['down', 'left', 'right', 'up']) {
+      for (let i = 1; i <= 6; i++) {
+        this.load.image(
+          `nk_guard_attack_${dir}_${i}`,
+          `assets/characters/enemies/guards_hit/${dir}${i}.png`
+        );
       }
     }
     this.load.spritesheet('hero_blade_skill', 'assets/effects/hero_blade_skill.png', {
@@ -153,6 +202,10 @@ export default class BootScene extends Phaser.Scene {
       this.load.image(key, `assets/title/${file}`);
     });
 
+    // 开始页伪动画专用纹理（9.png 背景 + hero 人物）
+    this.load.image('title_bg_09', 'others/开始页伪动画/9.png');
+    this.load.image('title_hero_09', 'others/开始页伪动画/hero.png');
+
     // —— 任务关卡（博物馆）8 张高质量房间贴图 ——
     // 与 hub_02 同画风（深色砖墙 + 暗红/暗金中式纹饰），运行时按 roomTemplates 拼接
     // 室内尺寸、门洞坐标、墙体碰撞均在 src/data/roomTemplates.js 中以世界像素为单位标注
@@ -209,9 +262,14 @@ export default class BootScene extends Phaser.Scene {
     // 房间背景图（玩家/Boss 在其上方战斗，边缘放一圈碰撞箱）
     this.load.image('boss_room_bg', 'assets/rooms/boss_room.png');
 
+    const bossRuntime = 'assets/characters/enemies/boss_runtime';
     // Boss 待机 (idle) 7 帧
     for (let i = 1; i <= 7; i++) {
-      this.load.image(`boss_idle_${i}`, `assets/characters/enemies/boss_new/boss/%E5%BE%85%E6%9C%BA/idle-sprites/${i}.png`);
+      this.load.image(`boss_idle_${i}`, `${bossRuntime}/idle-sprites/${i}.png`);
+    }
+    // Boss 受击 (hurt) 5 帧
+    for (let i = 1; i <= 5; i++) {
+      this.load.image(`boss_hurt_${i}`, `${bossRuntime}/hurt/hurt-sprites/${i}.png`);
     }
     // Boss 四向行走（每方向 7 帧）
     for (const d of nkDirs) {
@@ -222,14 +280,47 @@ export default class BootScene extends Phaser.Scene {
     // Boss 三个技能（各 10 帧）
     for (let s = 1; s <= 3; s++) {
       for (let i = 1; i <= 10; i++) {
-        this.load.image(`boss_skill${s}_${i}`, `assets/characters/enemies/boss_new/boss/skill${s}/skill${s}-sprites/${i}.png`);
+        this.load.image(`boss_skill${s}_${i}`, `${bossRuntime}/skill${s}-sprites/${i}.png`);
       }
+    }
+    // Boss 独立特效：移动剑气与地图多段斩击
+    for (let i = 1; i <= 10; i++) {
+      this.load.image(`boss_crescent_${i}`, `${bossRuntime}/skill_01_dark_crescent_slash/${i}.png`);
+      this.load.image(`boss_shadow_dash_${i}`, `${bossRuntime}/skill_02_shadow_dash_multi_slash/${i}.png`);
+    }
+    // Boss 死亡动画（12 帧）
+    for (let i = 1; i <= 12; i++) {
+      this.load.image(`boss_death_${i}`, `${bossRuntime}/death-sprites/${i}.png`);
+    }
+    // Boss 魔剑爆发特效（10 帧，用于魂消失 / 分身生成）
+    for (let i = 1; i <= 10; i++) {
+      this.load.image(`boss_demon_burst_${i}`, `${bossRuntime}/skill_03_demon_sword_burst/${i}.png`);
+    }
+    // 魂贴图（独立图片，替代 boss_skill3_1）
+    this.load.image('boss_soul_1', `${bossRuntime}/soul/1.png`);
+    // 瞬移到魂后的攻击动画（4 帧）
+    for (let i = 1; i <= 4; i++) {
+      this.load.image(`boss_tele_attack_${i}`, `${bossRuntime}/tele_attack/${i}.png`);
+    }
+    // 瞬移预警动画（5 帧：1-3 预警出现，4-5 消失）
+    for (let i = 1; i <= 5; i++) {
+      this.load.image(`boss_shunyi_${i}`, `${bossRuntime}/shunyi/${i}.png`);
     }
   }
 
   create() {
     // —— Remove white background from relic PNG textures ——
     this._removeRelicPngBackground();
+    // —— 抠掉主角"举弓正面/背面"贴图自带的白色背景 ——
+    // hero/up.png 和 hero/down.png 是 PNG 但带有不透明白底，需要 flood-fill 抠掉。
+    // 同时：① 清掉被身体包围的孤立白块 ② 裁剪到角色 bounding box —— 后者很关键，
+    // 因为 MuseumScene 的 _bowFrameNormalizer 是按帧 height 把贴图归一化到 walk 帧高度的，
+    // 不裁剪的话画布里大量白底已经透明，但 height 仍是大画布高度，归一化后角色看着偏小。
+    this._removeWhiteBackgroundForKeys(
+      ['hero_bow_up', 'hero_bow_down'],
+      60,
+      { killIslands: true, islandTol: 12, cropToContent: true }
+    );
 
     // —— 角色 / 物件贴图 ——
     this.makePlayerTexture();
@@ -340,11 +431,28 @@ export default class BootScene extends Phaser.Scene {
     const relicKeys = ['tex_relic_head', 'tex_relic_bell', 'tex_relic_bluewhite',
       'tex_relic_jade', 'tex_relic_mask', 'tex_relic_scroll', 'tex_relic_seal', 'tex_relic_vase'];
     // Tolerance: how different a pixel can be from "white" and still count as background
-    const tolerance = 60; // allows removal of light grays (RGB ~195+)
+    this._removeWhiteBackgroundForKeys(relicKeys, 60);
+  }
 
-    for (const key of relicKeys) {
+  /**
+   * 通用：对一组 texture key 做"抠白底"处理。
+   * - keys      : 需要处理的 texture key 数组
+   * - tolerance : 边缘 flood-fill 的容差（与纯白允许差值），越大越激进（默认 60）
+   * - opts.killIslands  : 边缘 flood-fill 之后，是否再扫描全图把"几乎纯白"的孤立白块清掉
+   *                       （用于人物贴图，白色被躯干包围时 flood-fill 抠不到）
+   * - opts.islandTol    : 孤立白块的容差，必须比 tolerance 严格，避免误伤（默认 12）
+   * - opts.cropToContent: 抠完后是否裁剪到非透明像素 bounding box，让纹理 height 真实反映
+   *                       角色像素身高（用于按帧 height 归一化的动画系统）
+   */
+  _removeWhiteBackgroundForKeys(keys, tolerance = 60, opts = {}) {
+    const killIslands   = !!opts.killIslands;
+    const islandTol     = (typeof opts.islandTol === 'number') ? opts.islandTol : 12;
+    const cropToContent = !!opts.cropToContent;
+
+    for (const key of keys) {
       if (!this.textures.exists(key)) continue;
       const src = this.textures.get(key).getSourceImage();
+      if (!src || !src.width || !src.height) continue;
       const w = src.width;
       const h = src.height;
 
@@ -359,27 +467,22 @@ export default class BootScene extends Phaser.Scene {
       const data = imageData.data;
       const visited = new Uint8Array(w * h);
 
-      // Check if a pixel is "background-like" (close to white/light gray)
       const isBgPixel = (idx) => {
         const r = data[idx], g = data[idx + 1], b = data[idx + 2], a = data[idx + 3];
-        if (a === 0) return true; // already transparent
-        // Check if pixel is light enough (close to white)
+        if (a === 0) return true;
         return r >= (255 - tolerance) && g >= (255 - tolerance) && b >= (255 - tolerance);
       };
 
-      // Flood fill from edges to mark connected background pixels
+      // —— Step 1: edge flood-fill ——
       const queue = [];
-      // Seed from all edge pixels
       for (let x = 0; x < w; x++) {
-        queue.push(x); // top row
-        queue.push((h - 1) * w + x); // bottom row
+        queue.push(x);
+        queue.push((h - 1) * w + x);
       }
       for (let y = 1; y < h - 1; y++) {
-        queue.push(y * w); // left column
-        queue.push(y * w + (w - 1)); // right column
+        queue.push(y * w);
+        queue.push(y * w + (w - 1));
       }
-
-      // BFS flood fill
       let head = 0;
       while (head < queue.length) {
         const pos = queue[head++];
@@ -387,24 +490,61 @@ export default class BootScene extends Phaser.Scene {
         if (visited[pos]) continue;
         const idx = pos * 4;
         if (!isBgPixel(idx)) continue;
-
         visited[pos] = 1;
-        data[idx + 3] = 0; // make transparent
-
+        data[idx + 3] = 0;
         const x = pos % w;
         const y = (pos - x) / w;
-        // 4-connected neighbors
         if (x > 0) queue.push(pos - 1);
         if (x < w - 1) queue.push(pos + 1);
         if (y > 0) queue.push(pos - w);
         if (y < h - 1) queue.push(pos + w);
       }
 
+      // —— Step 2: kill isolated almost-pure-white pixels（被主体包围的白块） ——
+      if (killIslands) {
+        for (let i = 0; i < w * h; i++) {
+          if (visited[i]) continue;
+          const idx = i * 4;
+          const r = data[idx], g = data[idx + 1], b = data[idx + 2], a = data[idx + 3];
+          if (a === 0) continue;
+          if (r >= (255 - islandTol) && g >= (255 - islandTol) && b >= (255 - islandTol)) {
+            data[idx + 3] = 0;
+          }
+        }
+      }
+
       ctx.putImageData(imageData, 0, 0);
 
-      // Remove old texture and re-add with processed canvas
+      // —— Step 3: crop to bounding box of non-transparent pixels ——
+      let outCanvas = canvas;
+      if (cropToContent) {
+        let minX = w, minY = h, maxX = -1, maxY = -1;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const a = data[(y * w + x) * 4 + 3];
+            if (a !== 0) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+        if (maxX >= minX && maxY >= minY) {
+          const cw = maxX - minX + 1;
+          const ch = maxY - minY + 1;
+          const cropped = document.createElement('canvas');
+          cropped.width = cw;
+          cropped.height = ch;
+          const cctx = cropped.getContext('2d');
+          cctx.imageSmoothingEnabled = false;
+          cctx.drawImage(canvas, minX, minY, cw, ch, 0, 0, cw, ch);
+          outCanvas = cropped;
+        }
+      }
+
       this.textures.remove(key);
-      this.textures.addCanvas(key, canvas);
+      this.textures.addCanvas(key, outCanvas);
     }
   }
 
@@ -2103,10 +2243,10 @@ export default class BootScene extends Phaser.Scene {
         this.anims.create({
           key: 'hero_bow_shoot',
           frames: [
-            { key: 'hero_bow_1', duration: 80 },
-            { key: 'hero_bow_3', duration: 200 },
-            { key: 'hero_bow_4', duration: 120 },
-            { key: 'hero_bow_1', duration: 80 }
+            { key: 'hero_bow_1', duration: 90 },
+            { key: 'hero_bow_3', duration: 320 },
+            { key: 'hero_bow_4', duration: 130 },
+            { key: 'hero_bow_1', duration: 90 }
           ],
           frameRate: 10,
           repeat: 0
@@ -2137,18 +2277,156 @@ export default class BootScene extends Phaser.Scene {
             repeat: -1
           });
         }
-        // Per-direction shoot animation reuses walk frames so sprite size stays consistent.
-        // 3 (raise/draw) -> 5 (release) -> 1 (recover) feels like a quick bow loose.
+        // Per-direction shoot animation：举弓核心帧按朝向使用最匹配的专用帧。
+        //   right → hero_bow_3            （侧视朝右）
+        //   left  → hero_bow_3_reflect    （朝右素材的镜像版）
+        //   up    → hero_bow_up           （背面举弓）
+        //   down  → hero_bow_down         （正面举弓）
+        // 帧高度归一化器（_bowFrameNormalizer）会自动按帧 height 缩放，所以混插 walk 帧与
+        // 这些专用帧不会出现"贴图突然变大"。
         const shootKey = `hero_bow_shoot_${d}`;
         if (!this.anims.exists(shootKey)) {
+          // 朝向决定使用的"举弓核心帧"
+          let drawnFrameKey = 'hero_bow_3';
+          if (d === 'left'  && this.textures.exists('hero_bow_3_reflect')) drawnFrameKey = 'hero_bow_3_reflect';
+          else if (d === 'up'   && this.textures.exists('hero_bow_up'))   drawnFrameKey = 'hero_bow_up';
+          else if (d === 'down' && this.textures.exists('hero_bow_down')) drawnFrameKey = 'hero_bow_down';
           this.anims.create({
             key: shootKey,
             frames: [
-              { key: `hero_bow_walk_${d}_3`, duration: 90 },
-              { key: `hero_bow_walk_${d}_5`, duration: 140 },
-              { key: `hero_bow_walk_${d}_1`, duration: 90 }
+              { key: `hero_bow_walk_${d}_3`, duration: 50 },   // 起手抬臂
+              { key: drawnFrameKey,          duration: 160 },  // 举弓拉满弦（核心关键帧，停留最久）
+              { key: `hero_bow_walk_${d}_2`, duration: 60 },   // 放箭后落臂
+              { key: `hero_bow_walk_${d}_1`, duration: 30 }    // 回到站立
             ],
             frameRate: 12,
+            repeat: 0
+          });
+        }
+      }
+    }
+
+    // —— 高质量近战连击 attack_pro：4 方向独立动画 ——
+    // 帧分配：1-7=向下, 8-14=向左, 15-21=向右, 22-28=向上
+    // 每方向 7 帧，第 4 帧为挥剑高潮（加长停留），总时长 ~196ms
+    if (this.textures.exists('hero_pro_attack_1')) {
+      const proDirMap = {
+        down:  [1, 2, 3, 4, 5, 6, 7],
+        left:  [8, 9, 10, 11, 12, 13, 14],
+        right: [15, 16, 17, 18, 19, 20, 21],
+        up:    [22, 23, 24, 25, 26, 27, 28]
+      };
+      for (const [dir, indices] of Object.entries(proDirMap)) {
+        const key = `hero_pro_attack_${dir}`;
+        if (this.anims.exists(key)) continue;
+        const frames = indices.map((i, idx) => {
+          let duration = 56;   // 放慢一倍（原 28）
+          if (idx === 3) duration = 84;   // 第 4 帧 = 挥剑高潮（原 42）
+          else if (idx === 0) duration = 70; // 起势（原 35）
+          else if (idx === 6) duration = 70; // 收尾（原 35）
+          return { key: `hero_pro_attack_${i}`, duration };
+        });
+        this.anims.create({
+          key,
+          frames,
+          frameRate: 30,
+          repeat: 0
+        });
+      }
+      // 保留旧统一键 fallback（向右，兼容未更新到 4 向的旧引用）
+      if (!this.anims.exists('hero_pro_attack')) {
+        this.anims.create({
+          key: 'hero_pro_attack',
+          frames: proDirMap.right.map((i, idx) => {
+            let duration = 56;
+            if (idx === 3) duration = 84;
+            else if (idx === 0 || idx === 6) duration = 70;
+            return { key: `hero_pro_attack_${i}`, duration };
+          }),
+          frameRate: 30,
+          repeat: 0
+        });
+      }
+    }
+
+    // —— 主角格挡动画（4 方向，每方向 1 张静帧）——
+    // hero_block_hold_<dir>：按住 K 时按朝向显示对应的举盾静帧（不会自动旋转）
+    // hero_block_release_<dir>：成功格挡反击（按朝向，单次播放）
+    // 同时保留旧的 hero_block_hold（侧视循环）/ hero_block_idle / hero_block_release（侧视）
+    // 兼容键，避免历史调用点（若仍存在）失效。
+    const _blockDirs = ['down', 'left', 'right', 'up'];
+    if (this.textures.exists('hero_block_hold_down')) {
+      // 旧的 hold 循环动画（已不再使用，但保留以避免运行时缺键）
+      if (!this.anims.exists('hero_block_hold')) {
+        this.anims.create({
+          key: 'hero_block_hold',
+          frames: [1, 2, 3, 4].map((i) => ({ key: `hero_block_hold_${i}` })),
+          frameRate: 6,
+          repeat: -1
+        });
+      }
+      if (!this.anims.exists('hero_block_idle')) {
+        this.anims.create({
+          key: 'hero_block_idle',
+          frames: [{ key: 'hero_block_hold_1' }],
+          frameRate: 1,
+          repeat: -1
+        });
+      }
+      // 新：4 方向静帧 hold
+      for (const d of _blockDirs) {
+        const k = `hero_block_hold_${d}`;
+        if (!this.anims.exists(k) && this.textures.exists(`hero_block_hold_${d}`)) {
+          this.anims.create({
+            key: k,
+            frames: [{ key: `hero_block_hold_${d}` }],
+            frameRate: 1,
+            repeat: -1
+          });
+        }
+      }
+    }
+    if (this.textures.exists('hero_block_release_right')) {
+      // 旧的侧视一次性反击动画（保留兼容）
+      if (!this.anims.exists('hero_block_release')) {
+        this.anims.create({
+          key: 'hero_block_release',
+          frames: [
+            { key: 'hero_block_release_1', duration: 60 },
+            { key: 'hero_block_release_2', duration: 80 },
+            { key: 'hero_block_release_3', duration: 100 },
+            { key: 'hero_block_release_4', duration: 80 }
+          ],
+          frameRate: 12,
+          repeat: 0
+        });
+      }
+      // 新：4 方向单帧反击（保持单帧 320ms 显示，由 MuseumScene 的 blockReleaseUntil 控制时长）
+      for (const d of _blockDirs) {
+        const k = `hero_block_release_${d}`;
+        if (!this.anims.exists(k) && this.textures.exists(`hero_block_release_${d}`)) {
+          this.anims.create({
+            key: k,
+            frames: [{ key: `hero_block_release_${d}`, duration: 320 }],
+            frameRate: 3,
+            repeat: 0
+          });
+        }
+      }
+    }
+
+    // —— 博物馆守卫攻击动画（4 方向 × 6 帧，单次播放）——
+    // 用 ATTACK_WINDUP_MS(560ms) + recover(220ms) ≈ 780ms 总时长，6 帧均匀分布约 130ms/帧
+    if (this.textures.exists('nk_guard_attack_down_1')) {
+      for (const d of _blockDirs) {
+        const k = `nkguard_attack_${d}`;
+        if (!this.anims.exists(k)) {
+          const frames = [];
+          for (let i = 1; i <= 6; i++) frames.push({ key: `nk_guard_attack_${d}_${i}` });
+          this.anims.create({
+            key: k,
+            frames,
+            frameRate: 8,
             repeat: 0
           });
         }
@@ -2411,24 +2689,37 @@ export default class BootScene extends Phaser.Scene {
   }
 
   _registerBossAnims() {
+    const recreateBossAnim = (config) => {
+      if (this.anims.exists(config.key)) this.anims.remove(config.key);
+      this.anims.create(config);
+    };
+
     // idle（7 帧循环）
-    if (!this.anims.exists('boss_idle') && this.textures.exists('boss_idle_1')) {
-      this.anims.create({
+    if (this.textures.exists('boss_idle_1')) {
+      recreateBossAnim({
         key: 'boss_idle',
         frames: Array.from({ length: 7 }, (_, i) => ({ key: `boss_idle_${i + 1}` })),
-        frameRate: 7,
+        frameRate: 4,
         repeat: -1,
+      });
+    }
+    if (this.textures.exists('boss_hurt_1')) {
+      recreateBossAnim({
+        key: 'boss_hurt',
+        frames: Array.from({ length: 4 }, (_, i) => ({ key: `boss_hurt_${i + 2}` })),
+        frameRate: 7,
+        repeat: 0,
       });
     }
     // walk 四向（每方向 7 帧循环）
     const dirs = ['down', 'left', 'right', 'up'];
     for (const d of dirs) {
       const animKey = `boss_walk_${d}`;
-      if (!this.anims.exists(animKey) && this.textures.exists(`boss_walk_${d}_1`)) {
-        this.anims.create({
+      if (this.textures.exists(`boss_walk_${d}_1`)) {
+        recreateBossAnim({
           key: animKey,
           frames: Array.from({ length: 7 }, (_, i) => ({ key: `boss_walk_${d}_${i + 1}` })),
-          frameRate: 10,
+          frameRate: 7,
           repeat: -1,
         });
       }
@@ -2436,14 +2727,75 @@ export default class BootScene extends Phaser.Scene {
     // skill1/2/3（每技能 10 帧不循环）
     for (let s = 1; s <= 3; s++) {
       const animKey = `boss_skill${s}`;
-      if (!this.anims.exists(animKey) && this.textures.exists(`boss_skill${s}_1`)) {
-        this.anims.create({
+      if (this.textures.exists(`boss_skill${s}_1`)) {
+        recreateBossAnim({
           key: animKey,
           frames: Array.from({ length: 10 }, (_, i) => ({ key: `boss_skill${s}_${i + 1}` })),
-          frameRate: 12,
+          frameRate: 8,
           repeat: 0,
         });
       }
+    }
+    if (this.textures.exists('boss_crescent_1')) {
+      recreateBossAnim({
+        key: 'boss_crescent',
+        frames: Array.from({ length: 10 }, (_, i) => ({ key: `boss_crescent_${i + 1}` })),
+        frameRate: 9,
+        repeat: 0,
+      });
+    }
+    if (this.textures.exists('boss_shadow_dash_1')) {
+      recreateBossAnim({
+        key: 'boss_shadow_dash',
+        frames: Array.from({ length: 10 }, (_, i) => ({ key: `boss_shadow_dash_${i + 1}` })),
+        frameRate: 9,
+        repeat: 0,
+      });
+    }
+    // boss 死亡（12 帧，不循环）
+    if (this.textures.exists('boss_death_1')) {
+      recreateBossAnim({
+        key: 'boss_death',
+        frames: Array.from({ length: 12 }, (_, i) => ({ key: `boss_death_${i + 1}` })),
+        frameRate: 8,
+        repeat: 0,
+      });
+    }
+    // 魔剑爆发（10 帧，不循环，用于魂消失/分身特效）
+    if (this.textures.exists('boss_demon_burst_1')) {
+      recreateBossAnim({
+        key: 'boss_demon_burst',
+        frames: Array.from({ length: 10 }, (_, i) => ({ key: `boss_demon_burst_${i + 1}` })),
+        frameRate: 9,
+        repeat: 0,
+      });
+    }
+    // 魂贴图（单帧 idle，用于 hover tween）
+    // 不需要动画，直接使用 boss_soul_1 静态贴图
+    // 瞬移预警：出现动画（1-3 帧）
+    if (this.textures.exists('boss_shunyi_1')) {
+      recreateBossAnim({
+        key: 'boss_shunyi_appear',
+        frames: Array.from({ length: 3 }, (_, i) => ({ key: `boss_shunyi_${i + 1}` })),
+        frameRate: 6,
+        repeat: 0,
+      });
+      // 瞬移预警：消失动画（4-5 帧）
+      recreateBossAnim({
+        key: 'boss_shunyi_fade',
+        frames: Array.from({ length: 2 }, (_, i) => ({ key: `boss_shunyi_${i + 4}` })),
+        frameRate: 5,
+        repeat: 0,
+      });
+    }
+    // 瞬移后攻击动画（4 帧）
+    if (this.textures.exists('boss_tele_attack_1')) {
+      recreateBossAnim({
+        key: 'boss_tele_attack',
+        frames: Array.from({ length: 4 }, (_, i) => ({ key: `boss_tele_attack_${i + 1}` })),
+        frameRate: 8,
+        repeat: 0,
+      });
     }
   }
 }
